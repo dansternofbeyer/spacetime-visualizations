@@ -45,6 +45,10 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 
 ## Viewing
 
+- Live: https://dansternofbeyer.github.io/spacetime-visualizations/ (GitHub Pages from `main`, root). Every push
+  to `main` updates it. Footer license and credits links point to the GitHub-rendered files, because Pages
+  serves `.md` and `LICENSE` raw.
+
 - Double-click any page. The data loads with a plain `<script>` tag, so it works without a server.
 - The Claude desktop app's browser pane opens local files as snapshots without their data files. To preview there,
   use the `spacetime-static` server in `../.claude/launch.json` (http://localhost:8737).

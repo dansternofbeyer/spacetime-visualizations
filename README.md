@@ -3,7 +3,9 @@
 Interactive 3D pages, built with three.js, that show how space and time behave. Every number they display
 is computed from real physics and checked against independent values.
 
-Open `index.html` by double-clicking it. You need an internet connection for three.js and KaTeX, which load
+**Live site:** https://dansternofbeyer.github.io/spacetime-visualizations/
+
+To run it locally, open `index.html` by double-clicking it. You need an internet connection for three.js and KaTeX, which load
 from a CDN.
 
 ## Pages
