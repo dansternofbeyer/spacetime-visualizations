@@ -111,7 +111,8 @@
     <button data-sample="slice">1986 slice</button>
   </div>
   <label>Maximum velocity cz <span class="value" id="velocity-value"></span>
-    <input type="range" id="velocity-slider" min="2000" max="60000" step="1000" value="20000"></label>
+    <input type="range" id="velocity-slider" min="0" max="1000" step="1"></label>
+  <p class="note">Log scale: all the way right shows every object with a redshift, out to the farthest quasar.</p>
 
   <h2>Display</h2>
   <div class="segmented row" id="color-mode">
@@ -129,7 +130,7 @@
     <input type="range" id="size-slider" min="1" max="6" step="0.5" value="2"></label>
   <div class="row">
     <button class="small" id="view-top">View from north pole</button>
-    <button class="small" id="view-side">Side view</button>
+    <button class="small" id="view-side">Side view (fit all)</button>
   </div>
   <p class="note" id="count-note"></p>
 
@@ -168,7 +169,12 @@
         A galaxy found in more than one survey (within 20″ and 300 km/s) is shown once, from the first survey listing it
         (CfA2, then 6dFGS, then 2MRS): 217 6dFGS and 27,623 2MRS entries were duplicates. The 15,910 galaxies
         shown as 2MRS are mostly 2MRS's own observations, plus redshifts it compiled from NED, SDSS and ZCAT.
-        6dFGS also lists some distant quasars; the velocity slider hides anything beyond 60,000 km/s.</p>
+        6dFGS also lists about 2,300 objects beyond 60,000 km/s that it took from other catalogs, including
+        ~400 quasars past z = 1 (the farthest at z ≈ 3.8). Move the velocity slider all the way right to see them.
+        Out there the surveys are very sparse, so the map is mostly empty space with scattered points.</p>
+      <p>• <b>Far away, only ΛCDM works.</b> The Hubble law is a low-redshift approximation and is flagged in the
+        readout beyond z = 0.1. ΛCDM distances stay accurate to about 3×10⁻⁵ at z = 2 (checked against Astropy in the
+        self-tests). The small error comes from treating neutrinos as matter.</p>
       <p>• Velocities are heliocentric. Correcting to the CMB rest frame would shift them by up to ~370 km/s.</p>
       <p>• Galaxies with negative cz (blueshifted, in the Local Group) can't be placed this way and are left out.</p>
       <p><b>Sources.</b> Data: CfA Redshift Catalog (ZCAT), J. Huchra et al., Smithsonian Astrophysical Observatory;
@@ -356,7 +362,17 @@ import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer
 
 // ===== Settings and state =====
 
-const RING_RADII_MPC = [50, 100, 150, 200, 300, 400, 600, 800];
+const RING_RADII_MPC = [50, 100, 150, 200, 300, 400, 600, 800, 1500, 3000, 6000];
+// Rings beyond this multiple of the farthest shown distance are hidden, so they don't clutter nearby views.
+const RING_VISIBILITY_FACTOR = 1.5;
+// Velocity slider: logarithmic from this value up to the largest cz in the data.
+const MINIMUM_SLIDER_VELOCITY = 2000;
+const INITIAL_MAXIMUM_VELOCITY = 20000;
+// Above this, "colour by cz" switches to a log scale so nearby structure keeps its contrast.
+const LINEAR_COLOR_VELOCITY_LIMIT = 60000;
+const LOG_COLOR_MINIMUM_VELOCITY = 1000;
+// The Hubble law d = cz/H₀ is only a low-redshift approximation; flag it beyond this redshift.
+const HUBBLE_LAW_VALIDITY_REDSHIFT = 0.1;
 const LANDMARKS = [
   { label: "Virgo cluster (M87)", catalogName: "N4486" },
   { label: "Coma cluster (NGC 4874)", catalogName: "N4874" },
@@ -379,7 +395,7 @@ const viewState = {
   distanceModel: "lcdm",
   hubbleConstant: Planck2018.hubbleConstant,
   sample: "all",
-  maximumVelocity: 20000,
+  maximumVelocity: INITIAL_MAXIMUM_VELOCITY,
   colorMode: "velocity",
   units: "mpc",
   pointSize: 2,
@@ -459,11 +475,21 @@ function colorForFraction(fraction) {
   return COLOR_STOPS[lower].clone().lerp(COLOR_STOPS[upper], clamped - lower);
 }
 
+function usesLogVelocityColors() {
+  return viewState.maximumVelocity > LINEAR_COLOR_VELOCITY_LIMIT;
+}
+
+function velocityColorFraction(czKmPerS) {
+  if (!usesLogVelocityColors()) return czKmPerS / viewState.maximumVelocity;
+  return Math.log(Math.max(czKmPerS, LOG_COLOR_MINIMUM_VELOCITY) / LOG_COLOR_MINIMUM_VELOCITY)
+    / Math.log(viewState.maximumVelocity / LOG_COLOR_MINIMUM_VELOCITY);
+}
+
 function colorForGalaxy(index) {
   const survey = SURVEYS[galaxyCatalog.surveyIndex[index]];
   if (viewState.colorMode === "survey") return survey.color;
   if (viewState.colorMode === "velocity") {
-    return colorForFraction(galaxyCatalog.czKmPerS[index] / viewState.maximumVelocity);
+    return colorForFraction(velocityColorFraction(galaxyCatalog.czKmPerS[index]));
   }
   const magnitude = galaxyCatalog.magnitude[index] ?? survey.faintLimit;
   return colorForFraction((survey.faintLimit - magnitude) / MAGNITUDE_COLOR_SPAN);  // brighter → yellower
@@ -489,7 +515,9 @@ function updateLegend() {
     legendBar.style.background =
       `linear-gradient(to right, ${COLOR_STOPS.map((color) => "#" + color.getHexString()).join(", ")})`;
     labels = viewState.colorMode === "velocity"
-      ? ["cz = 0", `cz = ${viewState.maximumVelocity.toLocaleString()} km/s`]
+      ? (usesLogVelocityColors()
+        ? [`cz ≤ ${LOG_COLOR_MINIMUM_VELOCITY.toLocaleString()} (log scale)`, `${viewState.maximumVelocity.toLocaleString()} km/s`]
+        : ["cz = 0", `cz = ${viewState.maximumVelocity.toLocaleString()} km/s`])
       : ["faint (survey limit)", `${MAGNITUDE_COLOR_SPAN} mag brighter`];
   }
   document.getElementById("legend-labels").replaceChildren(...labels.map((text) => {
@@ -513,7 +541,7 @@ labelRenderer.domElement.style.pointerEvents = "none";
 container.appendChild(labelRenderer.domElement);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 10000);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 60000);   // far plane covers z ≈ 4 (≈ 7,500 Mpc)
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
@@ -566,11 +594,13 @@ for (const radius of RING_RADII_MPC) {
     const angle = (step / 128) * Math.PI * 2;
     points.push(new THREE.Vector3(radius * Math.cos(angle), 0, radius * Math.sin(angle)));
   }
-  ringGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),
-    new THREE.LineBasicMaterial({ color: 0x3a4766, transparent: true, opacity: 0.6 })));
+  const ringLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),
+    new THREE.LineBasicMaterial({ color: 0x3a4766, transparent: true, opacity: 0.6 }));
+  ringGroup.add(ringLine);
   const label = makeLabel("", "label ring");
   label.position.set(radius, 0, 0);
   label.userData.radiusMpc = radius;
+  label.userData.ringLine = ringLine;
   ringGroup.add(label);
   ringLabels.push(label);
 }
@@ -593,9 +623,25 @@ function formatDistance(distanceMpc) {
 }
 
 function formatRingLabel(radiusMpc) {
-  return viewState.units === "mly"
-    ? `${(radiusMpc * PhysicsCore.millionLightYearsPerMegaparsec()).toFixed(0)} Mly`
-    : `${radiusMpc} Mpc`;
+  if (viewState.units === "mly") {
+    const millionLightYears = radiusMpc * PhysicsCore.millionLightYearsPerMegaparsec();
+    return millionLightYears >= 1000 ? `${(millionLightYears / 1000).toFixed(1)} Gly` : `${millionLightYears.toFixed(0)} Mly`;
+  }
+  return radiusMpc >= 1000 ? `${(radiusMpc / 1000).toFixed(1)} Gpc` : `${radiusMpc} Mpc`;
+}
+
+/** Distance (Mpc) of the farthest galaxy the current velocity limit allows, in the current distance model. */
+function farthestShownDistanceMpc() {
+  const redshift = PhysicsCore.redshiftFromVelocity(viewState.maximumVelocity);
+  return viewState.distanceModel === "lcdm"
+    ? PhysicsCore.comovingDistanceMpc(redshift, viewState.hubbleConstant)
+    : PhysicsCore.hubbleLawDistanceMpc(viewState.maximumVelocity, viewState.hubbleConstant);
+}
+
+function formatLookbackTime(lookbackMyr) {
+  return lookbackMyr >= 1000
+    ? `${(lookbackMyr / 1000).toFixed(2)} billion years ago`
+    : `${lookbackMyr.toFixed(0)} million years ago`;
 }
 
 // ===== Rebuilding the view =====
@@ -628,7 +674,13 @@ function updateLabelsAndRings() {
     label.position.fromArray(galaxyScenePositions, index * 3);
     label.visible = isGalaxyVisible(index);
   }
-  for (const label of ringLabels) label.element.textContent = formatRingLabel(label.userData.radiusMpc);
+  const ringLimit = RING_VISIBILITY_FACTOR * farthestShownDistanceMpc();
+  for (const label of ringLabels) {
+    label.element.textContent = formatRingLabel(label.userData.radiusMpc);
+    const visible = label.userData.radiusMpc <= Math.max(ringLimit, RING_RADII_MPC[0]);
+    label.visible = visible;
+    label.userData.ringLine.visible = visible;
+  }
 }
 
 function refreshEverything() {
@@ -661,10 +713,11 @@ function showReadout(index) {
   document.getElementById("readout-velocity").textContent = `${cz.toLocaleString()} km/s`;
   document.getElementById("readout-redshift").textContent = redshift.toFixed(5);
   document.getElementById("readout-lcdm").textContent = formatDistance(lcdmDistance);
+  const hubbleLawNote = redshift > HUBBLE_LAW_VALIDITY_REDSHIFT ? " — not valid this far" : "";
   document.getElementById("readout-hubble").textContent =
-    `${formatDistance(hubbleDistance)} (${(((hubbleDistance - lcdmDistance) / lcdmDistance) * 100).toFixed(2)}%)`;
+    `${formatDistance(hubbleDistance)} (${(((hubbleDistance - lcdmDistance) / lcdmDistance) * 100).toFixed(2)}%)${hubbleLawNote}`;
   document.getElementById("readout-lookback").textContent =
-    `${PhysicsCore.lookbackTimeMyr(redshift, viewState.hubbleConstant).toFixed(0)} million years ago`;
+    formatLookbackTime(PhysicsCore.lookbackTimeMyr(redshift, viewState.hubbleConstant));
   document.getElementById("readout-magnitude").textContent = magnitude == null ? "—" : `${magnitude.toFixed(2)} (${SURVEYS[galaxyCatalog.surveyIndex[index]].magnitudeBand})`;
 
   selectionMarker.position.fromArray(galaxyScenePositions, index * 3);
@@ -715,16 +768,23 @@ function viewFromNorthPole() {
   // screen with the Milky Way at the bottom, as in the classic 1986 plot.
   const focusOnSlice = viewState.sample === "slice";
   const [upX, , upZ] = PhysicsCore.equatorialToScene(focusOnSlice ? SLICE_CENTRE_RA_DEGREES : 90, 0, 1);
-  const targetDistance = focusOnSlice ? 0.45 * PhysicsCore.hubbleLawDistanceMpc(viewState.maximumVelocity, viewState.hubbleConstant) : 0;
+  // The 1986 slice was mapped to about 15,000 km/s, so aim at that depth however far the slider goes.
+  const sliceDepthVelocity = Math.min(viewState.maximumVelocity, 15000);
+  const targetDistance = focusOnSlice ? 0.45 * PhysicsCore.hubbleLawDistanceMpc(sliceDepthVelocity, viewState.hubbleConstant) : 0;
   controls.target.set(upX * targetDistance, 0, upZ * targetDistance);
   camera.up.set(upX, 0, upZ);
   camera.position.set(controls.target.x, focusOnSlice ? 340 : 520, controls.target.z + 0.01);
   controls.update();
 }
 
+// Side-view camera direction, and how far back it sits relative to the farthest galaxy shown.
+const SIDE_VIEW_DIRECTION = new THREE.Vector3(-340, 210, 450).normalize();
+const SIDE_VIEW_DISTANCE_FACTOR = 2.0;
+
+/** Oblique view from the side, pulled back far enough to frame everything the velocity limit shows. */
 function viewFromSide() {
   camera.up.set(0, 1, 0);
-  camera.position.set(-340, 210, 450);
+  camera.position.copy(SIDE_VIEW_DIRECTION).multiplyScalar(SIDE_VIEW_DISTANCE_FACTOR * farthestShownDistanceMpc());
   controls.target.set(0, 0, 0);
   controls.update();
 }
@@ -760,9 +820,31 @@ connectSegmented("units", "units", (units) => { viewState.units = units; updateL
 document.getElementById("hubble-slider").addEventListener("input", (event) => setHubbleConstant(event.target.value));
 document.querySelectorAll("[data-hubble]").forEach((button) =>
   button.addEventListener("click", () => setHubbleConstant(button.dataset.hubble)));
+// The slider runs 0–1000 and maps logarithmically onto MINIMUM_SLIDER_VELOCITY … the largest cz in the data.
+const LARGEST_CATALOG_VELOCITY = galaxyCatalog.czKmPerS.reduce((largest, cz) => Math.max(largest, cz), 0);
+const VELOCITY_SLIDER_STEPS = 1000;
+
+function sliderPositionToVelocity(position) {
+  if (position >= VELOCITY_SLIDER_STEPS) return LARGEST_CATALOG_VELOCITY;   // the far end shows everything
+  const velocity = MINIMUM_SLIDER_VELOCITY * (LARGEST_CATALOG_VELOCITY / MINIMUM_SLIDER_VELOCITY) ** (position / VELOCITY_SLIDER_STEPS);
+  const roundingStep = velocity < 100000 ? 500 : 5000;
+  return Math.round(velocity / roundingStep) * roundingStep;
+}
+
+function velocityToSliderPosition(velocity) {
+  return Math.round(VELOCITY_SLIDER_STEPS * Math.log(velocity / MINIMUM_SLIDER_VELOCITY)
+    / Math.log(LARGEST_CATALOG_VELOCITY / MINIMUM_SLIDER_VELOCITY));
+}
+
+function showVelocityLimit() {
+  const redshift = PhysicsCore.redshiftFromVelocity(viewState.maximumVelocity);
+  document.getElementById("velocity-value").textContent =
+    `${viewState.maximumVelocity.toLocaleString()} km/s (z = ${redshift < 0.1 ? redshift.toFixed(3) : redshift.toFixed(2)})`;
+}
+
 document.getElementById("velocity-slider").addEventListener("input", (event) => {
-  viewState.maximumVelocity = Number(event.target.value);
-  document.getElementById("velocity-value").textContent = `${viewState.maximumVelocity.toLocaleString()} km/s`;
+  viewState.maximumVelocity = sliderPositionToVelocity(Number(event.target.value));
+  showVelocityLimit();
   rebuildGeometry(); updateLabelsAndRings(); updateLegend(); showReadout(viewState.selectedIndex);
 });
 document.getElementById("size-slider").addEventListener("input", (event) => {
@@ -833,7 +915,8 @@ function animate() {
 // ===== Start =====
 
 resize();
-document.getElementById("velocity-value").textContent = `${viewState.maximumVelocity.toLocaleString()} km/s`;
+document.getElementById("velocity-slider").value = velocityToSliderPosition(viewState.maximumVelocity);
+showVelocityLimit();
 document.getElementById("size-value").textContent = `${viewState.pointSize} px`;
 if (window.innerWidth <= 760) document.getElementById("panel-toggle").click();
 setHubbleConstant(Planck2018.hubbleConstant);
