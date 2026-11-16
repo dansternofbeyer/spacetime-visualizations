@@ -16,9 +16,9 @@
   positions to within about 1″. 1,095 galaxies fall in the 1986 slice, close to the ~1,100 in de Lapparent,
   Geller & Huchra (1986), ApJ 302, L1.
 - **License / terms:** none stated. The site asks that the Smithsonian Astrophysical Observatory and the
-  authors be credited, and that people citing the catalog follow its README. ZCAT notes that velocities with
-  negative source codes are still private. We haven't yet located the source-code column in `cfa2.dat`
-  to check for these, so do that before publishing.
-  **Ask the owner before publishing pages that include this data.**
+  authors be credited, and that people citing the catalog follow its README. **The owner approved publishing this
+  data (2026-11-15)** on condition that every page using it credits the Smithsonian Astrophysical Observatory
+  and links back to the ZCAT page above. (The ZCAT documentation says velocities with negative source codes
+  were private when it was written. The owner judged this not to apply, so no check was made.)
 - **Known limits:** positions are in redshift space (peculiar velocities distort them), the survey is limited
   to about magnitude 15.5, and velocities are heliocentric. The page's Physics notes explain each one.

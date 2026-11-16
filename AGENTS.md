@@ -36,10 +36,12 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 2. Run `node .claude/skills/spacetime-physics/scripts/check_physics.mjs <page>.html` after any physics change.
 3. Never type a reference value by hand: add it to `reference_values.py` and regenerate.
 4. Credit everything: add each new data set, paper, library or skill to `CREDITS.md`, and data sources
-   to the page footer too. The CfA data must credit the **Smithsonian Astrophysical Observatory**.
+   to the page footer too. Any page using CfA data must credit the **Smithsonian Astrophysical Observatory**
+   and link to https://lweb.cfa.harvard.edu/~dfabricant/huchra/zcat/ . That was the owner's condition
+   for publishing it.
 5. Third-party files of unknown license stay out of git (see `.gitignore`), e.g. `docs/Spacetime_warp_3D_grid.png`
    and `data/raw/`.
-6. Ask the owner before publishing pages that include CfA data (no license is stated), and before every `git push`.
+6. The owner has approved publishing the CfA data (with the credit and link above). Still ask before every `git push`.
 
 ## Viewing
 
@@ -49,7 +51,6 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 
 ## Known issues and open questions
 
-- The source-code column for private velocities in `cfa2.dat` hasn't been found yet. Check it before publishing.
 - The recombination redshift (1089.92) comes from Planck 2018 VI Table 2. Verify it with `citation-verification`
   before using it on a page.
 - `README.md` has no screenshot yet.
