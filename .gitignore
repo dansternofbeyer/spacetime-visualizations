@@ -1,0 +1,11 @@
+# Mac folder settings
+.DS_Store
+
+# Python caches
+__pycache__/
+.venv/
+
+# Third-party files whose license isn't stated (kept locally, not published).
+# See data/README.md for how to download the raw catalog again.
+data/raw/
+docs/Spacetime_warp_3D_grid.png

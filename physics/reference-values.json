@@ -1,0 +1,238 @@
+{
+  "_meta": {
+    "generated": "2026-11-15",
+    "astropy_version": "7.2.0",
+    "numpy_version": "2.5.5",
+    "generator": ".claude/skills/spacetime-physics/scripts/reference_values.py"
+  },
+  "values": {
+    "sun.schwarzschild_radius_m": {
+      "value": 2953.2500761002498,
+      "unit": "m",
+      "description": "Schwarzschild radius of the Sun, 2GM/c^2",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
+    },
+    "earth.schwarzschild_radius_m": {
+      "value": 0.008870055148059894,
+      "unit": "m",
+      "description": "Schwarzschild radius of the Earth",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
+    },
+    "sun.surface_redshift": {
+      "value": 2.1225093276289186e-06,
+      "unit": "",
+      "description": "Gravitational redshift z from the solar surface to infinity",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
+    },
+    "sun.surface_redshift_velocity_equivalent_m_s": {
+      "value": 636.3122884578008,
+      "unit": "m/s",
+      "description": "c*z for the solar surface redshift (about 636 m/s)",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
+    },
+    "sun.embedding_slope_at_surface": {
+      "value": 0.002060345398333942,
+      "unit": "",
+      "description": "Slope dw/dr of Flamm's paraboloid at the solar surface",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
+    },
+    "neutron_star_example.surface_redshift": {
+      "value": 0.23517598323403766,
+      "unit": "",
+      "description": "Surface redshift of a 1.4 solar-mass, 12 km neutron star (model)",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
+    },
+    "schwarzschild.redshift_at_3rs": {
+      "value": 0.22474487139158894,
+      "unit": "",
+      "description": "z from r = 3 r_s (ISCO) to infinity",
+      "source": "Exact from the formula"
+    },
+    "schwarzschild.proper_distance_rs_to_3rs_in_rs": {
+      "value": 3.5957055775705715,
+      "unit": "r_s",
+      "description": "Proper radial distance from r_s to 3 r_s",
+      "source": "Numerical integration (trapezoid, 200001 points)"
+    },
+    "schwarzschild.proper_distance_2rs_to_10rs_in_rs": {
+      "value": 9.009692290348593,
+      "unit": "r_s",
+      "description": "Proper radial distance from 2 r_s to 10 r_s",
+      "source": "Numerical integration (trapezoid, 200001 points)"
+    },
+    "sun.limb_light_deflection_arcsec": {
+      "value": 1.7511903255599846,
+      "unit": "arcsec",
+      "description": "Light deflection grazing the solar limb (observed: 1.75 arcsec class)",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
+    },
+    "mercury.perihelion_advance_arcsec_per_century": {
+      "value": 42.98047538967741,
+      "unit": "arcsec/century",
+      "description": "GR perihelion advance of Mercury (Will 2014 quotes 42.98)",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values); JPL orbital elements"
+    },
+    "gps.gravitational_rate_us_per_day": {
+      "value": 45.65220559868125,
+      "unit": "us/day",
+      "description": "GPS clock gain from weaker gravity (simplified model)",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values); Ashby 2003 orbit"
+    },
+    "gps.velocity_rate_us_per_day": {
+      "value": -7.2131238038944625,
+      "unit": "us/day",
+      "description": "GPS clock loss from orbital speed (simplified model)",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values); Ashby 2003 orbit"
+    },
+    "gps.net_rate_us_per_day": {
+      "value": 38.43908179478679,
+      "unit": "us/day",
+      "description": "Net GPS clock gain per day (simplified; published figure is about 38 us/day)",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values); Ashby 2003 orbit"
+    },
+    "pound_rebka.fractional_shift": {
+      "value": 2.455058176244599e-15,
+      "unit": "",
+      "description": "Predicted fractional frequency shift g h / c^2 over 22.5 m",
+      "source": "Pound & Rebka 1960 geometry"
+    },
+    "cosmology.hubble_constant_km_s_mpc": {
+      "value": 67.66,
+      "unit": "km/s/Mpc",
+      "description": "Hubble constant H0",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.age_now_gyr": {
+      "value": 13.786885302009706,
+      "unit": "Gyr",
+      "description": "Age of the universe today",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.recombination_redshift": {
+      "value": 1089.92,
+      "unit": "",
+      "description": "Redshift of last scattering z* (verify against Planck 2018 VI Table 2)",
+      "source": "Planck 2018 VI, arXiv:1807.06209"
+    },
+    "cosmology.age_at_recombination_kyr": {
+      "value": 372.24648669748365,
+      "unit": "kyr",
+      "description": "Age of the universe at z*",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.comoving_distance_to_recombination_gly": {
+      "value": 45.28487334719828,
+      "unit": "Gly",
+      "description": "Comoving distance to the last-scattering surface",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.particle_horizon_comoving_gly": {
+      "value": 46.2005955388055,
+      "unit": "Gly",
+      "description": "Comoving radius of the observable universe (integrated to z = 1e10)",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.hubble_distance_gly": {
+      "value": 14.451555153425792,
+      "unit": "Gly",
+      "description": "Hubble distance c/H0",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.redshift_of_max_emission_distance": {
+      "value": 1.5921,
+      "unit": "",
+      "description": "z where proper distance at emission (D_A) is largest",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.matter_density_om0": {
+      "value": 0.30966,
+      "unit": "",
+      "description": "Matter density parameter Omega_m today",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.dark_energy_density_ode0": {
+      "value": 0.6888463055445441,
+      "unit": "",
+      "description": "Dark-energy density parameter Omega_Lambda today",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "units.million_light_years_per_megaparsec": {
+      "value": 3.2615637771674333,
+      "unit": "Mly/Mpc",
+      "description": "Megaparsec in millions of light-years (IAU parsec, Julian-year light-year)",
+      "source": "Astropy units"
+    },
+    "cosmology.comoving_distance_z0p01_mpc": {
+      "value": 44.20505557661846,
+      "unit": "Mpc",
+      "description": "Comoving distance to z = 0.01",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.lookback_time_z0p01_myr": {
+      "value": 143.46204835892962,
+      "unit": "Myr",
+      "description": "Lookback time to z = 0.01",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.comoving_distance_z0p023_mpc": {
+      "value": 101.36046097377219,
+      "unit": "Mpc",
+      "description": "Comoving distance to z = 0.023",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.lookback_time_z0p023_myr": {
+      "value": 326.8558184209684,
+      "unit": "Myr",
+      "description": "Lookback time to z = 0.023",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.comoving_distance_z0p05_mpc": {
+      "value": 218.9339318712932,
+      "unit": "Mpc",
+      "description": "Comoving distance to z = 0.05",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.lookback_time_z0p05_myr": {
+      "value": 696.8567320217313,
+      "unit": "Myr",
+      "description": "Lookback time to z = 0.05",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.comoving_distance_z0p5_gly": {
+      "value": 6.348361991297799,
+      "unit": "Gly",
+      "description": "Comoving distance to z = 0.5",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.lookback_time_z0p5_gyr": {
+      "value": 5.196239527320521,
+      "unit": "Gyr",
+      "description": "Lookback time to z = 0.5",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.comoving_distance_z2_gly": {
+      "value": 17.312996586046662,
+      "unit": "Gly",
+      "description": "Comoving distance to z = 2",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.lookback_time_z2_gyr": {
+      "value": 10.510054917517317,
+      "unit": "Gyr",
+      "description": "Lookback time to z = 2",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.comoving_distance_z10_gly": {
+      "value": 31.42935836161767,
+      "unit": "Gly",
+      "description": "Comoving distance to z = 10",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "cosmology.lookback_time_z10_gyr": {
+      "value": 13.315470519210349,
+      "unit": "Gyr",
+      "description": "Lookback time to z = 10",
+      "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    }
+  }
+}
