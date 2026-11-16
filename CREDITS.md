@@ -14,6 +14,17 @@ The project's own code is MIT licensed (see `LICENSE`); everything listed here k
   - de Lapparent, Geller & Huchra (1986), "A slice of the universe", ApJ 302, L1. The 1986 slice shown in the map.
   - Geller & Huchra (1989), "Mapping the Universe", Science 246, 897. The Great Wall.
 
+- **6dF Galaxy Survey (6dFGS), Final Release**, D. H. Jones et al. Used in `galaxy-map.html`
+  (via `data/6dfgs-galaxies.js`), obtained from **NASA's HEASARC** (table `sixdfgs`, from CDS catalog VII/259):
+  https://heasarc.gsfc.nasa.gov/W3Browse/galaxy-catalog/sixdfgs.html
+  As the survey requests, these data come from the Final Release of 6dFGS and we cite:
+  - Jones, D. H. et al. (2004), "The 6dF Galaxy Survey: samples, observational techniques and the first data release",
+    MNRAS 355, 747.
+  - Jones, D. H. et al. (2009), "The 6dF Galaxy Survey: final redshift release (DR3) and southern large-scale structures",
+    MNRAS 399, 683.
+  - The **High Energy Astrophysics Science Archive Research Center (HEASARC)**, NASA Goddard Space Flight Center,
+    hosts the copy we used. The table is derived from CDS (Strasbourg) catalog VII/259.
+
 ## Science (equations and parameter values)
 
 - **Planck Collaboration** (2020), "Planck 2018 results. VI. Cosmological parameters", A&A 641, A6,

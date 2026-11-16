@@ -1,5 +1,23 @@
 # Data
 
+## 6dF Galaxy Survey, Final Release (`6dfgs-galaxies.js`)
+
+- **Source:** 6dFGS Final Redshift Release (DR3), Jones et al. 2004 (MNRAS 355, 747) and 2009 (MNRAS 399, 683),
+  via NASA HEASARC: https://heasarc.gsfc.nasa.gov/W3Browse/galaxy-catalog/sixdfgs.html (listed on
+  https://data.nasa.gov/dataset/6dfgs-galaxy-survey-final-redshift-release-catalog).
+- **Raw file** (in `raw/`, not in git, downloaded 2026-11-15):
+  `heasarc_sixdfgs.tdat.gz`, 6,230,830 bytes, 124,647 rows, HEASARC TDAT format. To get it again:
+  `curl -o data/raw/heasarc_sixdfgs.tdat.gz https://heasarc.gsfc.nasa.gov/FTP/heasarc/dbase/tdat_files/heasarc_sixdfgs.tdat.gz`
+- **Built by:** `uv run data/build_6dfgs.py` (run after `build_cfa2.py`). It keeps redshift quality 3–4 (6dFGS)
+  and 9 (redshifts from other catalogs), which is every row in the HEASARC table, and drops 217 galaxies already in
+  the CfA2 file (within 20″ and 300 km/s), keeping the CfA2 entry. 124,430 galaxies remain. Positions are J2000.
+- **Terms:** listed on data.nasa.gov as a U.S. government work. The survey asks that any use say the data come from
+  the Final Release of 6dFGS and cite both Jones et al. papers. Every page using it does so in its footer, and
+  `CREDITS.md` does too.
+- **Known limits:** southern sky only, |b| > 10°. Selected mainly in the near-infrared (K ≤ 12.65), unlike CfA2's
+  blue selection, so the two halves of the map have different depths. Includes some quasars at very high cz,
+  which the map's velocity slider hides.
+
 ## CfA2 Redshift Survey (`cfa2-galaxies.js`)
 
 - **Source:** CfA Redshift Catalog (ZCAT), J. Huchra et al., Harvard-Smithsonian Center for Astrophysics.

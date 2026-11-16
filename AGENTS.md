@@ -10,7 +10,7 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 
 ## Current state (2026-11-15)
 
-- `galaxy-map.html`: working prototype, a 3D CfA2 galaxy map. All 11 physics self-tests pass.
+- `galaxy-map.html`: working prototype, a 3D map of ~142,600 galaxies (CfA2 north + 6dFGS south). All 13 physics self-tests pass.
 - `index.html`: a landing page that links to each diagram.
 - Planned next: gravitational redshift (Schwarzschild, observer at infinity, warped grid and embedding views),
   and the observable-universe sphere (centre = now, edge = recombination).
@@ -21,7 +21,8 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 |---|---|
 | `index.html` | Landing page |
 | `galaxy-map.html` | CfA2 galaxy map (physics core + three.js view) |
-| `data/cfa2-galaxies.js` | Galaxy data, generated; don't edit by hand |
+| `data/cfa2-galaxies.js` | CfA2 galaxy data, generated; don't edit by hand |
+| `data/6dfgs-galaxies.js` | 6dFGS galaxy data, CfA2 duplicates removed; built by `data/build_6dfgs.py` (run after `build_cfa2.py`) |
 | `data/build_cfa2.py` | Builds it from `data/raw/cfa2.dat` (`uv run data/build_cfa2.py`) |
 | `data/README.md` | Data source, checks, terms |
 | `physics/reference-values.{json,md}` | Astropy-computed reference values; generated, don't edit |
@@ -36,7 +37,8 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 2. Run `node .claude/skills/spacetime-physics/scripts/check_physics.mjs <page>.html` after any physics change.
 3. Never type a reference value by hand: add it to `reference_values.py` and regenerate.
 4. Credit everything: add each new data set, paper, library or skill to `CREDITS.md`, and data sources
-   to the page footer too. Any page using CfA data must credit the **Smithsonian Astrophysical Observatory**
+   to the page footer too. Any page using 6dFGS data must say it is from the Final Release of 6dFGS and cite Jones et al. 2004 and 2009.
+   Any page using CfA data must credit the **Smithsonian Astrophysical Observatory**
    and link to https://lweb.cfa.harvard.edu/~dfabricant/huchra/zcat/ . That was the owner's condition
    for publishing it.
 5. Third-party files of unknown license stay out of git (see `.gitignore`), e.g. `docs/Spacetime_warp_3D_grid.png`

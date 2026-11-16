@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
-  galaxy-map.html — 3D map of the nearby universe from the CfA2 Redshift Survey.
+  galaxy-map.html — 3D map of the nearby universe from the CfA2 and 6dFGS redshift surveys.
 
-  Each point is a real galaxy (about 18,000 of them) placed at its sky position and at a
+  Each point is a real galaxy (about 140,000 of them) placed at its sky position and at a
   distance computed from its measured redshift. Distances come either from the Planck 2018
   ΛCDM comoving distance or from the simple Hubble law, and H₀ can be changed.
   All physics lives in the PHYSICS CORE block and is checked by self-tests
@@ -14,10 +14,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CfA2 Galaxy Map</title>
+<title>Galaxy Redshift Map</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="data/cfa2-galaxies.js"></script>
+<script src="data/6dfgs-galaxies.js"></script>
 <style>
   :root {
     --background: #05070d;
@@ -70,8 +71,8 @@
     overflow: auto; margin: 0; font-size: 11.5px; background: #0d1220; border: 1px solid var(--panel-border);
     border-radius: 8px; padding: 10px; z-index: 5; }
   @media (max-width: 760px) {
-    #controls { top: auto; bottom: 52px; left: 8px; right: 8px; width: auto; max-height: 45%; }
-    footer { padding: 0 8px; }
+    #controls { top: auto; bottom: 64px; left: 8px; right: 8px; width: auto; max-height: 45%; }
+    footer { bottom: 0; padding: 4px 8px 6px; background: rgba(5, 7, 13, 0.85); }
     .footer-extra { display: none; }
     #controls.collapsed > :not(#panel-toggle):not(h1) { display: none; }
     #panel-toggle { display: inline-block; float: right; }
@@ -84,8 +85,9 @@
 
 <section id="controls" class="panel">
   <button id="panel-toggle" class="small">Hide</button>
-  <h1>CfA2 Galaxy Map</h1>
-  <p class="subtitle">About 18,000 real galaxies around the Milky Way, placed by their measured redshift.</p>
+  <h1>Galaxy Redshift Map</h1>
+  <p class="subtitle">About 140,000 real galaxies around the Milky Way from two surveys: CfA2 (mostly the
+    northern sky) and 6dFGS (the southern sky), placed by their measured redshift.</p>
 
   <h2>Distance from redshift</h2>
   <div class="segmented row" id="distance-model">
@@ -101,16 +103,19 @@
 
   <h2>Which galaxies</h2>
   <div class="segmented row" id="sample">
-    <button data-sample="all" class="active">Whole survey</button>
+    <button data-sample="all" class="active">Both surveys</button>
+    <button data-sample="cfa2">CfA2</button>
+    <button data-sample="6dfgs">6dFGS</button>
     <button data-sample="slice">1986 slice</button>
   </div>
   <label>Maximum velocity cz <span class="value" id="velocity-value"></span>
-    <input type="range" id="velocity-slider" min="2000" max="30000" step="500" value="15000"></label>
+    <input type="range" id="velocity-slider" min="2000" max="60000" step="1000" value="20000"></label>
 
   <h2>Display</h2>
   <div class="segmented row" id="color-mode">
     <button data-color="velocity" class="active">Color by cz</button>
     <button data-color="magnitude">Color by brightness</button>
+    <button data-color="survey">Color by survey</button>
   </div>
   <div id="legend-bar"></div>
   <div class="legend-labels"><span id="legend-low"></span><span id="legend-high"></span></div>
@@ -129,9 +134,9 @@
   <details>
     <summary>Physics notes</summary>
     <div id="physics-notes">
-      <p><b>Redshift.</b> The catalog lists cz, defined from the measured redshift z with the catalog's
-        own value c = 299 792.5 km/s:</p>
-      <div class="tex" data-tex="z = \frac{cz}{299\,792.5\ \mathrm{km\,s^{-1}}}"></div>
+      <p><b>Redshift.</b> Both catalogs list cz, the measured redshift z times the speed of light. CfA2 used
+        c = 299 792.5 km/s; 6dFGS is taken to use the SI value 299 792.458 km/s (the difference is 1 part in 10⁷):</p>
+      <div class="tex" data-tex="z = \frac{cz}{c}"></div>
       <p><b>ΛCDM comoving distance</b> (flat universe, Planck 2018: H₀ = 67.66, Ω<sub>m</sub> = 0.30966 + Ω<sub>ν</sub>,
         Ω<sub>Λ</sub> = 0.68885, Ω<sub>γ</sub> = 5.4×10⁻⁵):</p>
       <div class="tex" data-tex="D_C = \frac{c}{H_0}\int_0^{z}\frac{dz'}{E(z')},\quad E(z)=\sqrt{\Omega_m(1+z)^3+\Omega_\gamma(1+z)^4+\Omega_\Lambda}"></div>
@@ -141,19 +146,26 @@
         the formula above. At z = 0.05 it overestimates the distance by about 1.2%. Pick a galaxy to see the difference.</p>
       <p><b>Lookback time</b> (how long ago the light left):</p>
       <div class="tex" data-tex="t_L = \frac{1}{H_0}\int_0^{z}\frac{dz'}{(1+z')\,E(z')}"></div>
-      <p><b>Coordinates.</b> Catalog positions are B1950; they were converted to ICRS (J2000) with Astropy.
+      <p><b>Coordinates.</b> CfA2 positions are B1950; they were converted to ICRS (J2000) with Astropy.
+        6dFGS positions are J2000 already.
         Up in the picture is the north celestial pole. The Milky Way is at the centre.</p>
       <p class="warning"><b>What this map is not.</b></p>
       <p>• <b>Redshift space, not true space.</b> A galaxy's own motion (hundreds of km/s, up to
         ~1000 km/s in clusters) adds to cz. Clusters therefore look stretched toward us ("fingers of God"),
         and distances below ~2000 km/s are unreliable.</p>
-      <p>• <b>Brightness limited.</b> The survey only includes galaxies brighter than about magnitude 15.5, so
-        far-away regions look emptier than they are.</p>
-      <p>• <b>Empty wedges</b> are areas the survey didn't cover, or that dust in the Milky Way hides
-        (the "Zone of Avoidance"), not real voids.</p>
+      <p>• <b>Brightness limited, differently.</b> CfA2 includes galaxies brighter than about blue magnitude 15.5.
+        6dFGS was selected mainly in the near-infrared (K ≤ 12.65) and reaches deeper, so the southern half looks
+        denser and extends farther. Far-away regions in both look emptier than they are.
+        The "brightness" colours use each survey's own band (CfA2: B(0)-Zwicky; 6dFGS: b<sub>J</sub>).</p>
+      <p>• <b>Empty wedges</b> are areas neither survey covered, or that dust in the Milky Way hides
+        (the "Zone of Avoidance"; 6dFGS avoids |b| &lt; 10°), not real voids.</p>
+      <p>• <b>Combining the surveys.</b> 6dFGS redshifts of quality 3–4 (reliable) and 9 (taken from other catalogs) are used.
+        217 galaxies that appear in both surveys (within 20″ and 300 km/s) are shown once, from CfA2.
+        6dFGS also lists some distant quasars; the velocity slider hides anything beyond 60,000 km/s.</p>
       <p>• Velocities are heliocentric. Correcting to the CMB rest frame would shift them by up to ~370 km/s.</p>
       <p>• Galaxies with negative cz (blueshifted, in the Local Group) can't be placed this way and are left out.</p>
-      <p><b>Sources.</b> Data: CfA Redshift Catalog (ZCAT), J. Huchra et al., Smithsonian Astrophysical Observatory.
+      <p><b>Sources.</b> Data: CfA Redshift Catalog (ZCAT), J. Huchra et al., Smithsonian Astrophysical Observatory;
+        Final Release of 6dFGS, Jones et al. (2004), MNRAS 355, 747 and Jones et al. (2009), MNRAS 399, 683, via NASA HEASARC.
         1986 slice: de Lapparent, Geller &amp; Huchra (1986), ApJ 302, L1. Great Wall: Geller &amp; Huchra (1989),
         Science 246, 897. Cosmology: Planck 2018 VI, arXiv:1807.06209. SH0ES: Riess et al. (2022), ApJL 934, L7.</p>
     </div>
@@ -165,6 +177,7 @@
   <div id="readout-empty" class="note">Hover over or tap a galaxy.</div>
   <dl id="readout-details" hidden>
     <dt>Name</dt><dd id="readout-name"></dd>
+    <dt>Survey</dt><dd id="readout-survey"></dd>
     <dt>RA, Dec</dt><dd id="readout-position"></dd>
     <dt>cz</dt><dd id="readout-velocity"></dd>
     <dt>Redshift z</dt><dd id="readout-redshift"></dd>
@@ -178,7 +191,8 @@
 <footer>
   Open source under the <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/LICENSE">MIT License</a>.
   Galaxy data: <a href="https://lweb.cfa.harvard.edu/~dfabricant/huchra/zcat/">CfA Redshift Survey</a>,
-  J. Huchra et al., Smithsonian Astrophysical Observatory.
+  J. Huchra et al., Smithsonian Astrophysical Observatory;
+  <a href="https://heasarc.gsfc.nasa.gov/W3Browse/galaxy-catalog/sixdfgs.html">6dFGS Final Release</a>, Jones et al. 2004, 2009.
   <span class="footer-extra">Cosmology: Planck Collaboration. Built with three.js, KaTeX and Astropy.</span>
   <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/CREDITS.md">Full credits</a>.
 </footer>
@@ -210,9 +224,9 @@ const Planck2018 = {
 };
 
 const PhysicsCore = {
-  /** Redshift z from a CfA catalog velocity cz (km/s), using the catalog's own c. */
-  redshiftFromCatalogVelocity(czKmPerS) {
-    return czKmPerS / PhysicsConstants.catalogSpeedOfLightKmPerS;
+  /** Redshift z from a catalog velocity cz (km/s), using the value of c the catalog used to make cz. */
+  redshiftFromVelocity(czKmPerS, catalogSpeedOfLightKmPerS = PhysicsConstants.speedOfLightKmPerS) {
+    return czKmPerS / catalogSpeedOfLightKmPerS;
   },
 
   /** E(z) = H(z)/H₀ for flat ΛCDM. */
@@ -239,10 +253,17 @@ const PhysicsCore = {
     return PhysicsConstants.speedOfLightKmPerS / hubbleConstant;
   },
 
+  /**
+   * The dimensionless part of the comoving distance, ∫₀^z dz'/E(z'). It doesn't depend on H₀,
+   * so the page computes it once per galaxy and rescales by c/H₀ when H₀ changes.
+   */
+  comovingDistanceIntegral(redshift, cosmology = Planck2018) {
+    return PhysicsCore.integrateFromZero((z) => 1 / PhysicsCore.dimensionlessHubbleParameter(z, cosmology), redshift);
+  },
+
   /** Comoving distance (where the galaxy is today) in Mpc, flat ΛCDM. */
   comovingDistanceMpc(redshift, hubbleConstant = Planck2018.hubbleConstant, cosmology = Planck2018) {
-    const integral = PhysicsCore.integrateFromZero((z) => 1 / PhysicsCore.dimensionlessHubbleParameter(z, cosmology), redshift);
-    return PhysicsCore.hubbleDistanceMpc(hubbleConstant) * integral;
+    return PhysicsCore.hubbleDistanceMpc(hubbleConstant) * PhysicsCore.comovingDistanceIntegral(redshift, cosmology);
   },
 
   /** Hubble-law distance d = cz/H₀ in Mpc (low-redshift approximation). */
@@ -293,6 +314,10 @@ const PhysicsSelfTests = [
     expected: 101.36046, relativeTolerance: 1e-5, refKey: "cosmology.comoving_distance_z0p023_mpc", source: "Astropy Planck18" },
   { name: "Comoving distance z = 0.05 (Mpc)", actual: () => PhysicsCore.comovingDistanceMpc(0.05),
     expected: 218.93393, relativeTolerance: 1e-5, refKey: "cosmology.comoving_distance_z0p05_mpc", source: "Astropy Planck18" },
+  { name: "Comoving distance z = 2, quasar range (Gly)", actual: () => PhysicsCore.comovingDistanceMpc(2) * PhysicsCore.millionLightYearsPerMegaparsec() / 1000,
+    expected: 17.312997, relativeTolerance: 1e-4, refKey: "cosmology.comoving_distance_z2_gly", source: "Astropy Planck18" },
+  { name: "CfA2 velocity convention: cz = 299792.5 km/s ↔ z = 1", actual: () => PhysicsCore.redshiftFromVelocity(299792.5, PhysicsConstants.catalogSpeedOfLightKmPerS),
+    expected: 1, relativeTolerance: 1e-12, source: "ZCAT documentation" },
   { name: "Lookback time z = 0.05 (Myr)", actual: () => PhysicsCore.lookbackTimeMyr(0.05),
     expected: 696.85673, relativeTolerance: 1e-5, refKey: "cosmology.lookback_time_z0p05_myr", source: "Astropy Planck18" },
   { name: "Mpc → million light-years", actual: () => PhysicsCore.millionLightYearsPerMegaparsec(),
@@ -321,55 +346,92 @@ import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer
 
 // ===== Settings and state =====
 
-const RING_RADII_MPC = [50, 100, 150, 200, 250, 300];
+const RING_RADII_MPC = [50, 100, 150, 200, 300, 400, 600, 800];
 const LANDMARKS = [
   { label: "Virgo cluster (M87)", catalogName: "N4486" },
   { label: "Coma cluster (NGC 4874)", catalogName: "N4874" },
 ];
 const PICK_RADIUS_PIXELS = 12;
 
+// Each survey: its data, the c it used to turn z into cz, and its magnitude band and limit.
+// Brightness colours span 5.5 magnitudes up from each survey's own faint limit.
+const SURVEYS = [
+  { label: "CfA2", data: CFA2_GALAXIES, speedOfLightKmPerS: PhysicsConstants.catalogSpeedOfLightKmPerS,
+    magnitudeBand: "B(0)", faintLimit: 15.5, color: new THREE.Color("#ff9f43") },
+  { label: "6dFGS", data: SIXDFGS_GALAXIES, speedOfLightKmPerS: PhysicsConstants.speedOfLightKmPerS,
+    magnitudeBand: "b_J", faintLimit: 16.75, color: new THREE.Color("#4cc9f0") },
+];
+const MAGNITUDE_COLOR_SPAN = 5.5;
+
 const viewState = {
   distanceModel: "lcdm",
   hubbleConstant: Planck2018.hubbleConstant,
   sample: "all",
-  maximumVelocity: 15000,
+  maximumVelocity: 20000,
   colorMode: "velocity",
   units: "mpc",
   pointSize: 2,
   selectedIndex: -1,
 };
 
-// ===== Galaxy data =====
+// ===== Galaxy data (both surveys merged into flat arrays) =====
 
-const galaxyCount = CFA2_GALAXIES.czKmPerS.length;
-const galaxyRedshifts = CFA2_GALAXIES.czKmPerS.map((cz) => PhysicsCore.redshiftFromCatalogVelocity(cz));
+function combineSurveys() {
+  const catalog = { names: [], raDegrees: [], decDegrees: [], czKmPerS: [], magnitude: [], surveyIndex: [], in1986Slice: [] };
+  SURVEYS.forEach((survey, surveyIndex) => {
+    const data = survey.data;
+    for (let index = 0; index < data.czKmPerS.length; index++) {
+      catalog.names.push(data.names[index]);
+      catalog.raDegrees.push(data.raDegrees[index]);
+      catalog.decDegrees.push(data.decDegrees[index]);
+      catalog.czKmPerS.push(data.czKmPerS[index]);
+      catalog.magnitude.push(data.magnitude[index]);
+      catalog.surveyIndex.push(surveyIndex);
+      catalog.in1986Slice.push(data.in1986Slice ? data.in1986Slice[index] : 0);
+    }
+  });
+  return catalog;
+}
+
+const galaxyCatalog = combineSurveys();
+const galaxyCount = galaxyCatalog.czKmPerS.length;
+const galaxyRedshifts = galaxyCatalog.czKmPerS.map((cz, index) =>
+  PhysicsCore.redshiftFromVelocity(cz, SURVEYS[galaxyCatalog.surveyIndex[index]].speedOfLightKmPerS));
+// ∫dz/E(z) doesn't depend on H₀, so it is computed once here and only rescaled when H₀ changes.
+const galaxyDistanceIntegrals = galaxyRedshifts.map((redshift) => (redshift > 0 ? PhysicsCore.comovingDistanceIntegral(redshift) : 0));
 let visibleGalaxyIndices = [];      // catalog index for each point in the geometry
-let galaxyScenePositions = new Float32Array(galaxyCount * 3);
+const galaxyScenePositions = new Float32Array(galaxyCount * 3);
 
 function galaxyDistanceMpc(index) {
-  const cz = CFA2_GALAXIES.czKmPerS[index];
   return viewState.distanceModel === "lcdm"
-    ? PhysicsCore.comovingDistanceMpc(galaxyRedshifts[index], viewState.hubbleConstant)
-    : PhysicsCore.hubbleLawDistanceMpc(cz, viewState.hubbleConstant);
+    ? PhysicsCore.hubbleDistanceMpc(viewState.hubbleConstant) * galaxyDistanceIntegrals[index]
+    : PhysicsCore.hubbleLawDistanceMpc(galaxyCatalog.czKmPerS[index], viewState.hubbleConstant);
 }
 
 function computeAllScenePositions() {
   for (let index = 0; index < galaxyCount; index++) {
-    if (CFA2_GALAXIES.czKmPerS[index] <= 0) continue;
+    if (galaxyCatalog.czKmPerS[index] <= 0) continue;
     const [x, y, z] = PhysicsCore.equatorialToScene(
-      CFA2_GALAXIES.raDegrees[index], CFA2_GALAXIES.decDegrees[index], galaxyDistanceMpc(index));
-    galaxyScenePositions.set([x, y, z], index * 3);
+      galaxyCatalog.raDegrees[index], galaxyCatalog.decDegrees[index], galaxyDistanceMpc(index));
+    galaxyScenePositions[index * 3] = x;
+    galaxyScenePositions[index * 3 + 1] = y;
+    galaxyScenePositions[index * 3 + 2] = z;
   }
 }
 
 function isGalaxyVisible(index) {
-  const cz = CFA2_GALAXIES.czKmPerS[index];
+  const cz = galaxyCatalog.czKmPerS[index];
   if (cz <= 0 || cz > viewState.maximumVelocity) return false;
-  return viewState.sample === "all" || CFA2_GALAXIES.in1986Slice[index] === 1;
+  switch (viewState.sample) {
+    case "cfa2": return galaxyCatalog.surveyIndex[index] === 0;
+    case "6dfgs": return galaxyCatalog.surveyIndex[index] === 1;
+    case "slice": return galaxyCatalog.in1986Slice[index] === 1;
+    default: return true;
+  }
 }
 
 function findCatalogIndex(catalogName) {
-  return CFA2_GALAXIES.names.indexOf(catalogName);
+  return galaxyCatalog.names.indexOf(catalogName);
 }
 
 // ===== Colors =====
@@ -384,20 +446,30 @@ function colorForFraction(fraction) {
   return COLOR_STOPS[lower].clone().lerp(COLOR_STOPS[upper], clamped - lower);
 }
 
-function colorFractionForGalaxy(index) {
+function colorForGalaxy(index) {
+  const survey = SURVEYS[galaxyCatalog.surveyIndex[index]];
+  if (viewState.colorMode === "survey") return survey.color;
   if (viewState.colorMode === "velocity") {
-    return CFA2_GALAXIES.czKmPerS[index] / viewState.maximumVelocity;
+    return colorForFraction(galaxyCatalog.czKmPerS[index] / viewState.maximumVelocity);
   }
-  const magnitude = CFA2_GALAXIES.magnitude[index] ?? 15.5;
-  return (15.5 - magnitude) / (15.5 - 10);   // brighter (smaller magnitude) → yellower
+  const magnitude = galaxyCatalog.magnitude[index] ?? survey.faintLimit;
+  return colorForFraction((survey.faintLimit - magnitude) / MAGNITUDE_COLOR_SPAN);  // brighter → yellower
 }
 
 function updateLegend() {
-  document.getElementById("legend-bar").style.background =
-    `linear-gradient(to right, ${COLOR_STOPS.map((color) => "#" + color.getHexString()).join(", ")})`;
-  const [low, high] = viewState.colorMode === "velocity"
-    ? ["cz = 0", `cz = ${viewState.maximumVelocity.toLocaleString()} km/s`]
-    : ["mag 15.5 (faint)", "mag 10 (bright)"];
+  const legendBar = document.getElementById("legend-bar");
+  let low, high;
+  if (viewState.colorMode === "survey") {
+    const [first, second] = SURVEYS.map((survey) => "#" + survey.color.getHexString());
+    legendBar.style.background = `linear-gradient(to right, ${first} 50%, ${second} 50%)`;
+    [low, high] = SURVEYS.map((survey) => survey.label);
+  } else {
+    legendBar.style.background =
+      `linear-gradient(to right, ${COLOR_STOPS.map((color) => "#" + color.getHexString()).join(", ")})`;
+    [low, high] = viewState.colorMode === "velocity"
+      ? ["cz = 0", `cz = ${viewState.maximumVelocity.toLocaleString()} km/s`]
+      : ["faint (survey limit)", `${MAGNITUDE_COLOR_SPAN} mag brighter`];
+  }
   document.getElementById("legend-low").textContent = low;
   document.getElementById("legend-high").textContent = high;
 }
@@ -511,7 +583,7 @@ function rebuildGeometry() {
   const colors = new Float32Array(visibleGalaxyIndices.length * 3);
   visibleGalaxyIndices.forEach((catalogIndex, pointIndex) => {
     positions.set(galaxyScenePositions.subarray(catalogIndex * 3, catalogIndex * 3 + 3), pointIndex * 3);
-    const color = colorForFraction(colorFractionForGalaxy(catalogIndex));
+    const color = colorForGalaxy(catalogIndex);
     colors.set([color.r, color.g, color.b], pointIndex * 3);
   });
   const geometry = new THREE.BufferGeometry();
@@ -521,7 +593,7 @@ function rebuildGeometry() {
   galaxyPoints.geometry = geometry;
 
   document.getElementById("count-note").textContent =
-    `Showing ${visibleGalaxyIndices.length.toLocaleString()} of ${galaxyCount.toLocaleString()} catalog entries.`;
+    `Showing ${visibleGalaxyIndices.length.toLocaleString()} of ${galaxyCount.toLocaleString()} galaxies.`;
 }
 
 function updateLabelsAndRings() {
@@ -551,15 +623,16 @@ function showReadout(index) {
   selectionMarker.visible = hasGalaxy && isGalaxyVisible(index);
   if (!hasGalaxy) return;
 
-  const cz = CFA2_GALAXIES.czKmPerS[index];
+  const cz = galaxyCatalog.czKmPerS[index];
   const redshift = galaxyRedshifts[index];
   const lcdmDistance = PhysicsCore.comovingDistanceMpc(redshift, viewState.hubbleConstant);
   const hubbleDistance = PhysicsCore.hubbleLawDistanceMpc(cz, viewState.hubbleConstant);
-  const magnitude = CFA2_GALAXIES.magnitude[index];
+  const magnitude = galaxyCatalog.magnitude[index];
 
-  document.getElementById("readout-name").textContent = CFA2_GALAXIES.names[index];
+  document.getElementById("readout-name").textContent = galaxyCatalog.names[index];
+  document.getElementById("readout-survey").textContent = SURVEYS[galaxyCatalog.surveyIndex[index]].label;
   document.getElementById("readout-position").textContent =
-    `${CFA2_GALAXIES.raDegrees[index].toFixed(3)}°, ${CFA2_GALAXIES.decDegrees[index] >= 0 ? "+" : ""}${CFA2_GALAXIES.decDegrees[index].toFixed(3)}°`;
+    `${galaxyCatalog.raDegrees[index].toFixed(3)}°, ${galaxyCatalog.decDegrees[index] >= 0 ? "+" : ""}${galaxyCatalog.decDegrees[index].toFixed(3)}°`;
   document.getElementById("readout-velocity").textContent = `${cz.toLocaleString()} km/s`;
   document.getElementById("readout-redshift").textContent = redshift.toFixed(5);
   document.getElementById("readout-lcdm").textContent = formatDistance(lcdmDistance);
@@ -567,7 +640,7 @@ function showReadout(index) {
     `${formatDistance(hubbleDistance)} (${(((hubbleDistance - lcdmDistance) / lcdmDistance) * 100).toFixed(2)}%)`;
   document.getElementById("readout-lookback").textContent =
     `${PhysicsCore.lookbackTimeMyr(redshift, viewState.hubbleConstant).toFixed(0)} million years ago`;
-  document.getElementById("readout-magnitude").textContent = magnitude == null ? "—" : magnitude.toFixed(2);
+  document.getElementById("readout-magnitude").textContent = magnitude == null ? "—" : `${magnitude.toFixed(2)} (${SURVEYS[galaxyCatalog.surveyIndex[index]].magnitudeBand})`;
 
   selectionMarker.position.fromArray(galaxyScenePositions, index * 3);
 }
@@ -626,7 +699,7 @@ function viewFromNorthPole() {
 
 function viewFromSide() {
   camera.up.set(0, 1, 0);
-  camera.position.set(-260, 160, 340);
+  camera.position.set(-340, 210, 450);
   controls.target.set(0, 0, 0);
   controls.update();
 }
