@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
-  galaxy-map.html — 3D map of the nearby universe from the CfA2 and 6dFGS redshift surveys.
+  galaxy-map.html — 3D map of the nearby universe from the CfA2, 6dFGS and 2MRS redshift surveys.
 
-  Each point is a real galaxy (about 140,000 of them) placed at its sky position and at a
+  Each point is a real galaxy (about 158,000 of them) placed at its sky position and at a
   distance computed from its measured redshift. Distances come either from the Planck 2018
   ΛCDM comoving distance or from the simple Hubble law, and H₀ can be changed.
   All physics lives in the PHYSICS CORE block and is checked by self-tests
@@ -19,6 +19,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="data/cfa2-galaxies.js"></script>
 <script src="data/6dfgs-galaxies.js"></script>
+<script src="data/2mrs-galaxies.js"></script>
 <style>
   :root {
     --background: #05070d;
@@ -71,7 +72,7 @@
     overflow: auto; margin: 0; font-size: 11.5px; background: #0d1220; border: 1px solid var(--panel-border);
     border-radius: 8px; padding: 10px; z-index: 5; }
   @media (max-width: 760px) {
-    #controls { top: auto; bottom: 64px; left: 8px; right: 8px; width: auto; max-height: 45%; }
+    #controls { top: auto; bottom: 82px; left: 8px; right: 8px; width: auto; max-height: 45%; }
     footer { bottom: 0; padding: 4px 8px 6px; background: rgba(5, 7, 13, 0.85); }
     .footer-extra { display: none; }
     #controls.collapsed > :not(#panel-toggle):not(h1) { display: none; }
@@ -86,8 +87,8 @@
 <section id="controls" class="panel">
   <button id="panel-toggle" class="small">Hide</button>
   <h1>Galaxy Redshift Map</h1>
-  <p class="subtitle">About 140,000 real galaxies around the Milky Way from two surveys: CfA2 (mostly the
-    northern sky) and 6dFGS (the southern sky), placed by their measured redshift.</p>
+  <p class="subtitle">About 158,000 real galaxies around the Milky Way from three surveys: CfA2 (mostly the
+    northern sky), 6dFGS (the southern sky) and 2MRS (the whole sky), placed by their measured redshift.</p>
 
   <h2>Distance from redshift</h2>
   <div class="segmented row" id="distance-model">
@@ -103,9 +104,10 @@
 
   <h2>Which galaxies</h2>
   <div class="segmented row" id="sample">
-    <button data-sample="all" class="active">Both surveys</button>
+    <button data-sample="all" class="active">All surveys</button>
     <button data-sample="cfa2">CfA2</button>
     <button data-sample="6dfgs">6dFGS</button>
+    <button data-sample="2mrs">2MRS</button>
     <button data-sample="slice">1986 slice</button>
   </div>
   <label>Maximum velocity cz <span class="value" id="velocity-value"></span>
@@ -118,7 +120,7 @@
     <button data-color="survey">Color by survey</button>
   </div>
   <div id="legend-bar"></div>
-  <div class="legend-labels"><span id="legend-low"></span><span id="legend-high"></span></div>
+  <div class="legend-labels" id="legend-labels"></div>
   <div class="segmented row" id="units" style="margin-top:8px">
     <button data-units="mpc" class="active">Mpc</button>
     <button data-units="mly">Million light-years</button>
@@ -134,8 +136,8 @@
   <details>
     <summary>Physics notes</summary>
     <div id="physics-notes">
-      <p><b>Redshift.</b> Both catalogs list cz, the measured redshift z times the speed of light. CfA2 used
-        c = 299 792.5 km/s; 6dFGS is taken to use the SI value 299 792.458 km/s (the difference is 1 part in 10⁷):</p>
+      <p><b>Redshift.</b> All three catalogs list cz, the measured redshift z times the speed of light. CfA2 used
+        c = 299 792.5 km/s; 6dFGS and 2MRS are taken to use the SI value 299 792.458 km/s (the difference is 1 part in 10⁷):</p>
       <div class="tex" data-tex="z = \frac{cz}{c}"></div>
       <p><b>ΛCDM comoving distance</b> (flat universe, Planck 2018: H₀ = 67.66, Ω<sub>m</sub> = 0.30966 + Ω<sub>ν</sub>,
         Ω<sub>Λ</sub> = 0.68885, Ω<sub>γ</sub> = 5.4×10⁻⁵):</p>
@@ -147,7 +149,7 @@
       <p><b>Lookback time</b> (how long ago the light left):</p>
       <div class="tex" data-tex="t_L = \frac{1}{H_0}\int_0^{z}\frac{dz'}{(1+z')\,E(z')}"></div>
       <p><b>Coordinates.</b> CfA2 positions are B1950; they were converted to ICRS (J2000) with Astropy.
-        6dFGS positions are J2000 already.
+        6dFGS and 2MRS positions are J2000 already.
         Up in the picture is the north celestial pole. The Milky Way is at the centre.</p>
       <p class="warning"><b>What this map is not.</b></p>
       <p>• <b>Redshift space, not true space.</b> A galaxy's own motion (hundreds of km/s, up to
@@ -156,16 +158,23 @@
       <p>• <b>Brightness limited, differently.</b> CfA2 includes galaxies brighter than about blue magnitude 15.5.
         6dFGS was selected mainly in the near-infrared (K ≤ 12.65) and reaches deeper, so the southern half looks
         denser and extends farther. Far-away regions in both look emptier than they are.
-        The "brightness" colours use each survey's own band (CfA2: B(0)-Zwicky; 6dFGS: b<sub>J</sub>).</p>
+        2MRS includes every galaxy brighter than K<sub>s</sub> = 11.75 across the whole sky, so it is the most
+        uniform of the three but shallower.
+        The "brightness" colours use each survey's own band (CfA2: B(0)-Zwicky; 6dFGS: b<sub>J</sub>; 2MRS: K<sub>s</sub>).</p>
       <p>• <b>Empty wedges</b> are areas neither survey covered, or that dust in the Milky Way hides
-        (the "Zone of Avoidance"; 6dFGS avoids |b| &lt; 10°), not real voids.</p>
+        (the "Zone of Avoidance"). 6dFGS avoids |b| &lt; 10°; 2MRS, observing in the infrared, reaches |b| = 5°
+        (8° toward the Galactic centre), so it fills part of that band.</p>
       <p>• <b>Combining the surveys.</b> 6dFGS redshifts of quality 3–4 (reliable) and 9 (taken from other catalogs) are used.
-        217 galaxies that appear in both surveys (within 20″ and 300 km/s) are shown once, from CfA2.
+        A galaxy found in more than one survey (within 20″ and 300 km/s) is shown once, from the first survey listing it
+        (CfA2, then 6dFGS, then 2MRS): 217 6dFGS and 27,623 2MRS entries were duplicates. The 15,910 galaxies
+        shown as 2MRS are mostly 2MRS's own observations, plus redshifts it compiled from NED, SDSS and ZCAT.
         6dFGS also lists some distant quasars; the velocity slider hides anything beyond 60,000 km/s.</p>
       <p>• Velocities are heliocentric. Correcting to the CMB rest frame would shift them by up to ~370 km/s.</p>
       <p>• Galaxies with negative cz (blueshifted, in the Local Group) can't be placed this way and are left out.</p>
       <p><b>Sources.</b> Data: CfA Redshift Catalog (ZCAT), J. Huchra et al., Smithsonian Astrophysical Observatory;
-        Final Release of 6dFGS, Jones et al. (2004), MNRAS 355, 747 and Jones et al. (2009), MNRAS 399, 683, via NASA HEASARC.
+        Final Release of 6dFGS, Jones et al. (2004), MNRAS 355, 747 and Jones et al. (2009), MNRAS 399, 683, via NASA HEASARC;
+        2MASS Redshift Survey, Huchra et al. (2012), ApJS 199, 26, via CDS VizieR, with each compiled redshift's own source
+        listed in <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/data/2mrs-redshift-sources.md">data/2mrs-redshift-sources.md</a>.
         1986 slice: de Lapparent, Geller &amp; Huchra (1986), ApJ 302, L1. Great Wall: Geller &amp; Huchra (1989),
         Science 246, 897. Cosmology: Planck 2018 VI, arXiv:1807.06209. SH0ES: Riess et al. (2022), ApJL 934, L7.</p>
     </div>
@@ -192,7 +201,8 @@
   Open source under the <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/LICENSE">MIT License</a>.
   Galaxy data: <a href="https://lweb.cfa.harvard.edu/~dfabricant/huchra/zcat/">CfA Redshift Survey</a>,
   J. Huchra et al., Smithsonian Astrophysical Observatory;
-  <a href="https://heasarc.gsfc.nasa.gov/W3Browse/galaxy-catalog/sixdfgs.html">6dFGS Final Release</a>, Jones et al. 2004, 2009.
+  <a href="https://heasarc.gsfc.nasa.gov/W3Browse/galaxy-catalog/sixdfgs.html">6dFGS Final Release</a>, Jones et al. 2004, 2009;
+  <a href="https://doi.org/10.26093/cds/vizier.21990026">2MASS Redshift Survey</a>, Huchra et al. 2012 (via CDS VizieR).
   <span class="footer-extra">Cosmology: Planck Collaboration. Built with three.js, KaTeX and Astropy.</span>
   <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/CREDITS.md">Full credits</a>.
 </footer>
@@ -360,6 +370,8 @@ const SURVEYS = [
     magnitudeBand: "B(0)", faintLimit: 15.5, color: new THREE.Color("#ff9f43") },
   { label: "6dFGS", data: SIXDFGS_GALAXIES, speedOfLightKmPerS: PhysicsConstants.speedOfLightKmPerS,
     magnitudeBand: "b_J", faintLimit: 16.75, color: new THREE.Color("#4cc9f0") },
+  { label: "2MRS", data: TWOMRS_GALAXIES, speedOfLightKmPerS: PhysicsConstants.speedOfLightKmPerS,
+    magnitudeBand: "K_s", faintLimit: 11.75, color: new THREE.Color("#f472d0") },
 ];
 const MAGNITUDE_COLOR_SPAN = 5.5;
 
@@ -425,6 +437,7 @@ function isGalaxyVisible(index) {
   switch (viewState.sample) {
     case "cfa2": return galaxyCatalog.surveyIndex[index] === 0;
     case "6dfgs": return galaxyCatalog.surveyIndex[index] === 1;
+    case "2mrs": return galaxyCatalog.surveyIndex[index] === 2;
     case "slice": return galaxyCatalog.in1986Slice[index] === 1;
     default: return true;
   }
@@ -456,22 +469,34 @@ function colorForGalaxy(index) {
   return colorForFraction((survey.faintLimit - magnitude) / MAGNITUDE_COLOR_SPAN);  // brighter → yellower
 }
 
+function surveyLegendGradient() {
+  // Equal hard-edged bands, one per survey.
+  const bandWidth = 100 / SURVEYS.length;
+  const stops = SURVEYS.map((survey, index) => {
+    const hex = "#" + survey.color.getHexString();
+    return `${hex} ${index * bandWidth}%, ${hex} ${(index + 1) * bandWidth}%`;
+  });
+  return `linear-gradient(to right, ${stops.join(", ")})`;
+}
+
 function updateLegend() {
   const legendBar = document.getElementById("legend-bar");
-  let low, high;
+  let labels;
   if (viewState.colorMode === "survey") {
-    const [first, second] = SURVEYS.map((survey) => "#" + survey.color.getHexString());
-    legendBar.style.background = `linear-gradient(to right, ${first} 50%, ${second} 50%)`;
-    [low, high] = SURVEYS.map((survey) => survey.label);
+    legendBar.style.background = surveyLegendGradient();
+    labels = SURVEYS.map((survey) => survey.label);
   } else {
     legendBar.style.background =
       `linear-gradient(to right, ${COLOR_STOPS.map((color) => "#" + color.getHexString()).join(", ")})`;
-    [low, high] = viewState.colorMode === "velocity"
+    labels = viewState.colorMode === "velocity"
       ? ["cz = 0", `cz = ${viewState.maximumVelocity.toLocaleString()} km/s`]
       : ["faint (survey limit)", `${MAGNITUDE_COLOR_SPAN} mag brighter`];
   }
-  document.getElementById("legend-low").textContent = low;
-  document.getElementById("legend-high").textContent = high;
+  document.getElementById("legend-labels").replaceChildren(...labels.map((text) => {
+    const span = document.createElement("span");
+    span.textContent = text;
+    return span;
+  }));
 }
 
 // ===== Scene setup =====

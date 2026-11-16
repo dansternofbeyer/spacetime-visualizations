@@ -25,6 +25,19 @@ The project's own code is MIT licensed (see `LICENSE`); everything listed here k
   - The **High Energy Astrophysics Science Archive Research Center (HEASARC)**, NASA Goddard Space Flight Center,
     hosts the copy we used. The table is derived from CDS (Strasbourg) catalog VII/259.
 
+- **2MASS Redshift Survey (2MRS)**, J. P. Huchra, L. M. Macri et al. (2012), "The 2MASS Redshift Survey—Description and
+  Data Release", ApJS 199, 26. Used in `galaxy-map.html` (via `data/2mrs-galaxies.js`). We use the catalog **as
+  published with the paper** and distributed by **CDS VizieR** (J/ApJS/199/26, doi:10.26093/cds/vizier.21990026),
+  retrieved from the VizieR mirror at IDIA (vizier.idia.ac.za). 2MRS home page: http://tdc-www.harvard.edu/2mrs/
+  - As the 2MRS team asks, redshifts measured by 2MRS are cited as Huchra et al. (2012), and every other redshift
+    is cited by its own bibliographic code. All 411 source papers behind the redshifts we show are listed in
+    [`data/2mrs-redshift-sources.md`](data/2mrs-redshift-sources.md).
+  - 2MRS is built on the **Two Micron All Sky Survey (2MASS)**, a joint project of the University of Massachusetts
+    and the Infrared Processing and Analysis Center/California Institute of Technology, funded by NASA and the NSF.
+  - VizieR acknowledgement: this research has made use of the VizieR catalogue access tool, CDS, Strasbourg, France
+    (doi:10.26093/cds/vizier). The original description of the VizieR service was published in
+    Ochsenbein, Bauer & Marcout (2000), A&AS 143, 23.
+
 ## Science (equations and parameter values)
 
 - **Planck Collaboration** (2020), "Planck 2018 results. VI. Cosmological parameters", A&A 641, A6,

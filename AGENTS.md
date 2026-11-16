@@ -10,7 +10,7 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 
 ## Current state (2026-11-15)
 
-- `galaxy-map.html`: working prototype, a 3D map of ~142,600 galaxies (CfA2 north + 6dFGS south). All 13 physics self-tests pass.
+- `galaxy-map.html`: working prototype, a 3D map of ~158,500 galaxies (CfA2 north + 6dFGS south + 2MRS whole sky). All 13 physics self-tests pass.
 - `index.html`: a landing page that links to each diagram.
 - Planned next: gravitational redshift (Schwarzschild, observer at infinity, warped grid and embedding views),
   and the observable-universe sphere (centre = now, edge = recombination).
@@ -22,6 +22,8 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 | `index.html` | Landing page |
 | `galaxy-map.html` | CfA2 galaxy map (physics core + three.js view) |
 | `data/cfa2-galaxies.js` | CfA2 galaxy data, generated; don't edit by hand |
+| `data/2mrs-galaxies.js` | 2MRS galaxy data (journal/VizieR copy), CfA2 and 6dFGS duplicates removed; built by `data/build_2mrs.py` (run last) |
+| `data/2mrs-redshift-sources.md` | Generated list of every paper behind the 2MRS redshifts shown (required citation) |
 | `data/6dfgs-galaxies.js` | 6dFGS galaxy data, CfA2 duplicates removed; built by `data/build_6dfgs.py` (run after `build_cfa2.py`) |
 | `data/build_cfa2.py` | Builds it from `data/raw/cfa2.dat` (`uv run data/build_cfa2.py`) |
 | `data/README.md` | Data source, checks, terms |
@@ -38,6 +40,8 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 3. Never type a reference value by hand: add it to `reference_values.py` and regenerate.
 4. Credit everything: add each new data set, paper, library or skill to `CREDITS.md`, and data sources
    to the page footer too. Any page using 6dFGS data must say it is from the Final Release of 6dFGS and cite Jones et al. 2004 and 2009.
+   Any page using 2MRS data must cite Huchra et al. 2012 and link to `data/2mrs-redshift-sources.md`; use the
+   journal/VizieR copy, not the files from the 2MRS site (they ask not to be redistributed).
    Any page using CfA data must credit the **Smithsonian Astrophysical Observatory**
    and link to https://lweb.cfa.harvard.edu/~dfabricant/huchra/zcat/ . That was the owner's condition
    for publishing it.

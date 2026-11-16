@@ -1,5 +1,26 @@
 # Data
 
+## 2MASS Redshift Survey (`2mrs-galaxies.js`)
+
+- **Source:** the journal-published 2MRS catalog, Huchra et al. 2012, ApJS 199, 26, as distributed by CDS VizieR
+  (J/ApJS/199/26, doi:10.26093/cds/vizier.21990026). On 2026-11-15 the main CDS server and the CfA VizieR mirror
+  were unreachable, so the tables came from the official mirror at vizier.idia.ac.za.
+- **Why the journal copy:** the 2MRS team's own download (http://tdc-www.harvard.edu/2mrs/) asks users not to
+  redistribute its files. The owner chose to use the version published with the paper and redistributed by CDS,
+  so that the local copy and the published site are identical (decision of 2026-11-15).
+- **Raw files** (in `raw/`, not in git): `2mrs_table3.tsv` (main catalog, 44,599 rows; columns ID, RAJ2000,
+  DEJ2000, Kcmag, cz, e_cz, n_cz, r_cz, CAT) and `2mrs_table4.tsv` (593 references). To get them again:
+  `curl -o data/raw/2mrs_table3.tsv "https://vizier.idia.ac.za/viz-bin/asu-tsv?-source=J/ApJS/199/26/table3&-out.max=unlimited&-out=ID,RAJ2000,DEJ2000,Kcmag,cz,e_cz,n_cz,r_cz,CAT&-oc.form=d&-out.form=|"`
+  and the same with `table4` and `-out.all`.
+- **Built by:** `uv run data/build_2mrs.py` (after the CfA2 and 6dFGS builds). It keeps the 43,532 galaxies with
+  redshifts and drops 27,623 already in CfA2 or 6dFGS (within 20″ and 300 km/s), leaving 15,910. It also writes
+  `2mrs-redshift-sources.md`, listing the source paper of every redshift shown (411 papers).
+- **Terms:** the 2MRS README asks that 2MRS redshifts be cited as Huchra et al. and all others by their own
+  bibcodes; both are done (page footer, `CREDITS.md`, `2mrs-redshift-sources.md`). VizieR data came with the
+  rights URI https://cds.unistra.fr/vizier-org/licences_vizier.html, which didn't load on 2026-11-15; recheck it.
+- **Known limits:** selected by Ks ≤ 11.75 over the whole sky with |b| > 5° (8° toward the Galactic bulge);
+  the most uniform of the three surveys but the shallowest (median cz ≈ 9,700 km/s for the galaxies kept).
+
 ## 6dF Galaxy Survey, Final Release (`6dfgs-galaxies.js`)
 
 - **Source:** 6dFGS Final Redshift Release (DR3), Jones et al. 2004 (MNRAS 355, 747) and 2009 (MNRAS 399, 683),

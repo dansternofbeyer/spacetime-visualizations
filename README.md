@@ -12,7 +12,7 @@ from a CDN.
 
 | Page | What it shows | State |
 |---|---|---|
-| `galaxy-map.html` | ~140,000 real galaxies from the CfA2 (north) and 6dFGS (south) redshift surveys in 3D, placed by redshift. You can switch between ΛCDM and Hubble-law distances, change H₀, colour by survey, and view the famous 1986 "slice of the universe". | Prototype |
+| `galaxy-map.html` | ~158,000 real galaxies from the CfA2 (north), 6dFGS (south) and 2MRS (whole sky) redshift surveys in 3D, placed by redshift. You can switch between ΛCDM and Hubble-law distances, change H₀, colour by survey, and view the famous 1986 "slice of the universe". | Prototype |
 | Gravitational redshift (Schwarzschild) | Light climbing out of a gravity well, with warped-grid and embedding views | Planned |
 | Observable universe sphere | Our past light cone, from today back to recombination (the CMB) | Planned |
 
@@ -39,7 +39,8 @@ from a CDN.
 ## Credits
 
 The galaxy data is from the CfA Redshift Survey (J. Huchra et al.), **Smithsonian Astrophysical Observatory**,
-and the Final Release of 6dFGS (Jones et al. 2004, 2009) via NASA HEASARC.
+the Final Release of 6dFGS (Jones et al. 2004, 2009) via NASA HEASARC, and the 2MASS Redshift Survey
+(Huchra et al. 2012) via CDS VizieR.
 Cosmological parameters come from the Planck Collaboration. Calculations and checks use Astropy, NumPy and SciPy;
 the pages use three.js and KaTeX. See [CREDITS.md](CREDITS.md) for the full list with citations.
 
