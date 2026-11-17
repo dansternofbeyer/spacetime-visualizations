@@ -127,6 +127,7 @@
     <button data-anchor="surface" class="active">at the surface</button>
     <button data-anchor="far">far away</button>
     <button data-anchor="observer">at the observer</button>
+    <button data-anchor="camera">at the camera</button>
   </div>
   <p class="note" id="view-note"></p>
   <label>Lines fully visible where z ≥ <span class="value" id="brightness-value"></span>
@@ -208,7 +209,9 @@
         itself, so the grid's centre lands on a sphere outside the horizon and the inner lines bunch up there.
         <i>At the observer</i> (r<sub>a</sub> = r<sub>O</sub>, the reference frame's observer; in the far-away frame this is the
         same as far away): the grid sits at its flat-space positions around the observer, and the offset grows in both
-        directions away from them. In the camera frame it follows the camera.
+        directions away from them. In the camera frame it follows the camera. <i>At the camera</i> (r<sub>a</sub> = the camera's
+        distance from the centre, or from the axis on Flamm's paraboloid): the same, but always following the camera,
+        whichever reference frame is chosen.
         All three show the same local squeeze; only this overall offset differs. To reach far out, the grid is <i>nested</i>: each time the distance doubles, the line spacing doubles,
         and lines that belong only to a finer level fade out where the coarser one takes over.</p>
       <p><b>Flamm line in the grid view</b> (optional). The profile of Flamm's paraboloid, drawn in the vertical plane through
@@ -1007,6 +1010,7 @@ function buildGridLevels() {
  */
 function gridAnchorRadius() {
   if (viewState.gridAnchor === "surface") return spacetime.bodyRadiusKm;
+  if (viewState.gridAnchor === "camera") return cameraRadiusKm();
   if (viewState.gridAnchor === "observer") {
     const observerRadius = observerRadiusKm();   // in the far-away frame, the observer is where the lines fade
     return observerRadius === Infinity ? visibleExtentKm() : observerRadius;
@@ -1543,10 +1547,14 @@ function observerRadiusKm() {
   if (viewState.frame === "infinity") return Infinity;
   const closest = spacetime.closestBeamRadiusKm;
   if (viewState.frame === "observer") return Math.max(viewState.observerRadiusKm, closest);
-  // The camera: its distance from the centre (on Flamm's paraboloid, its distance from the vertical axis).
+  return cameraRadiusKm();
+}
+
+/** The camera's distance from the centre (on Flamm's paraboloid, from its axis), kept outside the body. */
+function cameraRadiusKm() {
   const position = camera.position;
   const radius = viewState.view === "grid" ? position.length() : Math.hypot(position.x, position.z);
-  return Math.max(radius, closest);
+  return Math.max(radius, spacetime.closestBeamRadiusKm);
 }
 
 /** dτ/dt of the reference observer (1 far away). Playback follows this observer's clock. */
@@ -2113,7 +2121,9 @@ function describeView() {
       + " The spacing doubles each time the distance doubles, so the grid reaches out until it fades."
       + (viewState.gridAnchor === "surface"
         ? " Anchored at the surface: the extra distance builds up outward."
-        : viewState.gridAnchor === "far"
+        : viewState.gridAnchor === "camera"
+        ? " Anchored at the camera: the grid sits at its flat-space positions at the camera's distance, and follows it as you move."
+      : viewState.gridAnchor === "far"
         ? " Anchored far away: all the extra distance is taken up on the way in, so lines are pulled toward the mass."
         : " Anchored at the observer: around the observer the grid sits where flat space would put it. The extra distance"
           + " pushes lines below the observer outward and pulls lines above it inward, both toward the observer's sphere.")
@@ -2314,14 +2324,16 @@ function animate(now) {
   advanceBeam(elapsedSeconds);
   if (frameCounter++ % 6 === 0) {
     updateFrontReadout();
+    // A grid anchored at the camera (directly, or through the camera frame) follows it;
+    // rebuild only when the anchor has moved by more than 1%.
+    const followsCamera = viewState.gridAnchor === "camera" || (viewState.gridAnchor === "observer" && viewState.frame === "camera");
+    if (followsCamera && Math.abs(gridAnchorRadius() - lastGridAnchorRadius) > 0.01 * lastGridAnchorRadius) {
+      buildWarpedGrid();
+      buildClocks();
+    }
     if (viewState.frame === "camera") {   // the observer moves with the camera
       refreshClockRates();
       buildRadarScale();
-      // An "at the observer" grid follows the camera; rebuild only when it has moved by more than 1%.
-      if (viewState.gridAnchor === "observer" && Math.abs(gridAnchorRadius() - lastGridAnchorRadius) > 0.01 * lastGridAnchorRadius) {
-        buildWarpedGrid();
-        buildClocks();
-      }
       updateReadout();
       describeFrame();
     }
