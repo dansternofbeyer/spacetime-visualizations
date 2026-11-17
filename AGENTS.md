@@ -72,6 +72,8 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 - Warped grid: laid out evenly in the ruler coordinate ρ = R + ℓ(R, r), anchored at the body's surface (or the horizon),
   drawn at areal r. A selector (owner's choice, 2026-11-16) switches the anchor to "far away" (r_a = where z = 0.01),
   which pulls lines toward the mass (the look of the reference image) but leaves a hole around heavy black holes.
+  A third option, "at the observer", anchors at the reference frame's observer (follows the camera in the camera
+  frame, rebuilding when it moves by more than 1%; equals "far away" in the far-away frame).
   The grid is nested (owner asked for no maximum distance, 2026-11-16): 20 km spacing out to 160 km, then spacing
   and reach double per level until z falls to 0.01 (`visibleExtentKm`, capped at 5000 km). Lines unique to a level
   fade out over the outer half of its reach. ρ → r is inverted with a lookup table.

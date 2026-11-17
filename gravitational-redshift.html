@@ -126,6 +126,7 @@
   <div class="segmented row grid-only" id="anchor-mode">
     <button data-anchor="surface" class="active">at the surface</button>
     <button data-anchor="far">far away</button>
+    <button data-anchor="observer">at the observer</button>
   </div>
   <p class="note" id="view-note"></p>
   <label>Lines fully visible where z ≥ <span class="value" id="brightness-value"></span>
@@ -205,7 +206,10 @@
         (r<sub>a</sub> = where the lines have faded, z = 0.01): the outer grid is undisturbed and all the extra distance is taken
         up on the way in, so the lines are pulled toward the mass. Around a black hole that pull is larger than the horizon
         itself, so the grid's centre lands on a sphere outside the horizon and the inner lines bunch up there.
-        Both show the same local squeeze; only this overall offset differs. To reach far out, the grid is <i>nested</i>: each time the distance doubles, the line spacing doubles,
+        <i>At the observer</i> (r<sub>a</sub> = r<sub>O</sub>, the reference frame's observer; in the far-away frame this is the
+        same as far away): the grid sits at its flat-space positions around the observer, and the offset grows in both
+        directions away from them. In the camera frame it follows the camera.
+        All three show the same local squeeze; only this overall offset differs. To reach far out, the grid is <i>nested</i>: each time the distance doubles, the line spacing doubles,
         and lines that belong only to a finer level fade out where the coarser one takes over.</p>
       <p><b>Flamm line in the grid view</b> (optional). The profile of Flamm's paraboloid, drawn in the vertical plane through
         the grid's x axis, at the same areal radius <i>r</i> as the grid. Each white marker hangs below a grid vertex on that axis.
@@ -1002,8 +1006,14 @@ function buildGridLevels() {
  * the body's surface (or horizon), or far away where the grid has faded out. Chosen with the anchor selector.
  */
 function gridAnchorRadius() {
-  return viewState.gridAnchor === "surface" ? spacetime.bodyRadiusKm : visibleExtentKm();
+  if (viewState.gridAnchor === "surface") return spacetime.bodyRadiusKm;
+  if (viewState.gridAnchor === "observer") {
+    const observerRadius = observerRadiusKm();   // in the far-away frame, the observer is where the lines fade
+    return observerRadius === Infinity ? visibleExtentKm() : observerRadius;
+  }
+  return visibleExtentKm();
 }
+let lastGridAnchorRadius = 0;   // to rebuild the grid when an "at the observer" anchor moves with the camera
 
 /**
  * Table of ruler coordinates ρ(r) for the current mass. The grid has hundreds of thousands of points,
@@ -1109,6 +1119,7 @@ function traceGridLine(axis, a, b, level, isOutermostLevel, positions, colors) {
 
 function buildWarpedGrid() {
   gridLevels = buildGridLevels();
+  lastGridAnchorRadius = gridAnchorRadius();
   buildRulerLookup(gridLevels[gridLevels.length - 1].halfWidth);
   const positions = [];
   const colors = [];
@@ -2102,7 +2113,10 @@ function describeView() {
       + " The spacing doubles each time the distance doubles, so the grid reaches out until it fades."
       + (viewState.gridAnchor === "surface"
         ? " Anchored at the surface: the extra distance builds up outward."
-        : " Anchored far away: all the extra distance is taken up on the way in, so lines are pulled toward the mass.")
+        : viewState.gridAnchor === "far"
+        ? " Anchored far away: all the extra distance is taken up on the way in, so lines are pulled toward the mass."
+        : " Anchored at the observer: around the observer the grid sits where flat space would put it. The extra distance"
+          + " pushes lines below the observer outward and pulls lines above it inward, both toward the observer's sphere.")
     : "The equatorial plane embedded in 3D: distances along the surface are true ruler distances. "
       + "The depth itself means nothing physical. True scale.";
 }
@@ -2162,6 +2176,7 @@ brightnessSlider.addEventListener("input", () => {
 const observerSlider = document.getElementById("observer-slider");
 
 function onFrameChanged() {
+  if (viewState.gridAnchor === "observer") buildWarpedGrid();
   placeObserverMarker();
   buildClocks();
   describeFrame();
@@ -2302,6 +2317,11 @@ function animate(now) {
     if (viewState.frame === "camera") {   // the observer moves with the camera
       refreshClockRates();
       buildRadarScale();
+      // An "at the observer" grid follows the camera; rebuild only when it has moved by more than 1%.
+      if (viewState.gridAnchor === "observer" && Math.abs(gridAnchorRadius() - lastGridAnchorRadius) > 0.01 * lastGridAnchorRadius) {
+        buildWarpedGrid();
+        buildClocks();
+      }
       updateReadout();
       describeFrame();
     }
