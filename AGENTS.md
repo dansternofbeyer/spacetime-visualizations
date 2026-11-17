@@ -81,6 +81,12 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   is nearly flat (z ≤ 0.01) and fully bright at the z the user picks with a slider (0.02–2, default 0.2, log scale),
   and nothing else cuts them off: grid and Flamm's surface both reach out to where z = 0.01. Faded lines are darkened, not alpha-blended:
   LineMaterial has no per-vertex alpha, and additive blending made a glowing wall.
+- Measuring sticks (2026-11-16): 5 km rulers end to end from the surface, opposite the beam, out to r = 100 km, each
+  with a sideways ruler at its middle. Grid view: radial ones are drawn shorter by ~sqrt(1 − r_s/r), sideways ones keep
+  their length. Flamm view: all keep their length. Drawn without depth test (renderOrder 900) so the grid can't hide them.
+  Next ideas the owner liked, in the suggested order: a Reference Frame Viewer for static observers (clocks and
+  colours relative to the camera's radius; lengths don't change between static observers), a fog hemisphere
+  (density = 1/sqrt(1 − r_s/r) − 1, which equals z), then a free-fall (Gullstrand–Painlevé "river") view.
 - Proper-time clocks: at every second grid vertex in the plane through the centre (Flamm view: rings × 8 spokes),
   plus larger clocks at A and B. Hands turn at dτ/dt; a far clock turns once per 100 µs of t, on the light's playback.
   Clocks are drawn last with depthTest off and per-frame back-to-front renderOrder, and are hidden by a ray test when

@@ -136,7 +136,11 @@
   <div id="legend-bar"></div>
   <div class="legend-labels"><span>≤ 0.01</span><span>0.03</span><span>0.1</span><span>0.3</span><span>1</span><span>≥ 3</span></div>
 
-  <h2>Proper-time clocks</h2>
+  <h2>Clocks and rulers</h2>
+  <label class="check"><input type="checkbox" id="sticks-checkbox" checked> Show measuring sticks</label>
+  <p class="note" style="margin-top:0">White and orange rulers, each 5 km long, laid end to end outward from the surface, with
+    a sideways ruler at each one's middle. In the grid, the outward ones shrink near the mass and the sideways ones don't:
+    space is stretched only along the radius. On Flamm's paraboloid all of them keep their length.</p>
   <label class="check"><input type="checkbox" id="clocks-checkbox" checked> Show clocks</label>
   <div class="row" style="align-items:center; flex-wrap:nowrap; gap:10px">
     <svg width="36" height="36" viewBox="-18 -18 36 36" aria-label="Clock far from the mass" style="flex:none">
@@ -229,6 +233,14 @@
       <p>• <b>Colours</b> come from the CIE 1931 colour-matching functions (analytic fit by Wyman, Sloan &amp; Shirley 2013),
         converted to sRGB and desaturated to fit the screen. Wavelengths beyond 780 nm (infrared) or below 380 nm
         (ultraviolet) are invisible and are drawn grey. The readout always shows the true wavelength.</p>
+      <p><b>Measuring sticks.</b> Rulers of ruler length L = 5 km are laid end to end from the surface (or the horizon):
+        the k-th one spans ruler distances kL to (k+1)L, i.e. <span class="tex" data-tex="\ell(R, r_k) = kL"></span>.
+        In the grid view, which is drawn at areal radius <i>r</i>, an outward ruler is drawn
+        <span class="tex" data-tex="\Delta r \approx L\sqrt{1-r_s/r}"></span> long, so it looks shorter near the mass. A sideways
+        ruler is drawn its full length L, because tangential distances are <span class="tex" data-tex="r\,d\Omega"></span>, exactly as in
+        flat space. The labels give the drawn length of the first and last ruler. On Flamm's paraboloid, lengths along the surface are
+        true, so every ruler looks the same length; the paraboloid fits the extra rulers in by sloping into its vertical direction.
+        Like the clocks, each ruler belongs to static observers, and every static observer agrees on these lengths.</p>
       <p><b>Clocks.</b> Each clock belongs to a static observer at its grid vertex (and at A and B). Its hand shows that
         observer's proper time, <span class="tex" data-tex="\tau = t\sqrt{1-r_s/r}"></span>. A clock far away turns once per
         100 µs of <i>t</i>, played back as slowly as the light. The clock rate and the redshift are the same effect:
@@ -625,6 +637,7 @@ const viewState = {
   travelledTortoiseKm: 0,    // c × (distant-observer time since emission began), measured in r*
   coordinateTimeSeconds: 0,  // distant-observer time t that drives the clocks (not reset by "Emit again")
   showClocks: true,
+  showSticks: true,
   showEmbeddingLine: false,
   gridAnchor: "surface",         // where the grid matches flat space: "surface" (or horizon) or "far"
   fullBrightnessRedshift: 0.2,   // lines are fully bright where the redshift to infinity is at least this
@@ -755,6 +768,7 @@ function makeLabel(text, className = "label") {
 function applyLabelVisibility() {
   bodyLabel.visible = viewState.view === "grid";
   embeddingLabel.visible = viewState.view === "grid" && viewState.showEmbeddingLine;
+  innerStickLabel.visible = outerStickLabel.visible = viewState.showSticks;
   flammNoteLabel.visible = flammBodyLabel.visible = viewState.view === "flamm";
   for (const { radius, label } of flammRingLabels) {
     label.visible = viewState.view === "flamm" && radius > spacetime.bodyRadiusKm + 3;
@@ -1351,6 +1365,103 @@ function advanceBeam(elapsedRealSeconds) {
   }
 }
 
+// ===== Proper-length measuring sticks =====
+//
+// Rulers of equal true (ruler) length laid end to end outward from the surface, on the side opposite
+// the beam. Each also has a sideways ruler of the same length at its middle.
+// Grid view (drawn at areal r): radial rulers are drawn sqrt(1 − r_s/r) times their length, so they
+// shrink near the mass; sideways rulers keep their length, because a circle at r really is 2πr around.
+// Flamm view: both kinds keep their length, because lengths along the surface are true. The paraboloid
+// makes room for the extra distance by sloping into its meaningless vertical direction instead.
+
+const STICK_LENGTH_KM = 5;
+const STICK_REACH_KM = 100;                              // lay rulers until this areal radius
+const STICK_DIRECTION_ANGLE = Math.PI + BEAM_DIRECTION_ANGLE;   // opposite side from the beam
+const STICK_COLORS = [new THREE.Color(0xf4f4f4), new THREE.Color(0xff9a3c)];   // like a surveyor's rod
+// Drawn on top of the grid (no depth test), or the dense grid lines would hide them; clocks still go on top of the sticks.
+const STICK_MATERIAL_OPTIONS = { vertexColors: true, opacity: 1, transparent: true, depthTest: false, depthWrite: false };
+const radialStickMaterial = makeLineMaterial({ linewidth: 4, ...STICK_MATERIAL_OPTIONS });
+const sidewaysStickMaterial = makeLineMaterial({ linewidth: 2.5, ...STICK_MATERIAL_OPTIONS });
+const stickGroup = new THREE.Group();
+scene.add(stickGroup);
+const innerStickLabel = makeLabel("", "label faint");
+const outerStickLabel = makeLabel("", "label faint");
+scene.add(innerStickLabel, outerStickLabel);
+
+const stickDirection = new THREE.Vector3(Math.cos(STICK_DIRECTION_ANGLE), 0, Math.sin(STICK_DIRECTION_ANGLE));
+
+/** Where the stick line is drawn at areal radius r, in the current view. */
+function stickPosition(radiusKm) {
+  const position = stickDirection.clone().multiplyScalar(radiusKm);
+  if (viewState.view === "flamm") position.y = flammSurfaceY(radiusKm) + 0.4;
+  return position;
+}
+
+/** The sideways direction: up in the grid view, across the surface on Flamm's paraboloid. */
+function sidewaysDirection() {
+  return viewState.view === "grid"
+    ? new THREE.Vector3(0, 1, 0)
+    : new THREE.Vector3(-Math.sin(STICK_DIRECTION_ANGLE), 0, Math.cos(STICK_DIRECTION_ANGLE));
+}
+
+/** Areal radius at a given ruler distance from the body's surface (or the horizon). */
+function radiusAtRulerDistance(rulerDistanceKm) {
+  const surface = spacetime.bodyRadiusKm;
+  return PhysicsCore.radiusFromRulerCoordinate(surface + rulerDistanceKm, spacetime.schwarzschildRadiusKm, surface);
+}
+
+function buildMeasuringSticks() {
+  for (const child of [...stickGroup.children]) { stickGroup.remove(child); child.geometry.dispose(); }
+  const radialPositions = [];
+  const radialColors = [];
+  const sidewaysPositions = [];
+  const sidewaysColors = [];
+  const sideways = sidewaysDirection().multiplyScalar(STICK_LENGTH_KM / 2);
+  const ends = [];   // areal radius of each ruler's start and end
+
+  for (let index = 0; ; index++) {
+    const start = radiusAtRulerDistance(index * STICK_LENGTH_KM);
+    const end = radiusAtRulerDistance((index + 1) * STICK_LENGTH_KM);
+    const color = STICK_COLORS[index % 2];
+    // Each radial ruler in a few pieces, so it follows the curved surface in the Flamm view.
+    const pieces = 6;
+    for (let piece = 0; piece < pieces; piece++) {
+      const from = start + (end - start) * piece / pieces;
+      const to = start + (end - start) * (piece + 1) / pieces;
+      radialPositions.push(...stickPosition(from).toArray(), ...stickPosition(to).toArray());
+      radialColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+    }
+    const middle = stickPosition(radiusAtRulerDistance((index + 0.5) * STICK_LENGTH_KM));
+    sidewaysPositions.push(...middle.clone().sub(sideways).toArray(), ...middle.clone().add(sideways).toArray());
+    sidewaysColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+    ends.push([start, end]);
+    if (end > STICK_REACH_KM) break;
+  }
+
+  for (const [positions, colors, material] of [[radialPositions, radialColors, radialStickMaterial],
+    [sidewaysPositions, sidewaysColors, sidewaysStickMaterial]]) {
+    const geometry = new LineSegmentsGeometry();
+    geometry.setPositions(positions);
+    geometry.setColors(colors);
+    const sticks = new LineSegments2(geometry, material);
+    sticks.renderOrder = 900;
+    stickGroup.add(sticks);
+  }
+
+  // Labels: how long the first and last radial rulers are drawn.
+  const describe = ([start, end]) => (viewState.view === "grid"
+    ? `${STICK_LENGTH_KM} km ruler, drawn ${(end - start).toFixed(2)} km`
+    : `${STICK_LENGTH_KM} km ruler (true length on the surface)`);
+  const lift = new THREE.Vector3(0, STICK_LENGTH_KM / 2 + 3, 0);
+  innerStickLabel.element.textContent = describe(ends[0]);
+  innerStickLabel.position.copy(stickPosition((ends[0][0] + ends[0][1]) / 2)).add(lift);
+  const last = ends[ends.length - 1];
+  outerStickLabel.element.textContent = describe(last);
+  outerStickLabel.position.copy(stickPosition((last[0] + last[1]) / 2)).add(lift);
+  stickGroup.visible = viewState.showSticks;
+  applyLabelVisibility();
+}
+
 // ===== Proper-time clocks =====
 //
 // Small clocks at grid vertices (and at A and B) show each spot's own proper time τ.
@@ -1624,6 +1735,7 @@ function onMassChanged() {
   describeView();
   applyLabelVisibility();
   onBeamChanged();
+  buildMeasuringSticks();
 }
 
 function onBeamChanged() {
@@ -1663,6 +1775,12 @@ brightnessSlider.addEventListener("input", () => {
   buildFlammSurface();
 });
 
+document.getElementById("sticks-checkbox").addEventListener("change", (event) => {
+  viewState.showSticks = event.target.checked;
+  stickGroup.visible = viewState.showSticks;
+  applyLabelVisibility();
+});
+
 document.getElementById("clocks-checkbox").addEventListener("change", (event) => {
   viewState.showClocks = event.target.checked;
   applyClockVisibility();
@@ -1697,6 +1815,7 @@ function setView(view) {
   describeView();
   applyLabelVisibility();
   rebuildBeam();
+  buildMeasuringSticks();
   if (view === "grid") { camera.position.set(150, 105, 240); controls.target.set(0, 0, 0); }
   else { camera.position.set(55, 105, 185); controls.target.set(0, -20, 0); }
   controls.update();
