@@ -69,11 +69,16 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   coordinate r*, and its colour is the wavelength a static observer measures locally.
 - The "speed of light" slider is **playback speed only**. Changing c physically is the same as changing the mass,
   since only r_s = 2GM/c² appears. This is explained on the page.
-- Warped grid: laid out evenly in the ruler coordinate ρ = r_a + ℓ(r_a, r) (anchor r_a = 150 km, the drawing's
-  edge), drawn at areal r. 20 km spacing. ρ → r is inverted with a lookup table (hundreds of thousands of points).
+- Warped grid: laid out evenly in the ruler coordinate ρ = R + ℓ(R, r), anchored at the body's surface (or the horizon),
+  drawn at areal r. An outer anchor left a large empty hole around heavy black holes once the grid reached far.
+  The grid is nested (owner asked for no maximum distance, 2026-11-16): 20 km spacing out to 160 km, then spacing
+  and reach double per level until z falls to 0.01 (`visibleExtentKm`, capped at 5000 km). Lines unique to a level
+  fade out over the outer half of its reach. ρ → r is inverted with a lookup table.
+- Optional Flamm embedding line in the grid view: the paraboloid's profile in the x–y plane at the same areal r,
+  with markers under the x-axis grid vertices; arc length between markers equals their ρ spacing.
 - Line brightness (owner's request, 2026-11-16), for the grid and Flamm's paraboloid: lines are invisible where space
   is nearly flat (z ≤ 0.01) and fully bright at the z the user picks with a slider (0.02–2, default 0.2, log scale),
-  and they also fade out toward 150 km (Flamm's surface is now drawn out to 150 km too). Faded lines are darkened, not alpha-blended:
+  and nothing else cuts them off: grid and Flamm's surface both reach out to where z = 0.01. Faded lines are darkened, not alpha-blended:
   LineMaterial has no per-vertex alpha, and additive blending made a glowing wall.
 - Proper-time clocks: at every second grid vertex in the plane through the centre (Flamm view: rings × 8 spokes),
   plus larger clocks at A and B. Hands turn at dτ/dt; a far clock turns once per 100 µs of t, on the light's playback.

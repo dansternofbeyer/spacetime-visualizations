@@ -120,7 +120,8 @@
     <button data-view="grid" class="active">Warped cube grid</button>
     <button data-view="flamm">Flamm's paraboloid</button>
   </div>
-  <label class="check" id="flat-grid-label"><input type="checkbox" id="flat-grid-checkbox"> Show the flat grid for comparison</label>
+  <label class="check grid-only"><input type="checkbox" id="flat-grid-checkbox"> Show the flat grid for comparison</label>
+  <label class="check grid-only"><input type="checkbox" id="embedding-checkbox"> Show a Flamm embedding line (along the x axis)</label>
   <p class="note" id="view-note"></p>
   <label>Lines fully visible where z ≥ <span class="value" id="brightness-value"></span>
     <input type="range" id="brightness-slider" min="0" max="1000" step="1"></label>
@@ -174,13 +175,20 @@
 
       <p><b>Warped cube grid.</b> Curved 3D space can't be drawn in flat 3D without distorting something, so this
         view makes one stated choice. The cube is laid out evenly in <i>ruler coordinates</i>: direction is kept, and the
-        distance from the centre is <span class="tex" data-tex="\rho = r_a + \ell(r_a, r)"></span>, with r<sub>a</sub> = 150 km
-        (the edge of the drawing, where the grid has faded out and ρ = r). Each point is then drawn at its areal radius <i>r</i>. Near the mass
+        distance from the centre is <span class="tex" data-tex="\rho = R + \ell(R, r)"></span>, measured with rulers from the
+        star's surface R (or from the horizon r<sub>s</sub>), where ρ = r. Each point is then drawn at its areal radius <i>r</i>. Near the mass
         a ruler length takes up less <i>r</i>, so the grid lines crowd inward. Along the radius, the cells shrink by
         exactly <span class="tex" data-tex="\sqrt{1-r_s/r}"></span>. Sideways sizes on the drawn cube are true at the
         drawn radius. Nothing is exaggerated: this is the true scale. Lines inside the body or the horizon are not drawn.
-        Around a black hole the ruler distance from the horizon out to 150 km is more than 150 km, so the whole
-        cube, centre included, ends up outside the horizon. The cube's centre is spread over a sphere just outside the horizon, which is where the inner lines bunch up.</p>
+        Far from the mass the extra ruler distance keeps growing slowly (like <span class="tex" data-tex="\tfrac{r_s}{2}\ln r"></span>),
+        so distant lines sit a little inside their flat positions. No choice of anchor makes the grid match flat space
+        everywhere. To reach far out, the grid is <i>nested</i>: each time the distance doubles, the line spacing doubles,
+        and lines that belong only to a finer level fade out where the coarser one takes over.</p>
+      <p><b>Flamm line in the grid view</b> (optional). The profile of Flamm's paraboloid, drawn in the vertical plane through
+        the grid's x axis, at the same areal radius <i>r</i> as the grid. Each white marker hangs below a grid vertex on that axis.
+        The length <i>along the curve</i> between two markers equals the grid's spacing in ρ, because both are ruler distance.
+        The curve keeps its length by bending into the extra (meaningless) vertical direction. The grid keeps its length by
+        packing the vertices closer together in <i>r</i>.</p>
 
       <p><b>Flamm's paraboloid.</b> The equatorial plane at one moment, embedded in flat 3D so that distances measured
         along the surface equal real ruler distances:</p>
@@ -202,8 +210,8 @@
       <p>• <b>Wave size:</b> the wave is drawn <span id="exaggeration-note"></span> times longer than real light,
         so you can see it. The <i>ratios</i> between wavelengths are true.</p>
       <p>• <b>Line brightness</b> (grid and paraboloid): lines fade in with the redshift z of their location:
-        invisible at z ≤ 0.01, fully visible at the z you choose with the slider (log scale in between). They also
-        fade out between 25% and 100% of the 150 km drawing radius. Their positions are unchanged. The fading only
+        invisible at z ≤ 0.01, fully visible at the z you choose with the slider (log scale in between). Nothing else
+        limits how far they reach: grid and surface are drawn out to where z falls to 0.01. Their positions are unchanged. The fading only
         marks where space is nearly flat.</p>
       <p>• <b>Speed of light slider:</b> this only slows the playback. Real light crosses the whole picture in about
         0.3 milliseconds. Changing c itself wouldn't add anything new. In this geometry M and c only appear together as
@@ -308,6 +316,11 @@ const PhysicsCore = {
   redshiftToInfinity(emitterRadius, schwarzschildRadius) {
     if (emitterRadius <= schwarzschildRadius) return Infinity;
     return Math.expm1(-0.5 * Math.log1p(-schwarzschildRadius / emitterRadius));
+  },
+
+  /** Inverse of redshiftToInfinity: the radius whose light reaches infinity with redshift z, r = r_s / (1 − (1+z)^−2). */
+  radiusForRedshiftToInfinity(redshift, schwarzschildRadius) {
+    return schwarzschildRadius / -Math.expm1(-2 * Math.log1p(redshift));
   },
 
   /**
@@ -450,6 +463,13 @@ const PhysicsSelfTests = [
     source: "Limit r_R → ∞ of the two-radius formula",
   },
   {
+    name: "Radius whose light reaches infinity with z = 0.2247… is 3 r_s (inverse formula)",
+    actual: () => PhysicsCore.radiusForRedshiftToInfinity(0.22474487139158894, 1),
+    expected: 3,
+    relativeTolerance: 1e-12,
+    source: "Inverse of the r = 3 r_s reference redshift (schwarzschild.redshift_at_3rs)",
+  },
+  {
     name: "Weak-field limit z ≈ r_s/(2r) at r = 10⁶ r_s",
     actual: () => PhysicsCore.redshiftToInfinity(1e6, 1),
     expected: 5e-7,
@@ -559,17 +579,17 @@ import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 
 const BODY_RADIUS_KM = 12;                  // fixed radius of the central body (neutron-star sized)
 const SCENE_RADIUS_KM = 80;                 // farthest A or B can be; also the rim of Flamm's paraboloid
-const GRID_HALF_WIDTH_KM = 150;             // the grid fades out by here; also the anchor where ρ = r
-const GRID_LINE_SPACING_KM = 20;
-const GRID_POINT_SPACING_KM = 3;            // step along each grid line
+const GRID_INNER_HALF_WIDTH_KM = 160;       // reach of the finest grid level; each further level doubles it
+const GRID_LINE_SPACING_KM = 20;            // spacing of the finest level; doubles with each level
+const LEVEL_FADE_START = 0.5;               // a level's own lines hand over to the next level from half its reach
+const MAXIMUM_EXTENT_KM = 5000;             // safety cap on how far grid and surface are drawn
 const FLAT_GRID_HALF_WIDTH_KM = 60;        // extent of the flat comparison cube
 const RULER_LOOKUP_SIZE = 4000;
 const LINE_Z_INVISIBLE = 0.01;              // line brightness (visual choice): invisible where z ≤ this,
                                             // full where z ≥ viewState.fullBrightnessRedshift (slider)
 const FULL_BRIGHTNESS_Z_MIN = 0.02;         // range of that slider (log scale)
 const FULL_BRIGHTNESS_Z_MAX = 2;
-const EDGE_FADE_START = 0.25;               // lines also fade out from 25% of the drawing's radius to its edge
-const FLAMM_OUTER_RADIUS_KM = 150;          // Flamm's paraboloid is drawn out to here (faded out by then)
+
 const BEAM_POINTS = 1400;
 const BEAM_DIRECTION_ANGLE = 0.35;          // radians from +x, so the beam doesn't sit on a grid line
 const WAVE_KM_PER_NM = 6 / 450;             // drawn wave length per nanometre of real wavelength
@@ -595,6 +615,7 @@ const viewState = {
   travelledTortoiseKm: 0,    // c × (distant-observer time since emission began), measured in r*
   coordinateTimeSeconds: 0,  // distant-observer time t that drives the clocks (not reset by "Emit again")
   showClocks: true,
+  showEmbeddingLine: false,
   fullBrightnessRedshift: 0.2,   // lines are fully bright where the redshift to infinity is at least this
 };
 
@@ -722,6 +743,7 @@ function makeLabel(text, className = "label") {
  */
 function applyLabelVisibility() {
   bodyLabel.visible = viewState.view === "grid";
+  embeddingLabel.visible = viewState.view === "grid" && viewState.showEmbeddingLine;
   flammNoteLabel.visible = flammBodyLabel.visible = viewState.view === "flamm";
   for (const { radius, label } of flammRingLabels) {
     label.visible = viewState.view === "flamm" && radius > spacetime.bodyRadiusKm + 3;
@@ -771,41 +793,65 @@ function updateCentralBody() {
 // ===== Warped cube grid =====
 //
 // The cube is laid out evenly in flat "ruler coordinates" (direction kept, distance from the centre ρ),
-// then each point is drawn at the areal radius r that has that ruler coordinate.
-// Brightness is a visual choice: lines fade to nothing where space is nearly flat (small redshift z)
-// and toward the edge of the drawing. Faded lines are darkened toward the black background.
+// then each point is drawn at the areal radius r that has that ruler coordinate. ρ is anchored at the
+// body's surface (or the horizon): ρ = R + ℓ(R, r).
+// To reach far out without millions of lines, the grid is nested: every time the distance doubles, the
+// spacing doubles. Lines that exist only in a finer level fade out where the next level takes over.
+// Brightness is a visual choice: lines fade to nothing where space is nearly flat (small redshift z).
 
 const warpedGridMaterial = makeLineMaterial({ vertexColors: true, linewidth: 1.4, opacity: 1, transparent: false });
 const flatGridMaterial = makeLineMaterial({ color: 0x8a93a8, linewidth: 1, opacity: 0.28 });
 let warpedGrid = null;
 let flatGrid = null;
 let rulerLookup = null;
+let gridLevels = [];
+
+/** How far out lines are worth drawing: where the redshift to infinity drops to LINE_Z_INVISIBLE. */
+function visibleExtentKm() {
+  const radius = PhysicsCore.radiusForRedshiftToInfinity(LINE_Z_INVISIBLE, spacetime.schwarzschildRadiusKm);
+  return Math.min(Math.max(radius, GRID_INNER_HALF_WIDTH_KM), MAXIMUM_EXTENT_KM);
+}
+
+/** The nested grid levels: spacing and reach double each level until the lines have faded out. */
+function buildGridLevels() {
+  const extent = visibleExtentKm();
+  const levels = [];
+  let spacing = GRID_LINE_SPACING_KM;
+  let halfWidth = GRID_INNER_HALF_WIDTH_KM;
+  while (true) {
+    levels.push({ spacing, halfWidth });
+    if (halfWidth >= extent) return levels;
+    spacing *= 2;
+    halfWidth *= 2;
+  }
+}
 
 /**
  * Table of ruler coordinates ρ(r) for the current mass. The grid has hundreds of thousands of points,
  * so it inverts ρ → r by interpolating this table instead of solving for each point.
+ * Since ρ ≥ r, the table only needs r up to the largest ρ drawn.
  */
-function buildRulerLookup() {
+function buildRulerLookup(largestRulerValue) {
   const rs = spacetime.schwarzschildRadiusKm;
-  const innerRadius = spacetime.bodyRadiusKm;
-  const outerRadius = GRID_HALF_WIDTH_KM * Math.sqrt(3) + 1;   // r never exceeds max(ρ, anchor) ≤ the cube corner
+  const anchor = spacetime.bodyRadiusKm;
+  const outerRadius = largestRulerValue + 1;
   const radii = new Float64Array(RULER_LOOKUP_SIZE);
   const rulerValues = new Float64Array(RULER_LOOKUP_SIZE);
   for (let index = 0; index < RULER_LOOKUP_SIZE; index++) {
     const fraction = index / (RULER_LOOKUP_SIZE - 1);
-    radii[index] = innerRadius + (outerRadius - innerRadius) * fraction * fraction;   // denser near the body
-    rulerValues[index] = PhysicsCore.rulerCoordinate(radii[index], rs, GRID_HALF_WIDTH_KM);
+    radii[index] = anchor + (outerRadius - anchor) * fraction * fraction;   // denser near the body
+    rulerValues[index] = PhysicsCore.rulerCoordinate(radii[index], rs, anchor);
   }
-  rulerLookup = { radii, rulerValues };
+  rulerLookup = { radii, rulerValues, anchor };
 }
 
 /** Areal radius r whose ruler coordinate is ρ, or null when that point is inside the body or horizon. */
 function radiusForRulerValue(rulerValue) {
-  const { radii, rulerValues } = rulerLookup;
+  const { radii, rulerValues, anchor } = rulerLookup;
   const last = rulerValues.length - 1;
   if (rulerValue < rulerValues[0]) return null;
   if (rulerValue >= rulerValues[last]) {
-    return PhysicsCore.radiusFromRulerCoordinate(rulerValue, spacetime.schwarzschildRadiusKm, GRID_HALF_WIDTH_KM);
+    return PhysicsCore.radiusFromRulerCoordinate(rulerValue, spacetime.schwarzschildRadiusKm, anchor);
   }
   let low = 0;
   let high = last;
@@ -831,66 +877,77 @@ const smoothStep = (value) => { const t = Math.min(Math.max(value, 0), 1); retur
 
 /**
  * How bright a grid or surface line is drawn at areal radius r, 0…1 (visual choice).
- * It grows with the redshift z from that spot: invisible below LINE_Z_INVISIBLE, full above the
- * slider's value (log scale in between). It also fades out as distanceFromCentre nears fadeOutRadius.
+ * It grows with the redshift z from that spot: invisible at LINE_Z_INVISIBLE or below, full at the
+ * slider's value or above, log scale in between. Nothing else limits how far the lines reach.
  */
-function lineBrightness(radius, distanceFromCentre, fadeOutRadius) {
+function lineBrightness(radius) {
   const redshift = PhysicsCore.redshiftToInfinity(radius, spacetime.schwarzschildRadiusKm);
+  if (!isFinite(redshift)) return 1;
   const logInvisible = Math.log10(LINE_Z_INVISIBLE);
-  const warping = isFinite(redshift)
-    ? (Math.log10(redshift) - logInvisible) / (Math.log10(viewState.fullBrightnessRedshift) - logInvisible)
-    : 1;
-  const edge = (fadeOutRadius - distanceFromCentre) / (fadeOutRadius * (1 - EDGE_FADE_START));
-  return smoothStep(warping) * smoothStep(edge) ** 2;
+  return smoothStep((Math.log10(redshift) - logInvisible) / (Math.log10(viewState.fullBrightnessRedshift) - logInvisible));
 }
 
 /** Grid/surface colour at areal radius r: redshift colour, dimmed by lineBrightness. */
-function fadedColorForRadius(radius, distanceFromCentre, fadeOutRadius, target) {
-  return colorForRadius(radius, target).multiplyScalar(lineBrightness(radius, distanceFromCentre, fadeOutRadius));
+function fadedColorForRadius(radius, target) {
+  return colorForRadius(radius, target).multiplyScalar(lineBrightness(radius));
+}
+
+/**
+ * Traces one straight line of the flat lattice (along `axis`, offset a and b in the other two
+ * directions) and adds its warped, coloured segments. Steps are short near the mass and longer far out.
+ */
+function traceGridLine(axis, a, b, level, isOutermostLevel, positions, colors) {
+  const color = new THREE.Color();
+  const reach = Math.sqrt(level.halfWidth ** 2 - a * a - b * b);
+  const flatPoint = (t) => (axis === 0 ? [t, a, b] : axis === 1 ? [a, t, b] : [a, b, t]);
+  let previousFlat = null;
+  let previousPoint = null;
+  for (let t = -reach; ; ) {
+    const flat = flatPoint(t);
+    const point = warpGridPoint(...flat);
+    if (point) {
+      // Lines that only belong to this level hand over to the coarser level in the outer half of its reach.
+      const handOver = isOutermostLevel ? 1 : smoothStep((level.halfWidth - point.rulerValue) / (level.halfWidth * (1 - LEVEL_FADE_START)));
+      point.brightness = lineBrightness(point.radius) * handOver;
+    }
+    // A line through the very centre flips direction there; don't join across it.
+    const crossesCentre = previousFlat && previousFlat[0] * flat[0] + previousFlat[1] * flat[1] + previousFlat[2] * flat[2] < 0;
+    if (previousPoint && point && !crossesCentre && Math.max(previousPoint.brightness, point.brightness) > 0.01) {
+      positions.push(previousPoint.x, previousPoint.y, previousPoint.z, point.x, point.y, point.z);
+      for (const end of [previousPoint, point]) {
+        colorForRadius(end.radius, color).multiplyScalar(end.brightness);
+        colors.push(color.r, color.g, color.b);
+      }
+    }
+    previousFlat = flat;
+    previousPoint = point;
+    if (t >= reach) break;
+    const step = Math.min(Math.max(0.04 * Math.hypot(...flat), 1), level.spacing / 4);
+    t = Math.min(t + step, reach);
+  }
 }
 
 function buildWarpedGrid() {
-  buildRulerLookup();
+  gridLevels = buildGridLevels();
+  buildRulerLookup(gridLevels[gridLevels.length - 1].halfWidth);
   const positions = [];
   const colors = [];
-  const color = new THREE.Color();
-  const linesPerAxis = Math.round((2 * GRID_HALF_WIDTH_KM) / GRID_LINE_SPACING_KM) + 1;
-  const pointsPerLine = Math.round((2 * GRID_HALF_WIDTH_KM) / GRID_POINT_SPACING_KM) + 1;
-
-  const brightPoint = (flat) => {
-    if (Math.hypot(...flat) >= GRID_HALF_WIDTH_KM) return null;   // fully faded out there
-    const point = warpGridPoint(...flat);
-    if (point) point.brightness = lineBrightness(point.radius, point.rulerValue, GRID_HALF_WIDTH_KM);
-    return point;
-  };
-
-  for (let axis = 0; axis < 3; axis++) {
-    for (let first = 0; first < linesPerAxis; first++) {
-      for (let second = 0; second < linesPerAxis; second++) {
-        const a = -GRID_HALF_WIDTH_KM + first * GRID_LINE_SPACING_KM;
-        const b = -GRID_HALF_WIDTH_KM + second * GRID_LINE_SPACING_KM;
-        if (Math.hypot(a, b) >= GRID_HALF_WIDTH_KM) continue;   // the whole line is faded out
-        let previousFlat = null;
-        let previousPoint = null;
-        for (let step = 0; step < pointsPerLine; step++) {
-          const t = -GRID_HALF_WIDTH_KM + step * GRID_POINT_SPACING_KM;
-          const flat = axis === 0 ? [t, a, b] : axis === 1 ? [a, t, b] : [a, b, t];
-          const point = brightPoint(flat);
-          // A line through the very centre flips direction there; don't join across it.
-          const crossesCentre = previousFlat && previousFlat[0] * flat[0] + previousFlat[1] * flat[1] + previousFlat[2] * flat[2] < 0;
-          if (previousPoint && point && !crossesCentre && Math.max(previousPoint.brightness, point.brightness) > 0.01) {
-            positions.push(previousPoint.x, previousPoint.y, previousPoint.z, point.x, point.y, point.z);
-            for (const end of [previousPoint, point]) {
-              colorForRadius(end.radius, color).multiplyScalar(end.brightness);
-              colors.push(color.r, color.g, color.b);
-            }
-          }
-          previousFlat = flat;
-          previousPoint = point;
+  gridLevels.forEach((level, levelIndex) => {
+    const isOutermostLevel = levelIndex === gridLevels.length - 1;
+    const count = Math.round(level.halfWidth / level.spacing);
+    for (let axis = 0; axis < 3; axis++) {
+      for (let first = -count; first <= count; first++) {
+        for (let second = -count; second <= count; second++) {
+          // Each line is drawn once, by the coarsest level that contains it.
+          if (!isOutermostLevel && first % 2 === 0 && second % 2 === 0) continue;
+          const a = first * level.spacing;
+          const b = second * level.spacing;
+          if (Math.hypot(a, b) >= level.halfWidth) continue;
+          traceGridLine(axis, a, b, level, isOutermostLevel, positions, colors);
         }
       }
     }
-  }
+  });
 
   if (warpedGrid) { gridGroup.remove(warpedGrid); warpedGrid.geometry.dispose(); }
   const geometry = new LineSegmentsGeometry();
@@ -901,6 +958,7 @@ function buildWarpedGrid() {
 
   if (!flatGrid) flatGrid = buildFlatGrid();
   flatGrid.visible = viewState.showFlatGrid;
+  buildEmbeddingLine();
 }
 
 /** The undistorted cube (±60 km) for comparison. It never changes. */
@@ -923,9 +981,90 @@ function buildFlatGrid() {
   return grid;
 }
 
+// ===== Flamm embedding line inside the grid view =====
+//
+// The profile of Flamm's paraboloid drawn in the vertical plane through the grid's x axis, at the same
+// areal radius r as the grid. Markers sit below the grid vertices on the x axis. The arc length along
+// the curve between two markers equals their spacing in ρ, because both are ruler distance.
+
+const embeddingLineMaterial = makeLineMaterial({ vertexColors: true, linewidth: 2.4, opacity: 1, transparent: false });
+const embeddingLinkMaterial = makeLineMaterial({ color: 0xc9d2e8, linewidth: 1, opacity: 0.35 });
+const embeddingMarkerMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const embeddingMarkerGeometry = new THREE.SphereGeometry(0.8, 12, 8);
+const embeddingGroup = new THREE.Group();
+const embeddingLabel = makeLabel("Flamm embedding line: its vertical direction has no physical meaning", "label faint");
+gridGroup.add(embeddingGroup, embeddingLabel);
+
+function buildEmbeddingLine() {
+  for (const child of [...embeddingGroup.children]) {
+    embeddingGroup.remove(child);
+    if (child.geometry !== embeddingMarkerGeometry) child.geometry.dispose();
+  }
+  const { schwarzschildRadiusKm: rs, isBlackHole } = spacetime;
+  const outerRadius = visibleExtentKm();
+  const innerRadius = isBlackHole ? rs : 0;   // a star's curve continues through its interior cap
+  const starColor = new THREE.Color(0xffb060);
+  const color = new THREE.Color();
+
+  // The curve, on both sides of the centre (sampled densely near the middle).
+  const positions = [];
+  const colors = [];
+  const samples = 600;
+  for (const side of [1, -1]) {
+    let previous = null;
+    for (let index = 0; index <= samples; index++) {
+      const fraction = index / samples;
+      const radius = innerRadius + (outerRadius - innerRadius) * fraction * fraction;
+      if (radius < spacetime.bodyRadiusKm) color.copy(starColor); else color.copy(new THREE.Color(0xffffff)).multiplyScalar(Math.max(lineBrightness(radius), 0));
+      const current = { position: [side * radius, flammSurfaceY(radius), 0], color: [color.r, color.g, color.b] };
+      if (previous && Math.max(...previous.color, ...current.color) > 0.01) {
+        positions.push(...previous.position, ...current.position);
+        colors.push(...previous.color, ...current.color);
+      }
+      previous = current;
+    }
+  }
+  const curveGeometry = new LineSegmentsGeometry();
+  curveGeometry.setPositions(positions);
+  curveGeometry.setColors(colors);
+  embeddingGroup.add(new LineSegments2(curveGeometry, embeddingLineMaterial));
+
+  // Markers below the grid vertices on the x axis, joined to them by faint vertical links.
+  const linkPositions = [];
+  for (const rulerValue of gridVertexRulerValues()) {
+    const radius = radiusForRulerValue(rulerValue);
+    if (radius === null || radius < spacetime.bodyRadiusKm || lineBrightness(radius) < 0.05) continue;
+    for (const side of [1, -1]) {
+      const marker = new THREE.Mesh(embeddingMarkerGeometry, embeddingMarkerMaterial);
+      marker.position.set(side * radius, flammSurfaceY(radius), 0);
+      embeddingGroup.add(marker);
+      linkPositions.push(side * radius, 0, 0, side * radius, flammSurfaceY(radius), 0);
+    }
+  }
+  if (linkPositions.length) {
+    const linkGeometry = new LineSegmentsGeometry();
+    linkGeometry.setPositions(linkPositions);
+    embeddingGroup.add(new LineSegments2(linkGeometry, embeddingLinkMaterial));
+  }
+  embeddingLabel.position.set(45, flammSurfaceY(45) - 5, 0);
+  embeddingGroup.visible = viewState.showEmbeddingLine;
+}
+
+/** Ruler coordinates ρ of the grid vertices along the x axis (finer spacing near the centre). */
+function gridVertexRulerValues() {
+  const values = [];
+  let start = 0;
+  for (const level of gridLevels) {
+    const limit = level.halfWidth * LEVEL_FADE_START;   // where this level's own lines are still fully drawn
+    for (let value = Math.ceil((start + 1e-9) / level.spacing) * level.spacing; value <= limit; value += level.spacing) values.push(value);
+    start = limit;
+  }
+  return values;
+}
+
 // ===== Flamm's paraboloid =====
 
-const FLAMM_RINGS = 120;
+const FLAMM_RINGS = 160;
 const FLAMM_SEGMENTS = 120;
 const flammLineMaterial = makeLineMaterial({ vertexColors: true, linewidth: 1.4, opacity: 0.9 });
 const horizonLineMaterial = makeLineMaterial({ color: 0xff9a4a, linewidth: 2.5, opacity: 1 });
@@ -954,7 +1093,7 @@ function flammSurfaceY(radiusKm) {
 /** Radii spaced more tightly near the inner edge, where the surface is steepest. */
 function flammRingRadius(ringIndex, innerRadius) {
   const fraction = ringIndex / FLAMM_RINGS;
-  return innerRadius + (FLAMM_OUTER_RADIUS_KM - innerRadius) * fraction * fraction;
+  return innerRadius + (visibleExtentKm() - innerRadius) * fraction * fraction;
 }
 
 function buildPolarMesh(radiusAt, ringCount, material, colorAt) {
@@ -1003,21 +1142,27 @@ function buildFlammSurface() {
   const innerRadius = bodyRadiusKm;
 
   flammObjects.push(buildPolarMesh((ring) => flammRingRadius(ring, innerRadius), FLAMM_RINGS,
-    flammSurfaceMaterial, (radius, color) => fadedColorForRadius(radius, radius, FLAMM_OUTER_RADIUS_KM, color)));
+    flammSurfaceMaterial, fadedColorForRadius));
 
-  // Wire lines: circles of constant r every 10 km, and radial lines every 15°.
+  // Wire lines: circles of constant r (every 10 km, spacing doubling beyond 80 km), and radial lines every 15°.
   const linePositions = [];
   const lineColors = [];
   const color = new THREE.Color();
   const addColoredSegment = (radius1, radius2, ...coordinates) => {
     linePositions.push(...coordinates);
     for (const radius of [radius1, radius2]) {
-      fadedColorForRadius(radius, radius, FLAMM_OUTER_RADIUS_KM, color);
+      fadedColorForRadius(radius, color);
       lineColors.push(color.r, color.g, color.b);
     }
   };
   const circleRadii = [innerRadius];
-  for (let radius = Math.ceil((innerRadius + 0.5) / 10) * 10; radius < FLAMM_OUTER_RADIUS_KM; radius += 10) circleRadii.push(radius);
+  const outerRadius = visibleExtentKm();
+  let circleSpacing = 10;
+  let doublingRadius = 80;
+  for (let radius = Math.ceil((innerRadius + 0.5) / 10) * 10; radius < outerRadius; radius += circleSpacing) {
+    if (lineBrightness(radius) > 0.01) circleRadii.push(radius);
+    if (radius >= doublingRadius) { circleSpacing *= 2; doublingRadius *= 2; }
+  }
   for (const radius of circleRadii) {
     const positions = circlePositions(radius);
     for (let index = 0; index < positions.length; index += 6) addColoredSegment(radius, radius, ...positions.slice(index, index + 6));
@@ -1436,12 +1581,11 @@ function showSliderValues() {
 
 function describeView() {
   const element = document.getElementById("view-note");
-  document.getElementById("flat-grid-label").style.display = viewState.view === "grid" ? "" : "none";
+  document.querySelectorAll(".grid-only").forEach((element) => { element.style.display = viewState.view === "grid" ? "" : "none"; });
   element.textContent = viewState.view === "grid"
     ? "The cube is laid out evenly in ruler distance from the centre, then each point is drawn at its areal radius r. "
       + "Lines crowd toward the mass because there is more radial distance there than flat space would allow. True scale."
-      + (spacetime.isBlackHole ? " Around this black hole there is so much radial distance that the whole cube fits outside"
-        + " the horizon: the cube's centre lands on a sphere just outside it." : "")
+      + " The spacing doubles each time the distance doubles, so the grid reaches out until it fades."
     : "The equatorial plane embedded in 3D: distances along the surface are true ruler distances. "
       + "The depth itself means nothing physical. True scale.";
 }
@@ -1499,6 +1643,12 @@ brightnessSlider.addEventListener("input", () => {
 document.getElementById("clocks-checkbox").addEventListener("change", (event) => {
   viewState.showClocks = event.target.checked;
   applyClockVisibility();
+});
+
+document.getElementById("embedding-checkbox").addEventListener("change", (event) => {
+  viewState.showEmbeddingLine = event.target.checked;
+  embeddingGroup.visible = viewState.showEmbeddingLine;
+  applyLabelVisibility();
 });
 
 document.getElementById("flat-grid-checkbox").addEventListener("change", (event) => {
