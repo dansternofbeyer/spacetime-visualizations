@@ -69,7 +69,13 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   coordinate r*, and its colour is the wavelength a static observer measures locally.
 - The "speed of light" slider is **playback speed only**. Changing c physically is the same as changing the mass,
   since only r_s = 2GM/c² appears. This is explained on the page.
-- Warped grid: laid out evenly in the ruler coordinate ρ = r_a + ℓ(r_a, r) (anchor r_a = 60 km), drawn at areal r.
+- Warped grid: laid out evenly in the ruler coordinate ρ = r_a + ℓ(r_a, r) (anchor r_a = 150 km, the drawing's
+  edge), drawn at areal r. 20 km spacing. ρ → r is inverted with a lookup table (hundreds of thousands of points).
+- Grid brightness (owner's request, 2026-11-16): lines are invisible where space is nearly flat (z ≤ 0.01) and fully
+  bright at z ≥ 0.2 (log scale), and they also fade out toward 150 km. Faded lines are darkened, not alpha-blended:
+  LineMaterial has no per-vertex alpha, and additive blending made a glowing wall.
+- Proper-time clocks: at every second grid vertex in the plane through the centre (Flamm view: rings × 8 spokes),
+  plus larger clocks at A and B. Hands turn at dτ/dt; a far clock turns once per 100 µs of t, on the light's playback.
   This is one stated choice among several (see pitfalls.md); the alternatives are Gullstrand–Painlevé flow lines
   or drawing in proper distance.
 - Wave length on screen is exaggerated by about 1.3 × 10¹⁰ (stated on the page); everything else is true scale.

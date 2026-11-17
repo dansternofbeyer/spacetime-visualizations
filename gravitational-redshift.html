@@ -122,9 +122,24 @@
   </div>
   <label class="check" id="flat-grid-label"><input type="checkbox" id="flat-grid-checkbox"> Show the flat grid for comparison</label>
   <p class="note" id="view-note"></p>
-  <p class="note" style="margin-top:8px">Grid colour: redshift z that light from that spot has when it reaches a distant observer (log scale)</p>
+  <p class="note" style="margin-top:8px">Grid colour: redshift z that light from that spot has when it reaches a distant
+    observer (log scale). Grid lines fade to invisible where space is nearly flat (z below 0.01) and toward the edge
+    of the drawing. The fading is a visual choice.</p>
   <div id="legend-bar"></div>
   <div class="legend-labels"><span>≤ 0.01</span><span>0.03</span><span>0.1</span><span>0.3</span><span>1</span><span>≥ 3</span></div>
+
+  <h2>Proper-time clocks</h2>
+  <label class="check"><input type="checkbox" id="clocks-checkbox" checked> Show clocks</label>
+  <div class="row" style="align-items:center; flex-wrap:nowrap; gap:10px">
+    <svg width="36" height="36" viewBox="-18 -18 36 36" aria-label="Clock far from the mass" style="flex:none">
+      <circle r="16" fill="#0b0f1a" stroke="#2f5bff" stroke-width="2.5"></circle>
+      <line x1="0" y1="-11" x2="0" y2="-14" stroke="#9aa3b8" stroke-width="2"></line>
+      <line id="far-clock-hand" x1="0" y1="0" x2="0" y2="-12" stroke="#fff" stroke-width="2.4" stroke-linecap="round"></line>
+    </svg>
+    <p class="note" style="margin:0">This is a clock far from the mass. It turns once per 100 µs of the distant observer's
+      time, slowed down like the light. Each clock in the picture shows its own proper time τ and turns slower by its
+      rate dτ/dt (the labelled ones show it).</p>
+  </div>
 
   <details>
     <summary>Physics notes</summary>
@@ -157,12 +172,12 @@
 
       <p><b>Warped cube grid.</b> Curved 3D space can't be drawn in flat 3D without distorting something, so this
         view makes one stated choice. The cube is laid out evenly in <i>ruler coordinates</i>: direction is kept, and the
-        distance from the centre is <span class="tex" data-tex="\rho = r_a + \ell(r_a, r)"></span>, with r<sub>a</sub> = 60 km
-        (the cube's half-width, where ρ = r). Each point is then drawn at its areal radius <i>r</i>. Near the mass
+        distance from the centre is <span class="tex" data-tex="\rho = r_a + \ell(r_a, r)"></span>, with r<sub>a</sub> = 150 km
+        (the edge of the drawing, where the grid has faded out and ρ = r). Each point is then drawn at its areal radius <i>r</i>. Near the mass
         a ruler length takes up less <i>r</i>, so the grid lines crowd inward. Along the radius, the cells shrink by
         exactly <span class="tex" data-tex="\sqrt{1-r_s/r}"></span>. Sideways sizes on the drawn cube are true at the
         drawn radius. Nothing is exaggerated: this is the true scale. Lines inside the body or the horizon are not drawn.
-        Around a heavy black hole the ruler distance from the horizon out to 60 km is more than 60 km, so the whole
+        Around a black hole the ruler distance from the horizon out to 150 km is more than 150 km, so the whole
         cube, centre included, ends up outside the horizon. The cube's centre is spread over a sphere just outside the horizon, which is where the inner lines bunch up.</p>
 
       <p><b>Flamm's paraboloid.</b> The equatorial plane at one moment, embedded in flat 3D so that distances measured
@@ -184,12 +199,20 @@
       <p class="warning"><b>Visual choices (not physics)</b></p>
       <p>• <b>Wave size:</b> the wave is drawn <span id="exaggeration-note"></span> times longer than real light,
         so you can see it. The <i>ratios</i> between wavelengths are true.</p>
+      <p>• <b>Grid brightness:</b> the grid lines fade in with the redshift z of their location: invisible at z ≤ 0.01,
+        full brightness at z ≥ 0.2 (log scale). They also fade out between 25% and 100% of the 150 km drawing radius.
+        Their positions are unchanged. The fading only marks where space is nearly flat.</p>
       <p>• <b>Speed of light slider:</b> this only slows the playback. Real light crosses the whole picture in about
         0.3 milliseconds. Changing c itself wouldn't add anything new. In this geometry M and c only appear together as
         r<sub>s</sub> = 2GM/c², so halving c acts exactly like making the mass four times bigger. Use the mass slider for that.</p>
       <p>• <b>Colours</b> come from the CIE 1931 colour-matching functions (analytic fit by Wyman, Sloan &amp; Shirley 2013),
         converted to sRGB and desaturated to fit the screen. Wavelengths beyond 780 nm (infrared) or below 380 nm
         (ultraviolet) are invisible and are drawn grey. The readout always shows the true wavelength.</p>
+      <p><b>Clocks.</b> Each clock belongs to a static observer at its grid vertex (and at A and B). Its hand shows that
+        observer's proper time, <span class="tex" data-tex="\tau = t\sqrt{1-r_s/r}"></span>. A clock far away turns once per
+        100 µs of <i>t</i>, played back as slowly as the light. The clock rate and the redshift are the same effect:
+        <span class="tex" data-tex="1+z_{A\to B} = (d\tau/dt)_B / (d\tau/dt)_A"></span>. B's clock gets through more
+        ticks per wave crest than A's, so B measures a lower frequency.</p>
       <p>• The beam is radial, so it doesn't bend. Light bending and the photon sphere are left out.</p>
 
       <p><b>Sources.</b> S. Carroll, <i>Spacetime and Geometry</i> (2004), ch. 5; J. Hartle, <i>Gravity</i> (2003), ch. 9–10;
@@ -533,9 +556,14 @@ import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 
 const BODY_RADIUS_KM = 12;                  // fixed radius of the central body (neutron-star sized)
 const SCENE_RADIUS_KM = 80;                 // farthest A or B can be; also the rim of Flamm's paraboloid
-const GRID_HALF_WIDTH_KM = 60;              // the cube grid spans ±60 km; also the anchor where ρ = r
-const GRID_LINES_PER_AXIS = 9;              // 15 km spacing
-const GRID_POINTS_PER_LINE = 61;            // 2 km steps along each grid line
+const GRID_HALF_WIDTH_KM = 150;             // the grid fades out by here; also the anchor where ρ = r
+const GRID_LINE_SPACING_KM = 20;
+const GRID_POINT_SPACING_KM = 3;            // step along each grid line
+const FLAT_GRID_HALF_WIDTH_KM = 60;        // extent of the flat comparison cube
+const RULER_LOOKUP_SIZE = 4000;
+const GRID_Z_INVISIBLE = 0.01;              // grid brightness (visual choice): invisible where z ≤ this …
+const GRID_Z_FULL = 0.2;                    // … full brightness where z ≥ this
+const GRID_EDGE_FADE_START = 0.25;          // and fades out from 25% of the half-width to the edge
 const BEAM_POINTS = 1400;
 const BEAM_DIRECTION_ANGLE = 0.35;          // radians from +x, so the beam doesn't sit on a grid line
 const WAVE_KM_PER_NM = 6 / 450;             // drawn wave length per nanometre of real wavelength
@@ -545,6 +573,9 @@ const CLOSEST_TO_HORIZON = 1.01;            // A and B stay outside 1.01 r_s aro
 const SPEED_OF_LIGHT_KM_S = PhysicsConstants.speedOfLight / 1000;
 const SCREEN_SPEED_MIN_KM_S = 0.5;
 const SCREEN_SPEED_MAX_KM_S = 50;
+const CLOCK_PERIOD_SECONDS = 100e-6;        // a far-away clock turns once per 100 µs of distant-observer time
+const CLOCK_SIZE_KM = 2.6;                  // radius of a clock face
+const CLOCK_REGION_KM = 125;                // grid view: clocks on vertices within this flat distance
 
 const viewState = {
   massInSolarMasses: 1.4,
@@ -556,6 +587,8 @@ const viewState = {
   showFlatGrid: false,
   paused: false,
   travelledTortoiseKm: 0,    // c × (distant-observer time since emission began), measured in r*
+  coordinateTimeSeconds: 0,  // distant-observer time t that drives the clocks (not reset by "Emit again")
+  showClocks: true,
 };
 
 let spacetime = describeSpacetime();
@@ -729,74 +762,151 @@ function updateCentralBody() {
 }
 
 // ===== Warped cube grid =====
+//
+// The cube is laid out evenly in flat "ruler coordinates" (direction kept, distance from the centre ρ),
+// then each point is drawn at the areal radius r that has that ruler coordinate.
+// Brightness is a visual choice: lines fade to nothing where space is nearly flat (small redshift z)
+// and toward the edge of the drawing. Faded lines are darkened toward the black background.
 
-const warpedGridMaterial = makeLineMaterial({ vertexColors: true, linewidth: 1.6, opacity: 0.9 });
+const warpedGridMaterial = makeLineMaterial({ vertexColors: true, linewidth: 1.4, opacity: 1, transparent: false });
 const flatGridMaterial = makeLineMaterial({ color: 0x8a93a8, linewidth: 1, opacity: 0.28 });
 let warpedGrid = null;
 let flatGrid = null;
+let rulerLookup = null;
+
+/**
+ * Table of ruler coordinates ρ(r) for the current mass. The grid has hundreds of thousands of points,
+ * so it inverts ρ → r by interpolating this table instead of solving for each point.
+ */
+function buildRulerLookup() {
+  const rs = spacetime.schwarzschildRadiusKm;
+  const innerRadius = spacetime.bodyRadiusKm;
+  const outerRadius = GRID_HALF_WIDTH_KM * Math.sqrt(3) + 1;   // r never exceeds max(ρ, anchor) ≤ the cube corner
+  const radii = new Float64Array(RULER_LOOKUP_SIZE);
+  const rulerValues = new Float64Array(RULER_LOOKUP_SIZE);
+  for (let index = 0; index < RULER_LOOKUP_SIZE; index++) {
+    const fraction = index / (RULER_LOOKUP_SIZE - 1);
+    radii[index] = innerRadius + (outerRadius - innerRadius) * fraction * fraction;   // denser near the body
+    rulerValues[index] = PhysicsCore.rulerCoordinate(radii[index], rs, GRID_HALF_WIDTH_KM);
+  }
+  rulerLookup = { radii, rulerValues };
+}
+
+/** Areal radius r whose ruler coordinate is ρ, or null when that point is inside the body or horizon. */
+function radiusForRulerValue(rulerValue) {
+  const { radii, rulerValues } = rulerLookup;
+  const last = rulerValues.length - 1;
+  if (rulerValue < rulerValues[0]) return null;
+  if (rulerValue >= rulerValues[last]) {
+    return PhysicsCore.radiusFromRulerCoordinate(rulerValue, spacetime.schwarzschildRadiusKm, GRID_HALF_WIDTH_KM);
+  }
+  let low = 0;
+  let high = last;
+  while (high - low > 1) {
+    const middle = (low + high) >> 1;
+    if (rulerValues[middle] <= rulerValue) low = middle; else high = middle;
+  }
+  const fraction = (rulerValue - rulerValues[low]) / (rulerValues[high] - rulerValues[low]);
+  return radii[low] + fraction * (radii[high] - radii[low]);
+}
 
 /** Places a point laid out in flat ruler coordinates at its areal radius r. Null if inside the body. */
 function warpGridPoint(x, y, z) {
   const rulerValue = Math.hypot(x, y, z);
   if (rulerValue < 1e-9) return null;
-  const radius = PhysicsCore.radiusFromRulerCoordinate(rulerValue, spacetime.schwarzschildRadiusKm, GRID_HALF_WIDTH_KM);
+  const radius = radiusForRulerValue(rulerValue);
   if (radius === null || radius < spacetime.bodyRadiusKm) return null;
   const scale = radius / rulerValue;
-  return { x: x * scale, y: y * scale, z: z * scale, radius };
+  return { x: x * scale, y: y * scale, z: z * scale, radius, rulerValue };
+}
+
+const smoothStep = (value) => { const t = Math.min(Math.max(value, 0), 1); return t * t * (3 - 2 * t); };
+
+/**
+ * How bright a grid point is drawn, 0…1 (visual choice): grows with the redshift z from that point
+ * (invisible below GRID_Z_INVISIBLE, full above GRID_Z_FULL, log scale), and fades out toward the edge.
+ */
+function gridBrightness(point) {
+  const redshift = PhysicsCore.redshiftToInfinity(point.radius, spacetime.schwarzschildRadiusKm);
+  const warping = isFinite(redshift)
+    ? (Math.log10(redshift) - Math.log10(GRID_Z_INVISIBLE)) / (Math.log10(GRID_Z_FULL) - Math.log10(GRID_Z_INVISIBLE))
+    : 1;
+  const edge = (GRID_HALF_WIDTH_KM - point.rulerValue) / (GRID_HALF_WIDTH_KM * (1 - GRID_EDGE_FADE_START));
+  return smoothStep(warping) * smoothStep(edge) ** 2;
 }
 
 function buildWarpedGrid() {
-  const warpedPositions = [];
-  const warpedColors = [];
-  const flatPositions = [];
+  buildRulerLookup();
+  const positions = [];
+  const colors = [];
   const color = new THREE.Color();
-  const lineSpacing = (2 * GRID_HALF_WIDTH_KM) / (GRID_LINES_PER_AXIS - 1);
-  const pointSpacing = (2 * GRID_HALF_WIDTH_KM) / (GRID_POINTS_PER_LINE - 1);
+  const linesPerAxis = Math.round((2 * GRID_HALF_WIDTH_KM) / GRID_LINE_SPACING_KM) + 1;
+  const pointsPerLine = Math.round((2 * GRID_HALF_WIDTH_KM) / GRID_POINT_SPACING_KM) + 1;
+
+  const brightPoint = (flat) => {
+    if (Math.hypot(...flat) >= GRID_HALF_WIDTH_KM) return null;   // fully faded out there
+    const point = warpGridPoint(...flat);
+    if (point) point.brightness = gridBrightness(point);
+    return point;
+  };
 
   for (let axis = 0; axis < 3; axis++) {
-    for (let first = 0; first < GRID_LINES_PER_AXIS; first++) {
-      for (let second = 0; second < GRID_LINES_PER_AXIS; second++) {
-        const a = -GRID_HALF_WIDTH_KM + first * lineSpacing;
-        const b = -GRID_HALF_WIDTH_KM + second * lineSpacing;
+    for (let first = 0; first < linesPerAxis; first++) {
+      for (let second = 0; second < linesPerAxis; second++) {
+        const a = -GRID_HALF_WIDTH_KM + first * GRID_LINE_SPACING_KM;
+        const b = -GRID_HALF_WIDTH_KM + second * GRID_LINE_SPACING_KM;
+        if (Math.hypot(a, b) >= GRID_HALF_WIDTH_KM) continue;   // the whole line is faded out
         let previousFlat = null;
-        let previousWarped = null;
-        for (let step = 0; step < GRID_POINTS_PER_LINE; step++) {
-          const t = -GRID_HALF_WIDTH_KM + step * pointSpacing;
+        let previousPoint = null;
+        for (let step = 0; step < pointsPerLine; step++) {
+          const t = -GRID_HALF_WIDTH_KM + step * GRID_POINT_SPACING_KM;
           const flat = axis === 0 ? [t, a, b] : axis === 1 ? [a, t, b] : [a, b, t];
-          const warped = warpGridPoint(...flat);
-          if (previousFlat) {
-            flatPositions.push(...previousFlat, ...flat);
-            // A line through the very centre flips direction there; don't join across it.
-            const crossesCentre = previousFlat[0] * flat[0] + previousFlat[1] * flat[1] + previousFlat[2] * flat[2] < 0;
-            if (previousWarped && warped && !crossesCentre) {
-              warpedPositions.push(previousWarped.x, previousWarped.y, previousWarped.z, warped.x, warped.y, warped.z);
-              for (const point of [previousWarped, warped]) {
-                colorForRadius(point.radius, color);
-                warpedColors.push(color.r, color.g, color.b);
-              }
+          const point = brightPoint(flat);
+          // A line through the very centre flips direction there; don't join across it.
+          const crossesCentre = previousFlat && previousFlat[0] * flat[0] + previousFlat[1] * flat[1] + previousFlat[2] * flat[2] < 0;
+          if (previousPoint && point && !crossesCentre && Math.max(previousPoint.brightness, point.brightness) > 0.01) {
+            positions.push(previousPoint.x, previousPoint.y, previousPoint.z, point.x, point.y, point.z);
+            for (const end of [previousPoint, point]) {
+              colorForRadius(end.radius, color).multiplyScalar(end.brightness);
+              colors.push(color.r, color.g, color.b);
             }
           }
           previousFlat = flat;
-          previousWarped = warped;
+          previousPoint = point;
         }
       }
     }
   }
 
   if (warpedGrid) { gridGroup.remove(warpedGrid); warpedGrid.geometry.dispose(); }
-  const warpedGeometry = new LineSegmentsGeometry();
-  warpedGeometry.setPositions(warpedPositions);
-  warpedGeometry.setColors(warpedColors);
-  warpedGrid = new LineSegments2(warpedGeometry, warpedGridMaterial);
+  const geometry = new LineSegmentsGeometry();
+  geometry.setPositions(positions);
+  geometry.setColors(colors);
+  warpedGrid = new LineSegments2(geometry, warpedGridMaterial);
   gridGroup.add(warpedGrid);
 
-  if (!flatGrid) {   // the flat grid never changes
-    const flatGeometry = new LineSegmentsGeometry();
-    flatGeometry.setPositions(flatPositions);
-    flatGrid = new LineSegments2(flatGeometry, flatGridMaterial);
-    gridGroup.add(flatGrid);
-  }
+  if (!flatGrid) flatGrid = buildFlatGrid();
   flatGrid.visible = viewState.showFlatGrid;
+}
+
+/** The undistorted cube (±60 km) for comparison. It never changes. */
+function buildFlatGrid() {
+  const positions = [];
+  const halfWidth = FLAT_GRID_HALF_WIDTH_KM;
+  for (let axis = 0; axis < 3; axis++) {
+    for (let a = -halfWidth; a <= halfWidth; a += GRID_LINE_SPACING_KM) {
+      for (let b = -halfWidth; b <= halfWidth; b += GRID_LINE_SPACING_KM) {
+        const start = axis === 0 ? [-halfWidth, a, b] : axis === 1 ? [a, -halfWidth, b] : [a, b, -halfWidth];
+        const end = axis === 0 ? [halfWidth, a, b] : axis === 1 ? [a, halfWidth, b] : [a, b, halfWidth];
+        positions.push(...start, ...end);
+      }
+    }
+  }
+  const geometry = new LineSegmentsGeometry();
+  geometry.setPositions(positions);
+  const grid = new LineSegments2(geometry, flatGridMaterial);
+  gridGroup.add(grid);
+  return grid;
 }
 
 // ===== Flamm's paraboloid =====
@@ -1019,11 +1129,15 @@ function rebuildBeam() {
   const receivedRgb = wavelengthToLinearRgb(localWavelengthNm(receiver));
   emitterMarker.material.color.setRGB(emittedRgb.r, emittedRgb.g, emittedRgb.b);
   receiverMarker.material.color.setRGB(receivedRgb.r, receivedRgb.g, receivedRgb.b);
+  buildClocks();
 }
 
 /** Moves the wave along by the distant observer's clock and redraws the part that has been emitted so far. */
 function advanceBeam(elapsedRealSeconds) {
-  if (!viewState.paused) viewState.travelledTortoiseKm += elapsedRealSeconds * viewState.screenLightSpeedKmS;
+  if (!viewState.paused) {
+    viewState.travelledTortoiseKm += elapsedRealSeconds * viewState.screenLightSpeedKmS;
+    viewState.coordinateTimeSeconds += elapsedRealSeconds * viewState.screenLightSpeedKmS / SPEED_OF_LIGHT_KM_S;
+  }
   const travelled = viewState.travelledTortoiseKm;
   const wavenumber = (2 * Math.PI) / beam.drawnWavelengthAtInfinityKm;
   let lastDrawnIndex = -1;
@@ -1053,6 +1167,105 @@ function advanceBeam(elapsedRealSeconds) {
     const rgb = wavelengthToLinearRgb(localWavelengthNm(beam.radii[lastDrawnIndex]));
     frontMarker.material.color.setRGB(rgb.r, rgb.g, rgb.b);
   }
+}
+
+// ===== Proper-time clocks =====
+//
+// Small clocks at grid vertices (and at A and B) show each spot's own proper time τ.
+// All of them are driven by the distant observer's time t; each turns at its rate dτ/dt = sqrt(1 − r_s/r).
+
+const clockFaceGeometry = new THREE.CircleGeometry(1, 40);
+const clockRimGeometry = new THREE.RingGeometry(0.84, 1, 40);
+const clockHandGeometry = new THREE.PlaneGeometry(0.13, 0.78).translate(0, 0.39, 0);
+const clockTickGeometry = new THREE.PlaneGeometry(0.1, 0.2).translate(0, 0.72, 0);
+const clockFaceMaterial = new THREE.MeshBasicMaterial({ color: 0x0b0f1a, transparent: true, opacity: 0.85, depthWrite: false });
+const clockHandMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const clockTickMaterial = new THREE.MeshBasicMaterial({ color: 0x9aa3b8 });
+const clockGroup = new THREE.Group();
+scene.add(clockGroup);
+let clocks = [];
+
+/** One clock face at a position, for a static observer at areal radius r. */
+function makeClock(radiusKm, position, sizeKm, showRateLabel) {
+  const group = new THREE.Group();
+  const rimMaterial = new THREE.MeshBasicMaterial({ color: colorForRadius(radiusKm, new THREE.Color()) });
+  const face = new THREE.Mesh(clockFaceGeometry, clockFaceMaterial);
+  const rim = new THREE.Mesh(clockRimGeometry, rimMaterial);
+  const tick = new THREE.Mesh(clockTickGeometry, clockTickMaterial);
+  const hand = new THREE.Mesh(clockHandGeometry, clockHandMaterial);
+  rim.position.z = 0.01;
+  tick.position.z = 0.02;
+  hand.position.z = 0.03;
+  group.add(face, rim, tick, hand);
+  group.position.copy(position);
+  group.scale.setScalar(sizeKm);
+  const rate = PhysicsCore.clockRate(radiusKm, spacetime.schwarzschildRadiusKm);
+  let label = null;
+  if (showRateLabel) {
+    label = makeLabel(`×${rate.toFixed(3)}`, "label faint");
+    label.position.set(0, -1.7, 0);
+    group.add(label);
+  }
+  clockGroup.add(group);
+  return { group, hand, rate, label, rimMaterial };
+}
+
+/** Grid vertices that get a clock, in the current view: [radius, position, show rate label]. */
+function clockSites() {
+  const sites = [];
+  if (viewState.view === "grid") {
+    // Every second vertex of the horizontal plane through the centre, within CLOCK_REGION_KM.
+    const step = 2 * GRID_LINE_SPACING_KM;
+    for (let i = -4; i <= 4; i++) {
+      for (let k = -4; k <= 4; k++) {
+        if (Math.hypot(i, k) * step > CLOCK_REGION_KM) continue;
+        const point = warpGridPoint(i * step, 0, k * step);
+        if (!point || point.radius < spacetime.bodyRadiusKm + CLOCK_SIZE_KM) continue;
+        sites.push([point.radius, new THREE.Vector3(point.x, point.y, point.z), i < 0 && k === 0]);
+      }
+    }
+  } else {
+    // Where the 10 km circles meet every second spoke, lifted just above the surface.
+    const radii = [spacetime.bodyRadiusKm + 4, 20, 40, 60, 80].filter((radius, index) =>
+      index === 0 || radius > spacetime.bodyRadiusKm + 8);
+    for (const radius of radii) {
+      for (let spoke = 0; spoke < 8; spoke++) {
+        const angle = (spoke / 8) * 2 * Math.PI;
+        const position = new THREE.Vector3(radius * Math.cos(angle), flammSurfaceY(radius) + CLOCK_SIZE_KM + 0.5, radius * Math.sin(angle));
+        sites.push([radius, position, spoke === 4]);
+      }
+    }
+  }
+  return sites;
+}
+
+function buildClocks() {
+  for (const clock of clocks) {
+    if (clock.label) clock.group.remove(clock.label);   // removing the label itself takes its HTML element off the page
+    clockGroup.remove(clock.group);
+    clock.rimMaterial.dispose();
+  }
+  clocks = clockSites().map(([radius, position, showRate]) => makeClock(radius, position, CLOCK_SIZE_KM, showRate));
+  // Larger clocks just above A and B.
+  const lift = new THREE.Vector3(0, CLOCK_SIZE_KM * 1.5 + 4, 0);
+  clocks.push(makeClock(viewState.emitterRadiusKm, emitterMarker.position.clone().add(lift), CLOCK_SIZE_KM * 1.5, true));
+  clocks.push(makeClock(viewState.receiverRadiusKm, receiverMarker.position.clone().add(lift), CLOCK_SIZE_KM * 1.5, true));
+  applyClockVisibility();
+}
+
+function applyClockVisibility() {
+  clockGroup.visible = viewState.showClocks;
+  for (const clock of clocks) if (clock.label) clock.label.visible = viewState.showClocks;   // CSS2D ignores parents
+}
+
+/** Turns every hand to its own proper time, and the far-away clock in the panel to t. */
+function updateClocks() {
+  const turnsAtInfinity = viewState.coordinateTimeSeconds / CLOCK_PERIOD_SECONDS;
+  for (const clock of clocks) {
+    clock.group.quaternion.copy(camera.quaternion);   // face the viewer
+    clock.hand.rotation.z = -2 * Math.PI * ((clock.rate * turnsAtInfinity) % 1);
+  }
+  farClockHand.setAttribute("transform", `rotate(${(360 * (turnsAtInfinity % 1)).toFixed(2)})`);
 }
 
 // ===== Formatting =====
@@ -1112,6 +1325,7 @@ function updateFrontReadout() {
 // ===== Controls =====
 
 const massSlider = document.getElementById("mass-slider");
+const farClockHand = document.getElementById("far-clock-hand");
 const emitterSlider = document.getElementById("emitter-slider");
 const receiverSlider = document.getElementById("receiver-slider");
 const wavelengthSlider = document.getElementById("wavelength-slider");
@@ -1224,6 +1438,11 @@ document.getElementById("view-mode").addEventListener("click", (event) => {
   setView(button.dataset.view);
 });
 
+document.getElementById("clocks-checkbox").addEventListener("change", (event) => {
+  viewState.showClocks = event.target.checked;
+  applyClockVisibility();
+});
+
 document.getElementById("flat-grid-checkbox").addEventListener("change", (event) => {
   viewState.showFlatGrid = event.target.checked;
   if (flatGrid) flatGrid.visible = viewState.showFlatGrid;
@@ -1237,7 +1456,7 @@ function setView(view) {
   describeView();
   applyLabelVisibility();
   rebuildBeam();
-  if (view === "grid") { camera.position.set(110, 75, 175); controls.target.set(0, 0, 0); }
+  if (view === "grid") { camera.position.set(150, 105, 240); controls.target.set(0, 0, 0); }
   else { camera.position.set(55, 105, 185); controls.target.set(0, -20, 0); }
   controls.update();
 }
@@ -1307,6 +1526,7 @@ function animate(now) {
   previousFrameTime = now;
   advanceBeam(elapsedSeconds);
   if (frameCounter++ % 6 === 0) updateFrontReadout();
+  updateClocks();
   horizonRim.quaternion.copy(camera.quaternion);   // keep the rim facing the viewer
   controls.update();
   renderer.render(scene, camera);
