@@ -136,6 +136,16 @@
   <div id="legend-bar"></div>
   <div class="legend-labels"><span>≤ 0.01</span><span>0.03</span><span>0.1</span><span>0.3</span><span>1</span><span>≥ 3</span></div>
 
+  <h2>Reference frame</h2>
+  <div class="segmented row" id="frame-mode">
+    <button data-frame="infinity" class="active">Far away (∞)</button>
+    <button data-frame="observer">Observer O</button>
+    <button data-frame="camera">The camera</button>
+  </div>
+  <label id="observer-label" style="display:none">O's distance from the centre <span class="value" id="observer-value"></span>
+    <input type="range" id="observer-slider" step="0.01"></label>
+  <p class="note" id="frame-note"></p>
+
   <h2>Clocks and rulers</h2>
   <label class="check"><input type="checkbox" id="sticks-checkbox" checked> Show measuring sticks</label>
   <p class="note" style="margin-top:0">White and orange rulers, each 5 km long, laid end to end outward from the surface, with
@@ -148,9 +158,7 @@
       <line x1="0" y1="-11" x2="0" y2="-14" stroke="#9aa3b8" stroke-width="2"></line>
       <line id="far-clock-hand" x1="0" y1="0" x2="0" y2="-12" stroke="#fff" stroke-width="2.4" stroke-linecap="round"></line>
     </svg>
-    <p class="note" style="margin:0">This is a clock far from the mass. It turns once per 100 µs of the distant observer's
-      time, slowed down like the light. Each clock in the picture shows its own proper time τ and turns slower by its
-      rate dτ/dt (the labelled ones show it).</p>
+    <p class="note" style="margin:0" id="reference-clock-note"></p>
   </div>
 
   <details>
@@ -233,6 +241,18 @@
       <p>• <b>Colours</b> come from the CIE 1931 colour-matching functions (analytic fit by Wyman, Sloan &amp; Shirley 2013),
         converted to sRGB and desaturated to fit the screen. Wavelengths beyond 780 nm (infrared) or below 380 nm
         (ultraviolet) are invisible and are drawn grey. The readout always shows the true wavelength.</p>
+      <p><b>Reference frames.</b> Each frame belongs to a <i>static</i> observer, one hovering at a fixed radius
+        r<sub>O</sub> (far away, at O, or at the camera). Compared with that observer's clock, a static clock at r runs at</p>
+      <div class="tex" data-tex="\frac{d\tau}{d\tau_O}=\sqrt{\frac{1-r_s/r}{1-r_s/r_O}}"></div>
+      <p>and light from A arrives at the observer with <span class="tex" data-tex="1+z=\sqrt{(1-r_s/r_O)/(1-r_s/r_A)}"></span>,
+        a blueshift if A is farther out than the observer. Playback follows the observer's clock: per second of its time,
+        the far clock's time t advances by <span class="tex" data-tex="1/\sqrt{1-r_s/r_O}"></span>. Each clock's hand always shows
+        that clock's own proper time; only the comparison changes. <b>Lengths don't change between these frames.</b>
+        Static observers share the same slices of "space at one moment", so they all measure the same ruler distances,
+        and the grid, the paraboloid and the rulers are the same in every frame. Locally every observer's space looks flat,
+        but the extra distance between two radii is the same number for all of them. (A freely falling observer slices
+        spacetime differently, and for them it disappears; that would be a separate view.)
+        In the camera frame, r<sub>O</sub> is the camera's distance from the centre (on Flamm's paraboloid, from its axis).</p>
       <p><b>Measuring sticks.</b> Rulers of ruler length L = 5 km are laid end to end from the surface (or the horizon):
         the k-th one spans ruler distances kL to (k+1)L, i.e. <span class="tex" data-tex="\ell(R, r_k) = kL"></span>.
         In the grid view, which is drawn at areal radius <i>r</i>, an outward ruler is drawn
@@ -265,6 +285,7 @@
 <section id="readout" class="panel">
   <h2 style="margin-top:0">Measured values</h2>
   <dl>
+    <dt>Frame</dt><dd id="readout-frame"></dd>
     <dt>Schwarzschild r<sub>s</sub></dt><dd id="readout-rs"></dd>
     <dt>Body</dt><dd id="readout-body"></dd>
     <dt>Clock rate at A</dt><dd id="readout-clock-a"></dd>
@@ -274,12 +295,14 @@
     <dt>Redshift A → B</dt><dd id="readout-z-ab"></dd>
     <dt>Redshift A → ∞</dt><dd id="readout-z-a-infinity"></dd>
     <dt>Seen at infinity</dt><dd id="readout-lambda-infinity"></dd>
+    <dt class="observer-row">Redshift A → observer</dt><dd class="observer-row" id="readout-z-a-observer"></dd>
+    <dt class="observer-row">Seen by observer</dt><dd class="observer-row" id="readout-lambda-observer"></dd>
     <dt>Light time A → B</dt><dd id="readout-time"></dd>
     <dt>Ruler distance</dt><dd id="readout-distance"></dd>
     <dt>Wave front</dt><dd id="readout-front"></dd>
   </dl>
-  <p class="note">Clock rates are dτ/dt compared with a clock at infinity. Wavelengths are what a static observer
-    at that spot measures. Times are on the distant observer's clock.</p>
+  <p class="note">Clock rates are compared with the reference frame's clock (see <i>Reference frame</i>). Wavelengths are
+    what a static observer at that spot measures, which is the same in every frame.</p>
 </section>
 
 <footer>
@@ -320,6 +343,15 @@ const PhysicsCore = {
   /** dτ/dt: how fast a static clock at r runs compared with a clock at infinity. */
   clockRate(radius, schwarzschildRadius) {
     return Math.sqrt(PhysicsCore.metricFactor(radius, schwarzschildRadius));
+  },
+
+  /**
+   * How fast a static clock at r runs compared with a static observer's clock at r_O:
+   * sqrt((1 − r_s/r) / (1 − r_s/r_O)). Above 1 means faster. r_O = Infinity gives dτ/dt.
+   */
+  relativeClockRate(radius, observerRadius, schwarzschildRadius) {
+    if (observerRadius === Infinity) return PhysicsCore.clockRate(radius, schwarzschildRadius);
+    return PhysicsCore.clockRate(radius, schwarzschildRadius) / PhysicsCore.clockRate(observerRadius, schwarzschildRadius);
   },
 
   /**
@@ -492,6 +524,20 @@ const PhysicsSelfTests = [
     source: "Inverse of the r = 3 r_s reference redshift (schwarzschild.redshift_at_3rs)",
   },
   {
+    name: "Clock at 3 r_s seen by a very distant static observer runs at 1/(1+z) = sqrt(2/3)",
+    actual: () => PhysicsCore.relativeClockRate(3, 1e12, 1),
+    expected: 0.816496580927726,
+    relativeTolerance: 1e-9,
+    source: "1/(1 + z) with z = schwarzschild.redshift_at_3rs; equals sqrt(2/3) exactly",
+  },
+  {
+    name: "A static observer's own clock runs at rate 1 in its own frame (r = 2.5 r_s)",
+    actual: () => PhysicsCore.relativeClockRate(2.5, 2.5, 1),
+    expected: 1,
+    relativeTolerance: 1e-15,
+    source: "Fixed by definition",
+  },
+  {
     name: "Weak-field limit z ≈ r_s/(2r) at r = 10⁶ r_s",
     actual: () => PhysicsCore.redshiftToInfinity(1e6, 1),
     expected: 5e-7,
@@ -638,6 +684,8 @@ const viewState = {
   coordinateTimeSeconds: 0,  // distant-observer time t that drives the clocks (not reset by "Emit again")
   showClocks: true,
   showSticks: true,
+  frame: "infinity",             // whose clock is the reference: "infinity", "observer" (O) or "camera"
+  observerRadiusKm: 40,
   showEmbeddingLine: false,
   gridAnchor: "surface",         // where the grid matches flat space: "surface" (or horizon) or "far"
   fullBrightnessRedshift: 0.2,   // lines are fully bright where the redshift to infinity is at least this
@@ -1331,8 +1379,10 @@ function rebuildBeam() {
 /** Moves the wave along by the distant observer's clock and redraws the part that has been emitted so far. */
 function advanceBeam(elapsedRealSeconds) {
   if (!viewState.paused) {
-    viewState.travelledTortoiseKm += elapsedRealSeconds * viewState.screenLightSpeedKmS;
-    viewState.coordinateTimeSeconds += elapsedRealSeconds * viewState.screenLightSpeedKmS / SPEED_OF_LIGHT_KM_S;
+    // Playback follows the reference observer's clock: per second of its time, t advances by 1/(dτ/dt).
+    const playbackRate = viewState.screenLightSpeedKmS / observerClockRate();
+    viewState.travelledTortoiseKm += elapsedRealSeconds * playbackRate;
+    viewState.coordinateTimeSeconds += elapsedRealSeconds * playbackRate / SPEED_OF_LIGHT_KM_S;
   }
   const travelled = viewState.travelledTortoiseKm;
   const wavenumber = (2 * Math.PI) / beam.drawnWavelengthAtInfinityKm;
@@ -1363,6 +1413,85 @@ function advanceBeam(elapsedRealSeconds) {
     const rgb = wavelengthToLinearRgb(localWavelengthNm(beam.radii[lastDrawnIndex]));
     frontMarker.material.color.setRGB(rgb.r, rgb.g, rgb.b);
   }
+}
+
+// ===== Reference frame =====
+//
+// Whose clock everything is compared with: a static observer far away (the default), a static observer O
+// at a chosen radius, or a static observer wherever the camera is. Only time changes between these frames:
+// every static observer agrees on ruler distances, so the grid and the rulers are the same in all of them.
+
+const OBSERVER_DIRECTION_ANGLE = BEAM_DIRECTION_ANGLE + Math.PI / 2;   // O sits a quarter turn from the beam
+const OBSERVER_MAX_RADIUS_KM = 150;
+const observerMarker = new THREE.Mesh(new THREE.SphereGeometry(1.3, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const observerLabel = makeLabel("O · observer");
+observerLabel.position.set(0, 2.4, 0);
+observerMarker.add(observerLabel);
+scene.add(observerMarker);
+
+/** Radius of the observer whose clock is the reference: Infinity for the far-away frame. */
+function observerRadiusKm() {
+  if (viewState.frame === "infinity") return Infinity;
+  const closest = spacetime.closestBeamRadiusKm;
+  if (viewState.frame === "observer") return Math.max(viewState.observerRadiusKm, closest);
+  // The camera: its distance from the centre (on Flamm's paraboloid, its distance from the vertical axis).
+  const position = camera.position;
+  const radius = viewState.view === "grid" ? position.length() : Math.hypot(position.x, position.z);
+  return Math.max(radius, closest);
+}
+
+/** dτ/dt of the reference observer (1 far away). Playback follows this observer's clock. */
+function observerClockRate() {
+  const radius = observerRadiusKm();
+  return radius === Infinity ? 1 : PhysicsCore.clockRate(radius, spacetime.schwarzschildRadiusKm);
+}
+
+function observerName() {
+  if (viewState.frame === "infinity") return "a far clock";
+  return viewState.frame === "observer" ? "O" : "the camera";
+}
+
+/** Where O is drawn, a quarter turn around from the beam. */
+function observerPosition(radiusKm) {
+  const position = new THREE.Vector3(Math.cos(OBSERVER_DIRECTION_ANGLE), 0, Math.sin(OBSERVER_DIRECTION_ANGLE)).multiplyScalar(radiusKm);
+  if (viewState.view === "flamm") position.y = flammSurfaceY(radiusKm) + 1.3;
+  return position;
+}
+
+function placeObserverMarker() {
+  observerMarker.visible = viewState.frame === "observer";
+  observerLabel.visible = observerMarker.visible;   // CSS2D labels ignore their parent's visibility
+  if (observerMarker.visible) observerMarker.position.copy(observerPosition(observerRadiusKm()));
+}
+
+// Clock rims in an observer's frame: warm for clocks slower than the observer's, cool for faster ones.
+const SLOWER_CLOCK_COLORS = ["#e6e9f2", "#ffb347", "#ff3b3b"].map((hex) => new THREE.Color(hex));
+const FASTER_CLOCK_COLORS = ["#e6e9f2", "#6fd0ff", "#2f5bff"].map((hex) => new THREE.Color(hex));
+
+function relativeRateColor(rate, target) {
+  const stops = rate <= 1 ? SLOWER_CLOCK_COLORS : FASTER_CLOCK_COLORS;
+  const extreme = rate <= 1 ? 0.3 : 2;   // full colour at 0.3× or 2× the observer's rate
+  const position = Math.min(Math.max(Math.log(rate) / Math.log(extreme), 0), 1) * (stops.length - 1);
+  const index = Math.min(Math.floor(position), stops.length - 2);
+  return target.copy(stops[index]).lerp(stops[index + 1], position - index);
+}
+
+function describeFrame() {
+  const radius = observerRadiusKm();
+  document.getElementById("observer-label").style.display = viewState.frame === "observer" ? "" : "none";
+  const element = document.getElementById("frame-note");
+  if (viewState.frame === "infinity") {
+    element.textContent = "Clocks and redshifts are compared with a clock far from the mass, and playback follows that far clock.";
+    return;
+  }
+  const who = viewState.frame === "observer" ? "a static observer O" : "a static observer where the camera is";
+  const clamped = viewState.frame === "camera" && radius === spacetime.closestBeamRadiusKm
+    ? " (the camera is closer than any static observer can be, so the closest possible one is used)" : "";
+  element.textContent = `Everything is compared with ${who}, at r = ${formatKm(radius)}${clamped}, whose own clock runs at `
+    + `${observerClockRate().toFixed(4)} of a far clock. Its clock reads ×1. Clocks deeper in run slow (warm rims); clocks farther `
+    + "out run fast (cool rims). Playback follows its clock, so seen from deep in the well the outside runs fast. "
+    + "Lengths don't change: every static observer agrees on ruler distances, so the grid and rulers stay the same."
+    + (viewState.frame === "camera" ? " Zoom toward the mass to move the observer." : "");
 }
 
 // ===== Proper-length measuring sticks =====
@@ -1494,15 +1623,15 @@ function makeClock(radiusKm, position, sizeKm, showRateLabel) {
   group.add(...parts);
   group.position.copy(position);
   group.scale.setScalar(sizeKm);
-  const rate = PhysicsCore.clockRate(radiusKm, spacetime.schwarzschildRadiusKm);
+  const rate = PhysicsCore.clockRate(radiusKm, spacetime.schwarzschildRadiusKm);   // dτ/dt, for the hand
   let label = null;
   if (showRateLabel) {
-    label = makeLabel(`×${rate.toFixed(3)}`, "label faint");
+    label = makeLabel("", "label faint");
     label.position.set(0, -1.7, 0);
     group.add(label);
   }
   clockGroup.add(group);
-  return { group, hand, parts, rate, label, rimMaterial, distance: 0 };
+  return { group, hand, parts, rate, radiusKm, label, rimMaterial, distance: 0 };
 }
 
 /** Grid vertices that get a clock, in the current view: [radius, position, show rate label]. */
@@ -1545,12 +1674,35 @@ function buildClocks() {
   const lift = new THREE.Vector3(0, CLOCK_SIZE_KM * 1.5 + 4, 0);
   clocks.push(makeClock(viewState.emitterRadiusKm, emitterMarker.position.clone().add(lift), CLOCK_SIZE_KM * 1.5, true));
   clocks.push(makeClock(viewState.receiverRadiusKm, receiverMarker.position.clone().add(lift), CLOCK_SIZE_KM * 1.5, true));
+  if (viewState.frame === "observer") {
+    placeObserverMarker();
+    clocks.push(makeClock(observerRadiusKm(), observerMarker.position.clone().add(lift), CLOCK_SIZE_KM * 1.5, true));
+  }
   applyClockVisibility();
+  refreshClockRates();
 }
 
 function applyClockVisibility() {
   clockGroup.visible = viewState.showClocks;
   for (const clock of clocks) if (clock.label) clock.label.visible = viewState.showClocks;   // CSS2D ignores parents
+}
+
+/**
+ * Rate labels and rim colours, relative to the reference frame's clock. In the far-away frame the rims
+ * use the grid's redshift colours; in an observer's frame, warm = slower than the observer, cool = faster.
+ */
+function refreshClockRates() {
+  const observerRadius = observerRadiusKm();
+  for (const clock of clocks) {
+    const relativeRate = PhysicsCore.relativeClockRate(clock.radiusKm, observerRadius, spacetime.schwarzschildRadiusKm);
+    if (clock.label) clock.label.element.textContent = `×${relativeRate.toFixed(3)}`;
+    if (viewState.frame === "infinity") colorForRadius(clock.radiusKm, clock.rimMaterial.color);
+    else relativeRateColor(relativeRate, clock.rimMaterial.color);
+  }
+  const name = observerName();
+  document.getElementById("reference-clock-note").textContent = `This is ${viewState.frame === "infinity" ? "a clock far from the mass" : `${name}'s clock`}. `
+    + "It turns once per 100 µs of its own time, slowed down like the light. Each clock in the picture shows its own proper time τ; "
+    + `the labels give its rate compared with ${name}.`;
 }
 
 /** True when the central star or black hole sits between the camera and this point (grid view only). */
@@ -1581,7 +1733,9 @@ function updateClocks() {
   backToFront.forEach((clock, rank) => {
     clock.parts.forEach((part, layer) => { part.renderOrder = 1000 + rank * clock.parts.length + layer; });
   });
-  farClockHand.setAttribute("transform", `rotate(${(360 * (turnsAtInfinity % 1)).toFixed(2)})`);
+  // The panel clock is the reference observer's: its proper time is (dτ/dt of the observer) × t.
+  const referenceTurns = turnsAtInfinity * observerClockRate();
+  farClockHand.setAttribute("transform", `rotate(${(360 * (referenceTurns % 1)).toFixed(2)})`);
 }
 
 // ===== Formatting =====
@@ -1616,15 +1770,29 @@ function updateReadout() {
   document.getElementById("readout-rs").textContent = formatKm(rs);
   document.getElementById("readout-body").textContent = spacetime.isBlackHole
     ? "black hole (horizon at rₛ)" : `star, R = ${BODY_RADIUS_KM} km`;
-  document.getElementById("readout-clock-a").textContent = `${PhysicsCore.clockRate(emitter, rs).toFixed(5)} at r = ${formatKm(emitter)}`;
-  document.getElementById("readout-clock-b").textContent = `${PhysicsCore.clockRate(receiver, rs).toFixed(5)} at r = ${formatKm(receiver)}`;
+  const observerRadius = observerRadiusKm();
+  const inObserverFrame = observerRadius !== Infinity;
+  const versus = inObserverFrame ? ` × ${observerName()}'s` : "";
+  document.getElementById("readout-frame").textContent = inObserverFrame
+    ? `static observer (${observerName()}) at r = ${formatKm(observerRadius)}` : "far away (∞)";
+  document.getElementById("readout-clock-a").textContent =
+    `${PhysicsCore.relativeClockRate(emitter, observerRadius, rs).toFixed(5)}${versus} at r = ${formatKm(emitter)}`;
+  document.getElementById("readout-clock-b").textContent =
+    `${PhysicsCore.relativeClockRate(receiver, observerRadius, rs).toFixed(5)}${versus} at r = ${formatKm(receiver)}`;
+  document.querySelectorAll(".observer-row").forEach((element) => { element.style.display = inObserverFrame ? "" : "none"; });
+  if (inObserverFrame) {
+    const redshiftToObserver = PhysicsCore.redshiftBetween(emitter, observerRadius, rs);
+    document.getElementById("readout-z-a-observer").textContent = formatRedshift(redshiftToObserver);
+    document.getElementById("readout-lambda-observer").innerHTML = formatWavelength(viewState.emittedWavelengthNm * (1 + redshiftToObserver));
+  }
   document.getElementById("readout-lambda-a").innerHTML = formatWavelength(viewState.emittedWavelengthNm);
   document.getElementById("readout-lambda-b").innerHTML = formatWavelength(viewState.emittedWavelengthNm * (1 + redshiftAB));
   document.getElementById("readout-z-ab").textContent = formatRedshift(redshiftAB);
   document.getElementById("readout-z-a-infinity").textContent = formatRedshift(PhysicsCore.redshiftToInfinity(emitter, rs));
   document.getElementById("readout-lambda-infinity").innerHTML = formatWavelength(beam.wavelengthAtInfinityNm);
-  document.getElementById("readout-time").textContent =
-    `${(travelTimeSeconds * 1e6).toFixed(2)} µs (flat space: ${(flatTimeSeconds * 1e6).toFixed(2)} µs)`;
+  document.getElementById("readout-time").textContent = inObserverFrame
+    ? `${(travelTimeSeconds * observerClockRate() * 1e6).toFixed(2)} µs on ${observerName()}'s clock (far clock: ${(travelTimeSeconds * 1e6).toFixed(2)} µs)`
+    : `${(travelTimeSeconds * 1e6).toFixed(2)} µs (flat space: ${(flatTimeSeconds * 1e6).toFixed(2)} µs)`;
   document.getElementById("readout-distance").textContent = `${formatKm(rulerDistance)} (Δr = ${formatKm(Math.abs(receiver - emitter))})`;
 }
 
@@ -1676,6 +1844,10 @@ function clampBeamEnds() {
   }
   emitterSlider.value = viewState.emitterRadiusKm;
   receiverSlider.value = viewState.receiverRadiusKm;
+  viewState.observerRadiusKm = Math.min(Math.max(viewState.observerRadiusKm, minimum), OBSERVER_MAX_RADIUS_KM);
+  observerSlider.min = minimum;
+  observerSlider.max = OBSERVER_MAX_RADIUS_KM;
+  observerSlider.value = viewState.observerRadiusKm;
 }
 
 function describeBodyNote() {
@@ -1732,6 +1904,7 @@ function onMassChanged() {
   buildWarpedGrid();
   buildFlammSurface();
   describeBodyNote();
+  describeFrame();
   describeView();
   applyLabelVisibility();
   onBeamChanged();
@@ -1773,6 +1946,29 @@ brightnessSlider.addEventListener("input", () => {
   showSliderValues();
   buildWarpedGrid();
   buildFlammSurface();
+});
+
+const observerSlider = document.getElementById("observer-slider");
+
+function onFrameChanged() {
+  placeObserverMarker();
+  buildClocks();
+  describeFrame();
+  updateReadout();
+  document.getElementById("observer-value").textContent = `r = ${formatKm(observerRadiusKm() === Infinity ? viewState.observerRadiusKm : observerRadiusKm())}`;
+}
+
+document.getElementById("frame-mode").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-frame]");
+  if (!button) return;
+  viewState.frame = button.dataset.frame;
+  document.querySelectorAll("#frame-mode button").forEach((element) => element.classList.toggle("active", element === button));
+  onFrameChanged();
+});
+
+observerSlider.addEventListener("input", () => {
+  viewState.observerRadiusKm = Number(observerSlider.value);
+  onFrameChanged();
 });
 
 document.getElementById("sticks-checkbox").addEventListener("change", (event) => {
@@ -1885,7 +2081,14 @@ function animate(now) {
   const elapsedSeconds = Math.min((now - previousFrameTime) / 1000, 0.1);
   previousFrameTime = now;
   advanceBeam(elapsedSeconds);
-  if (frameCounter++ % 6 === 0) updateFrontReadout();
+  if (frameCounter++ % 6 === 0) {
+    updateFrontReadout();
+    if (viewState.frame === "camera") {   // the observer moves with the camera
+      refreshClockRates();
+      updateReadout();
+      describeFrame();
+    }
+  }
   updateClocks();
   horizonRim.quaternion.copy(camera.quaternion);   // keep the rim facing the viewer
   controls.update();
@@ -1905,6 +2108,7 @@ drawLegend();
 resize();
 onMassChanged();
 setView("grid");
+onFrameChanged();
 if (window.innerWidth <= 760) document.getElementById("panel-toggle").click();
 if (new URLSearchParams(location.search).has("selftest")) showSelfTestPanel();
 requestAnimationFrame(animate);

@@ -84,8 +84,12 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 - Measuring sticks (2026-11-16): 5 km rulers end to end from the surface, opposite the beam, out to r = 100 km, each
   with a sideways ruler at its middle. Grid view: radial ones are drawn shorter by ~sqrt(1 − r_s/r), sideways ones keep
   their length. Flamm view: all keep their length. Drawn without depth test (renderOrder 900) so the grid can't hide them.
-  Next ideas the owner liked, in the suggested order: a Reference Frame Viewer for static observers (clocks and
-  colours relative to the camera's radius; lengths don't change between static observers), a fog hemisphere
+- Reference frame (2026-11-16): far away (∞), a static observer O at a chosen radius (marker + its own clock), or a
+  static observer at the camera (its distance from the centre; from the axis in the Flamm view). Clock labels and rim
+  colours are relative to that observer (warm = slower, cool = faster), playback follows its clock, and readouts add
+  "Redshift A → observer". Lengths and wave colours are deliberately unchanged: static observers share the same
+  space slices, and the wave colours are local measurements. Built for static observers only.
+  Remaining ideas, in the suggested order: a fog hemisphere
   (density = 1/sqrt(1 − r_s/r) − 1, which equals z), then a free-fall (Gullstrand–Painlevé "river") view.
 - Proper-time clocks: at every second grid vertex in the plane through the centre (Flamm view: rings × 8 spokes),
   plus larger clocks at A and B. Hands turn at dτ/dt; a far clock turns once per 100 µs of t, on the light's playback.
