@@ -122,9 +122,11 @@
   </div>
   <label class="check" id="flat-grid-label"><input type="checkbox" id="flat-grid-checkbox"> Show the flat grid for comparison</label>
   <p class="note" id="view-note"></p>
-  <p class="note" style="margin-top:8px">Grid colour: redshift z that light from that spot has when it reaches a distant
-    observer (log scale). Grid lines fade to invisible where space is nearly flat (z below 0.01) and toward the edge
-    of the drawing. The fading is a visual choice.</p>
+  <label>Lines fully visible where z ≥ <span class="value" id="brightness-value"></span>
+    <input type="range" id="brightness-slider" min="0" max="1000" step="1"></label>
+  <p class="note">The warping is measured by the redshift z that light from each spot has on reaching a distant observer.
+    Lines are invisible where space is nearly flat (z ≤ 0.01), brighten with z, and are fully visible above this value.
+    They also fade toward the edge of the drawing. This brightness is a visual choice; colour shows z itself.</p>
   <div id="legend-bar"></div>
   <div class="legend-labels"><span>≤ 0.01</span><span>0.03</span><span>0.1</span><span>0.3</span><span>1</span><span>≥ 3</span></div>
 
@@ -199,9 +201,10 @@
       <p class="warning"><b>Visual choices (not physics)</b></p>
       <p>• <b>Wave size:</b> the wave is drawn <span id="exaggeration-note"></span> times longer than real light,
         so you can see it. The <i>ratios</i> between wavelengths are true.</p>
-      <p>• <b>Grid brightness:</b> the grid lines fade in with the redshift z of their location: invisible at z ≤ 0.01,
-        full brightness at z ≥ 0.2 (log scale). They also fade out between 25% and 100% of the 150 km drawing radius.
-        Their positions are unchanged. The fading only marks where space is nearly flat.</p>
+      <p>• <b>Line brightness</b> (grid and paraboloid): lines fade in with the redshift z of their location:
+        invisible at z ≤ 0.01, fully visible at the z you choose with the slider (log scale in between). They also
+        fade out between 25% and 100% of the 150 km drawing radius. Their positions are unchanged. The fading only
+        marks where space is nearly flat.</p>
       <p>• <b>Speed of light slider:</b> this only slows the playback. Real light crosses the whole picture in about
         0.3 milliseconds. Changing c itself wouldn't add anything new. In this geometry M and c only appear together as
         r<sub>s</sub> = 2GM/c², so halving c acts exactly like making the mass four times bigger. Use the mass slider for that.</p>
@@ -561,9 +564,12 @@ const GRID_LINE_SPACING_KM = 20;
 const GRID_POINT_SPACING_KM = 3;            // step along each grid line
 const FLAT_GRID_HALF_WIDTH_KM = 60;        // extent of the flat comparison cube
 const RULER_LOOKUP_SIZE = 4000;
-const GRID_Z_INVISIBLE = 0.01;              // grid brightness (visual choice): invisible where z ≤ this …
-const GRID_Z_FULL = 0.2;                    // … full brightness where z ≥ this
-const GRID_EDGE_FADE_START = 0.25;          // and fades out from 25% of the half-width to the edge
+const LINE_Z_INVISIBLE = 0.01;              // line brightness (visual choice): invisible where z ≤ this,
+                                            // full where z ≥ viewState.fullBrightnessRedshift (slider)
+const FULL_BRIGHTNESS_Z_MIN = 0.02;         // range of that slider (log scale)
+const FULL_BRIGHTNESS_Z_MAX = 2;
+const EDGE_FADE_START = 0.25;               // lines also fade out from 25% of the drawing's radius to its edge
+const FLAMM_OUTER_RADIUS_KM = 150;          // Flamm's paraboloid is drawn out to here (faded out by then)
 const BEAM_POINTS = 1400;
 const BEAM_DIRECTION_ANGLE = 0.35;          // radians from +x, so the beam doesn't sit on a grid line
 const WAVE_KM_PER_NM = 6 / 450;             // drawn wave length per nanometre of real wavelength
@@ -589,6 +595,7 @@ const viewState = {
   travelledTortoiseKm: 0,    // c × (distant-observer time since emission began), measured in r*
   coordinateTimeSeconds: 0,  // distant-observer time t that drives the clocks (not reset by "Emit again")
   showClocks: true,
+  fullBrightnessRedshift: 0.2,   // lines are fully bright where the redshift to infinity is at least this
 };
 
 let spacetime = describeSpacetime();
@@ -691,7 +698,7 @@ document.body.appendChild(labelRenderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05070d);
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
+const camera = new THREE.PerspectiveCamera(45, 1, 1, 5000);   // near = 1 km keeps depth precise at ~300 km
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
@@ -823,16 +830,23 @@ function warpGridPoint(x, y, z) {
 const smoothStep = (value) => { const t = Math.min(Math.max(value, 0), 1); return t * t * (3 - 2 * t); };
 
 /**
- * How bright a grid point is drawn, 0…1 (visual choice): grows with the redshift z from that point
- * (invisible below GRID_Z_INVISIBLE, full above GRID_Z_FULL, log scale), and fades out toward the edge.
+ * How bright a grid or surface line is drawn at areal radius r, 0…1 (visual choice).
+ * It grows with the redshift z from that spot: invisible below LINE_Z_INVISIBLE, full above the
+ * slider's value (log scale in between). It also fades out as distanceFromCentre nears fadeOutRadius.
  */
-function gridBrightness(point) {
-  const redshift = PhysicsCore.redshiftToInfinity(point.radius, spacetime.schwarzschildRadiusKm);
+function lineBrightness(radius, distanceFromCentre, fadeOutRadius) {
+  const redshift = PhysicsCore.redshiftToInfinity(radius, spacetime.schwarzschildRadiusKm);
+  const logInvisible = Math.log10(LINE_Z_INVISIBLE);
   const warping = isFinite(redshift)
-    ? (Math.log10(redshift) - Math.log10(GRID_Z_INVISIBLE)) / (Math.log10(GRID_Z_FULL) - Math.log10(GRID_Z_INVISIBLE))
+    ? (Math.log10(redshift) - logInvisible) / (Math.log10(viewState.fullBrightnessRedshift) - logInvisible)
     : 1;
-  const edge = (GRID_HALF_WIDTH_KM - point.rulerValue) / (GRID_HALF_WIDTH_KM * (1 - GRID_EDGE_FADE_START));
+  const edge = (fadeOutRadius - distanceFromCentre) / (fadeOutRadius * (1 - EDGE_FADE_START));
   return smoothStep(warping) * smoothStep(edge) ** 2;
+}
+
+/** Grid/surface colour at areal radius r: redshift colour, dimmed by lineBrightness. */
+function fadedColorForRadius(radius, distanceFromCentre, fadeOutRadius, target) {
+  return colorForRadius(radius, target).multiplyScalar(lineBrightness(radius, distanceFromCentre, fadeOutRadius));
 }
 
 function buildWarpedGrid() {
@@ -846,7 +860,7 @@ function buildWarpedGrid() {
   const brightPoint = (flat) => {
     if (Math.hypot(...flat) >= GRID_HALF_WIDTH_KM) return null;   // fully faded out there
     const point = warpGridPoint(...flat);
-    if (point) point.brightness = gridBrightness(point);
+    if (point) point.brightness = lineBrightness(point.radius, point.rulerValue, GRID_HALF_WIDTH_KM);
     return point;
   };
 
@@ -911,7 +925,7 @@ function buildFlatGrid() {
 
 // ===== Flamm's paraboloid =====
 
-const FLAMM_RINGS = 90;
+const FLAMM_RINGS = 120;
 const FLAMM_SEGMENTS = 120;
 const flammLineMaterial = makeLineMaterial({ vertexColors: true, linewidth: 1.4, opacity: 0.9 });
 const horizonLineMaterial = makeLineMaterial({ color: 0xff9a4a, linewidth: 2.5, opacity: 1 });
@@ -940,7 +954,7 @@ function flammSurfaceY(radiusKm) {
 /** Radii spaced more tightly near the inner edge, where the surface is steepest. */
 function flammRingRadius(ringIndex, innerRadius) {
   const fraction = ringIndex / FLAMM_RINGS;
-  return innerRadius + (SCENE_RADIUS_KM - innerRadius) * fraction * fraction;
+  return innerRadius + (FLAMM_OUTER_RADIUS_KM - innerRadius) * fraction * fraction;
 }
 
 function buildPolarMesh(radiusAt, ringCount, material, colorAt) {
@@ -989,7 +1003,7 @@ function buildFlammSurface() {
   const innerRadius = bodyRadiusKm;
 
   flammObjects.push(buildPolarMesh((ring) => flammRingRadius(ring, innerRadius), FLAMM_RINGS,
-    flammSurfaceMaterial, colorForRadius));
+    flammSurfaceMaterial, (radius, color) => fadedColorForRadius(radius, radius, FLAMM_OUTER_RADIUS_KM, color)));
 
   // Wire lines: circles of constant r every 10 km, and radial lines every 15°.
   const linePositions = [];
@@ -997,10 +1011,13 @@ function buildFlammSurface() {
   const color = new THREE.Color();
   const addColoredSegment = (radius1, radius2, ...coordinates) => {
     linePositions.push(...coordinates);
-    for (const radius of [radius1, radius2]) { colorForRadius(radius, color); lineColors.push(color.r, color.g, color.b); }
+    for (const radius of [radius1, radius2]) {
+      fadedColorForRadius(radius, radius, FLAMM_OUTER_RADIUS_KM, color);
+      lineColors.push(color.r, color.g, color.b);
+    }
   };
   const circleRadii = [innerRadius];
-  for (let radius = Math.ceil((innerRadius + 0.5) / 10) * 10; radius <= SCENE_RADIUS_KM; radius += 10) circleRadii.push(radius);
+  for (let radius = Math.ceil((innerRadius + 0.5) / 10) * 10; radius < FLAMM_OUTER_RADIUS_KM; radius += 10) circleRadii.push(radius);
   for (const radius of circleRadii) {
     const positions = circlePositions(radius);
     for (let index = 0; index < positions.length; index += 6) addColoredSegment(radius, radius, ...positions.slice(index, index + 6));
@@ -1178,9 +1195,13 @@ const clockFaceGeometry = new THREE.CircleGeometry(1, 40);
 const clockRimGeometry = new THREE.RingGeometry(0.84, 1, 40);
 const clockHandGeometry = new THREE.PlaneGeometry(0.13, 0.78).translate(0, 0.39, 0);
 const clockTickGeometry = new THREE.PlaneGeometry(0.1, 0.2).translate(0, 0.72, 0);
-const clockFaceMaterial = new THREE.MeshBasicMaterial({ color: 0x0b0f1a, transparent: true, opacity: 0.85, depthWrite: false });
-const clockHandMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-const clockTickMaterial = new THREE.MeshBasicMaterial({ color: 0x9aa3b8 });
+// Clocks are drawn after everything else, without depth testing, in an explicit order (see updateClocks).
+// Depth testing made them flicker: their layers sit closer together than the depth buffer can resolve at
+// this distance, and grid lines run straight through each clock's vertex.
+const CLOCK_MATERIAL_OPTIONS = { depthTest: false, depthWrite: false, transparent: true };
+const clockFaceMaterial = new THREE.MeshBasicMaterial({ color: 0x0b0f1a, opacity: 0.9, ...CLOCK_MATERIAL_OPTIONS });
+const clockHandMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, ...CLOCK_MATERIAL_OPTIONS });
+const clockTickMaterial = new THREE.MeshBasicMaterial({ color: 0x9aa3b8, ...CLOCK_MATERIAL_OPTIONS });
 const clockGroup = new THREE.Group();
 scene.add(clockGroup);
 let clocks = [];
@@ -1188,15 +1209,13 @@ let clocks = [];
 /** One clock face at a position, for a static observer at areal radius r. */
 function makeClock(radiusKm, position, sizeKm, showRateLabel) {
   const group = new THREE.Group();
-  const rimMaterial = new THREE.MeshBasicMaterial({ color: colorForRadius(radiusKm, new THREE.Color()) });
+  const rimMaterial = new THREE.MeshBasicMaterial({ color: colorForRadius(radiusKm, new THREE.Color()), ...CLOCK_MATERIAL_OPTIONS });
   const face = new THREE.Mesh(clockFaceGeometry, clockFaceMaterial);
   const rim = new THREE.Mesh(clockRimGeometry, rimMaterial);
   const tick = new THREE.Mesh(clockTickGeometry, clockTickMaterial);
   const hand = new THREE.Mesh(clockHandGeometry, clockHandMaterial);
-  rim.position.z = 0.01;
-  tick.position.z = 0.02;
-  hand.position.z = 0.03;
-  group.add(face, rim, tick, hand);
+  const parts = [face, rim, tick, hand];   // back to front
+  group.add(...parts);
   group.position.copy(position);
   group.scale.setScalar(sizeKm);
   const rate = PhysicsCore.clockRate(radiusKm, spacetime.schwarzschildRadiusKm);
@@ -1207,7 +1226,7 @@ function makeClock(radiusKm, position, sizeKm, showRateLabel) {
     group.add(label);
   }
   clockGroup.add(group);
-  return { group, hand, rate, label, rimMaterial };
+  return { group, hand, parts, rate, label, rimMaterial, distance: 0 };
 }
 
 /** Grid vertices that get a clock, in the current view: [radius, position, show rate label]. */
@@ -1258,13 +1277,34 @@ function applyClockVisibility() {
   for (const clock of clocks) if (clock.label) clock.label.visible = viewState.showClocks;   // CSS2D ignores parents
 }
 
-/** Turns every hand to its own proper time, and the far-away clock in the panel to t. */
+/** True when the central star or black hole sits between the camera and this point (grid view only). */
+function isHiddenBehindBody(point) {
+  if (viewState.view !== "grid") return false;
+  const toPoint = point.clone().sub(camera.position);
+  const along = Math.min(Math.max(-camera.position.dot(toPoint) / toPoint.lengthSq(), 0), 1);
+  if (along >= 0.999) return false;
+  const closest = camera.position.clone().addScaledVector(toPoint, along);
+  return closest.length() < spacetime.bodyRadiusKm * 0.98;
+}
+
+/**
+ * Turns every hand to its own proper time, and the far-away clock in the panel to t.
+ * Clocks are drawn back to front: each clock gets its own block of render-order numbers,
+ * so a nearer clock always covers a farther one and a clock's parts never fight each other.
+ */
 function updateClocks() {
   const turnsAtInfinity = viewState.coordinateTimeSeconds / CLOCK_PERIOD_SECONDS;
   for (const clock of clocks) {
     clock.group.quaternion.copy(camera.quaternion);   // face the viewer
     clock.hand.rotation.z = -2 * Math.PI * ((clock.rate * turnsAtInfinity) % 1);
+    clock.distance = clock.group.position.distanceToSquared(camera.position);
+    clock.group.visible = !isHiddenBehindBody(clock.group.position);
+    if (clock.label) clock.label.visible = viewState.showClocks && clock.group.visible;
   }
+  const backToFront = [...clocks].sort((first, second) => second.distance - first.distance);
+  backToFront.forEach((clock, rank) => {
+    clock.parts.forEach((part, layer) => { part.renderOrder = 1000 + rank * clock.parts.length + layer; });
+  });
   farClockHand.setAttribute("transform", `rotate(${(360 * (turnsAtInfinity % 1)).toFixed(2)})`);
 }
 
@@ -1326,6 +1366,15 @@ function updateFrontReadout() {
 
 const massSlider = document.getElementById("mass-slider");
 const farClockHand = document.getElementById("far-clock-hand");
+const brightnessSlider = document.getElementById("brightness-slider");
+
+/** The brightness slider is logarithmic: position 0…1000 maps to z = 0.02…2. */
+function sliderPositionToRedshift(position) {
+  return FULL_BRIGHTNESS_Z_MIN * (FULL_BRIGHTNESS_Z_MAX / FULL_BRIGHTNESS_Z_MIN) ** (position / 1000);
+}
+function redshiftToSliderPosition(redshift) {
+  return 1000 * Math.log(redshift / FULL_BRIGHTNESS_Z_MIN) / Math.log(FULL_BRIGHTNESS_Z_MAX / FULL_BRIGHTNESS_Z_MIN);
+}
 const emitterSlider = document.getElementById("emitter-slider");
 const receiverSlider = document.getElementById("receiver-slider");
 const wavelengthSlider = document.getElementById("wavelength-slider");
@@ -1375,6 +1424,8 @@ function showSliderValues() {
   document.getElementById("emitter-value").textContent = `r = ${formatKm(viewState.emitterRadiusKm)}`;
   document.getElementById("receiver-value").textContent = `r = ${formatKm(viewState.receiverRadiusKm)}`;
   document.getElementById("wavelength-value").textContent = `${viewState.emittedWavelengthNm} nm`;
+  const fullZ = viewState.fullBrightnessRedshift;
+  document.getElementById("brightness-value").textContent = fullZ < 0.1 ? fullZ.toFixed(3) : fullZ.toFixed(2);
   const speed = viewState.screenLightSpeedKmS;
   document.getElementById("speed-value").textContent = `${speed < 10 ? speed.toFixed(1) : speed.toFixed(0)} km/s`;
   const slowdown = SPEED_OF_LIGHT_KM_S / speed;
@@ -1436,6 +1487,13 @@ document.getElementById("view-mode").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-view]");
   if (!button) return;
   setView(button.dataset.view);
+});
+
+brightnessSlider.addEventListener("input", () => {
+  viewState.fullBrightnessRedshift = sliderPositionToRedshift(Number(brightnessSlider.value));
+  showSliderValues();
+  buildWarpedGrid();
+  buildFlammSurface();
 });
 
 document.getElementById("clocks-checkbox").addEventListener("change", (event) => {
@@ -1540,6 +1598,7 @@ document.getElementById("exaggeration-note").innerHTML = `about ${exaggerationMa
 massSlider.value = viewState.massInSolarMasses;
 wavelengthSlider.value = viewState.emittedWavelengthNm;
 speedSlider.value = speedToSliderPosition(viewState.screenLightSpeedKmS);
+brightnessSlider.value = redshiftToSliderPosition(viewState.fullBrightnessRedshift);
 drawLegend();
 resize();
 onMassChanged();
