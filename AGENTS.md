@@ -70,7 +70,8 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 - The "speed of light" slider is **playback speed only**. Changing c physically is the same as changing the mass,
   since only r_s = 2GM/c² appears. This is explained on the page.
 - Warped grid: laid out evenly in the ruler coordinate ρ = R + ℓ(R, r), anchored at the body's surface (or the horizon),
-  drawn at areal r. An outer anchor left a large empty hole around heavy black holes once the grid reached far.
+  drawn at areal r. A selector (owner's choice, 2026-11-16) switches the anchor to "far away" (r_a = where z = 0.01),
+  which pulls lines toward the mass (the look of the reference image) but leaves a hole around heavy black holes.
   The grid is nested (owner asked for no maximum distance, 2026-11-16): 20 km spacing out to 160 km, then spacing
   and reach double per level until z falls to 0.01 (`visibleExtentKm`, capped at 5000 km). Lines unique to a level
   fade out over the outer half of its reach. ρ → r is inverted with a lookup table.

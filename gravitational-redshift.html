@@ -122,6 +122,11 @@
   </div>
   <label class="check grid-only"><input type="checkbox" id="flat-grid-checkbox"> Show the flat grid for comparison</label>
   <label class="check grid-only"><input type="checkbox" id="embedding-checkbox"> Show a Flamm embedding line (along the x axis)</label>
+  <p class="note grid-only" style="margin-bottom:2px">Grid matches flat space…</p>
+  <div class="segmented row grid-only" id="anchor-mode">
+    <button data-anchor="surface" class="active">at the surface</button>
+    <button data-anchor="far">far away</button>
+  </div>
   <p class="note" id="view-note"></p>
   <label>Lines fully visible where z ≥ <span class="value" id="brightness-value"></span>
     <input type="range" id="brightness-slider" min="0" max="1000" step="1"></label>
@@ -175,14 +180,19 @@
 
       <p><b>Warped cube grid.</b> Curved 3D space can't be drawn in flat 3D without distorting something, so this
         view makes one stated choice. The cube is laid out evenly in <i>ruler coordinates</i>: direction is kept, and the
-        distance from the centre is <span class="tex" data-tex="\rho = R + \ell(R, r)"></span>, measured with rulers from the
-        star's surface R (or from the horizon r<sub>s</sub>), where ρ = r. Each point is then drawn at its areal radius <i>r</i>. Near the mass
+        distance from the centre is <span class="tex" data-tex="\rho = r_a + \ell(r_a, r)"></span>, measured with rulers from an
+        anchor radius r<sub>a</sub> where ρ = r. Each point is then drawn at its areal radius <i>r</i>. Near the mass
         a ruler length takes up less <i>r</i>, so the grid lines crowd inward. Along the radius, the cells shrink by
         exactly <span class="tex" data-tex="\sqrt{1-r_s/r}"></span>. Sideways sizes on the drawn cube are true at the
         drawn radius. Nothing is exaggerated: this is the true scale. Lines inside the body or the horizon are not drawn.
         Far from the mass the extra ruler distance keeps growing slowly (like <span class="tex" data-tex="\tfrac{r_s}{2}\ln r"></span>),
-        so distant lines sit a little inside their flat positions. No choice of anchor makes the grid match flat space
-        everywhere. To reach far out, the grid is <i>nested</i>: each time the distance doubles, the line spacing doubles,
+        so no choice of anchor makes the grid match flat space everywhere. The selector picks where it does:
+        <i>at the surface</i> (r<sub>a</sub> = R, or r<sub>s</sub> for a black hole): the inner grid is undisturbed and the extra
+        distance builds up outward, so distant lines sit a little inside their flat positions. <i>Far away</i>
+        (r<sub>a</sub> = where the lines have faded, z = 0.01): the outer grid is undisturbed and all the extra distance is taken
+        up on the way in, so the lines are pulled toward the mass. Around a black hole that pull is larger than the horizon
+        itself, so the grid's centre lands on a sphere outside the horizon and the inner lines bunch up there.
+        Both show the same local squeeze; only this overall offset differs. To reach far out, the grid is <i>nested</i>: each time the distance doubles, the line spacing doubles,
         and lines that belong only to a finer level fade out where the coarser one takes over.</p>
       <p><b>Flamm line in the grid view</b> (optional). The profile of Flamm's paraboloid, drawn in the vertical plane through
         the grid's x axis, at the same areal radius <i>r</i> as the grid. Each white marker hangs below a grid vertex on that axis.
@@ -616,6 +626,7 @@ const viewState = {
   coordinateTimeSeconds: 0,  // distant-observer time t that drives the clocks (not reset by "Emit again")
   showClocks: true,
   showEmbeddingLine: false,
+  gridAnchor: "surface",         // where the grid matches flat space: "surface" (or horizon) or "far"
   fullBrightnessRedshift: 0.2,   // lines are fully bright where the redshift to infinity is at least this
 };
 
@@ -827,19 +838,28 @@ function buildGridLevels() {
 }
 
 /**
+ * The anchor radius r_a, where the grid's ruler coordinate ρ equals r (the grid matches flat space there):
+ * the body's surface (or horizon), or far away where the grid has faded out. Chosen with the anchor selector.
+ */
+function gridAnchorRadius() {
+  return viewState.gridAnchor === "surface" ? spacetime.bodyRadiusKm : visibleExtentKm();
+}
+
+/**
  * Table of ruler coordinates ρ(r) for the current mass. The grid has hundreds of thousands of points,
  * so it inverts ρ → r by interpolating this table instead of solving for each point.
- * Since ρ ≥ r, the table only needs r up to the largest ρ drawn.
+ * Outside the anchor ρ ≥ r, so the table only needs r up to the larger of the anchor and the largest ρ drawn.
  */
 function buildRulerLookup(largestRulerValue) {
   const rs = spacetime.schwarzschildRadiusKm;
-  const anchor = spacetime.bodyRadiusKm;
-  const outerRadius = largestRulerValue + 1;
+  const anchor = gridAnchorRadius();
+  const innerRadius = spacetime.bodyRadiusKm;
+  const outerRadius = Math.max(largestRulerValue, anchor) + 1;
   const radii = new Float64Array(RULER_LOOKUP_SIZE);
   const rulerValues = new Float64Array(RULER_LOOKUP_SIZE);
   for (let index = 0; index < RULER_LOOKUP_SIZE; index++) {
     const fraction = index / (RULER_LOOKUP_SIZE - 1);
-    radii[index] = anchor + (outerRadius - anchor) * fraction * fraction;   // denser near the body
+    radii[index] = innerRadius + (outerRadius - innerRadius) * fraction * fraction;   // denser near the body
     rulerValues[index] = PhysicsCore.rulerCoordinate(radii[index], rs, anchor);
   }
   rulerLookup = { radii, rulerValues, anchor };
@@ -1586,6 +1606,9 @@ function describeView() {
     ? "The cube is laid out evenly in ruler distance from the centre, then each point is drawn at its areal radius r. "
       + "Lines crowd toward the mass because there is more radial distance there than flat space would allow. True scale."
       + " The spacing doubles each time the distance doubles, so the grid reaches out until it fades."
+      + (viewState.gridAnchor === "surface"
+        ? " Anchored at the surface: the extra distance builds up outward."
+        : " Anchored far away: all the extra distance is taken up on the way in, so lines are pulled toward the mass.")
     : "The equatorial plane embedded in 3D: distances along the surface are true ruler distances. "
       + "The depth itself means nothing physical. True scale.";
 }
@@ -1643,6 +1666,16 @@ brightnessSlider.addEventListener("input", () => {
 document.getElementById("clocks-checkbox").addEventListener("change", (event) => {
   viewState.showClocks = event.target.checked;
   applyClockVisibility();
+});
+
+document.getElementById("anchor-mode").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-anchor]");
+  if (!button) return;
+  viewState.gridAnchor = button.dataset.anchor;
+  document.querySelectorAll("#anchor-mode button").forEach((element) => element.classList.toggle("active", element === button));
+  describeView();
+  buildWarpedGrid();
+  buildClocks();
 });
 
 document.getElementById("embedding-checkbox").addEventListener("change", (event) => {
