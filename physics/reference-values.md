@@ -15,6 +15,10 @@ Generated 2026-11-16 by `.claude/skills/spacetime-physics/scripts/reference_valu
 | `schwarzschild.proper_distance_2rs_to_10rs_in_rs` | 9.0096923 | r_s | Proper radial distance from 2 r_s to 10 r_s | Numerical integration (trapezoid, 200001 points) |
 | `schwarzschild.coordinate_light_time_2rs_to_10rs_in_rs` | 10.197225 | r_s/c | Coordinate time (observer at infinity) for radial light from 2 r_s to 10 r_s, times c | Numerical integration (SciPy quad) |
 | `schwarzschild.flamm_height_2rs_to_10rs_in_rs` | 4 | r_s | Rise of Flamm's paraboloid from 2 r_s to 10 r_s (embedding condition integrated) | Numerical integration (SciPy quad) |
+| `schwarzschild.radar_distance_from_2rs_to_10rs_in_rs` | 7.2105266 | r_s | Radar distance from a static observer at 2 r_s to 10 r_s (half the round-trip time on the observer's clock, times c) | Numerical integration (SciPy quad) |
+| `schwarzschild.overhead_angle_ratio_at_2rs` | 0.70710678 |  | Angular size of a distant object overhead, seen by a static observer at 2 r_s, relative to no mass | Numerical ray tracing (SciPy quad + brentq) |
+| `schwarzschild.shadow_radius_in_rs` | 2.5980762 | r_s | Apparent radius of a black hole's shadow seen from far away (critical impact parameter) | Numerical minimisation (SciPy) |
+| `neutron_star_example.apparent_radius_km` | 14.822112 | km | Apparent radius of a 1.4 solar-mass, 12 km neutron star seen from far away (largest impact parameter of light leaving its surface) | Astropy constants (CODATA 2018, IAU 2015 nominal values) |
 | `sun.limb_light_deflection_arcsec` | 1.7511903 | arcsec | Light deflection grazing the solar limb (observed: 1.75 arcsec class) | Astropy constants (CODATA 2018, IAU 2015 nominal values) |
 | `mercury.perihelion_advance_arcsec_per_century` | 42.980475 | arcsec/century | GR perihelion advance of Mercury (Will 2014 quotes 42.98) | Astropy constants (CODATA 2018, IAU 2015 nominal values); JPL orbital elements |
 | `gps.gravitational_rate_us_per_day` | 45.652206 | us/day | GPS clock gain from weaker gravity (simplified model) | Astropy constants (CODATA 2018, IAU 2015 nominal values); Ashby 2003 orbit |

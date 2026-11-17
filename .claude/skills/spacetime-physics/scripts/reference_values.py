@@ -111,6 +111,39 @@ def flamm_height_numeric(inner_radius_in_rs, outer_radius_in_rs):
     return quad(lambda r: math.sqrt(1 / (1 - 1 / r) - 1), inner_radius_in_rs, outer_radius_in_rs, epsabs=0, epsrel=1e-12)[0]
 
 
+def overhead_angle_ratio_numeric(observer_radius_in_rs, source_distance_in_rs=1e7, source_angle=1e-5):
+    """
+    How much smaller a distant object near the zenith looks to a static observer at r_O than it would
+    with no mass, found by tracing light rays numerically (independent of the closed form sqrt(1 - r_s/r_O)).
+
+    A ray with impact parameter b sweeps dphi/dr = b / (r^2 sqrt(1 - (1 - r_s/r) b^2 / r^2)) (units of r_s).
+    Find the b whose ray from the observer reaches the source's angular position, then convert to the angle a
+    static observer measures, sin(alpha) = b sqrt(1 - r_s/r) / r. Repeat with no mass and take the ratio.
+    """
+    from scipy.integrate import quad
+    from scipy.optimize import brentq
+
+    def swept_angle(impact_parameter, mass_factor):
+        integrand = lambda r: impact_parameter / (r * r * math.sqrt(1 - (1 - mass_factor / r) * impact_parameter**2 / r**2))
+        breakpoints = [observer_radius_in_rs, 10 * observer_radius_in_rs, 1e3, 1e5, source_distance_in_rs]
+        breakpoints = sorted(set(point for point in breakpoints if observer_radius_in_rs <= point <= source_distance_in_rs))
+        return sum(quad(integrand, low, high, epsabs=0, epsrel=1e-12, limit=200)[0] for low, high in zip(breakpoints, breakpoints[1:]))
+
+    def observed_angle(mass_factor):
+        impact_parameter = brentq(lambda b: swept_angle(b, mass_factor) - source_angle, 1e-15, 1.0, xtol=1e-22, rtol=1e-14)
+        return math.asin(impact_parameter * math.sqrt(1 - mass_factor / observer_radius_in_rs) / observer_radius_in_rs)
+
+    return observed_angle(1.0) / observed_angle(0.0)
+
+
+def shadow_radius_numeric():
+    """Smallest impact parameter b = r / sqrt(1 - r_s/r) of a circular light orbit, by numerical minimisation (units of r_s)."""
+    from scipy.optimize import minimize_scalar
+
+    result = minimize_scalar(lambda r: r / math.sqrt(1 - 1 / r), bounds=(1.01, 10), method="bounded", options={"xatol": 1e-12})
+    return float(result.fun)
+
+
 def light_deflection_arcsec(gravitational_parameter, impact_parameter):
     """alpha = 4GM / (c^2 b), weak field."""
     angle = 4 * gravitational_parameter / (SPEED_OF_LIGHT**2 * impact_parameter)
@@ -206,6 +239,10 @@ def build_reference_values():
         "schwarzschild.proper_distance_2rs_to_10rs_in_rs": entry(proper_radial_distance_numeric(2.0, 10.0), "r_s", "Proper radial distance from 2 r_s to 10 r_s", "Numerical integration (trapezoid, 200001 points)"),
         "schwarzschild.coordinate_light_time_2rs_to_10rs_in_rs": entry(coordinate_light_time_numeric(2.0, 10.0), "r_s/c", "Coordinate time (observer at infinity) for radial light from 2 r_s to 10 r_s, times c", "Numerical integration (SciPy quad)"),
         "schwarzschild.flamm_height_2rs_to_10rs_in_rs": entry(flamm_height_numeric(2.0, 10.0), "r_s", "Rise of Flamm's paraboloid from 2 r_s to 10 r_s (embedding condition integrated)", "Numerical integration (SciPy quad)"),
+        "schwarzschild.radar_distance_from_2rs_to_10rs_in_rs": entry(math.sqrt(1 - 1 / 2) * coordinate_light_time_numeric(2.0, 10.0), "r_s", "Radar distance from a static observer at 2 r_s to 10 r_s (half the round-trip time on the observer's clock, times c)", "Numerical integration (SciPy quad)"),
+        "schwarzschild.overhead_angle_ratio_at_2rs": entry(overhead_angle_ratio_numeric(2.0), "", "Angular size of a distant object overhead, seen by a static observer at 2 r_s, relative to no mass", "Numerical ray tracing (SciPy quad + brentq)"),
+        "schwarzschild.shadow_radius_in_rs": entry(shadow_radius_numeric(), "r_s", "Apparent radius of a black hole's shadow seen from far away (critical impact parameter)", "Numerical minimisation (SciPy)"),
+        "neutron_star_example.apparent_radius_km": entry((NEUTRON_STAR_RADIUS / math.sqrt(1 - (neutron_star_rs / NEUTRON_STAR_RADIUS).to_value(u.one))).to_value(u.km), "km", "Apparent radius of a 1.4 solar-mass, 12 km neutron star seen from far away (largest impact parameter of light leaving its surface)", astropy_constants),
         # --- Classic weak-field tests ---
         "sun.limb_light_deflection_arcsec": entry(light_deflection_arcsec(const.GM_sun, const.R_sun), "arcsec", "Light deflection grazing the solar limb (observed: 1.75 arcsec class)", astropy_constants),
         "mercury.perihelion_advance_arcsec_per_century": entry(perihelion_advance_arcsec_per_century(const.GM_sun, MERCURY_SEMI_MAJOR_AXIS, MERCURY_ECCENTRICITY), "arcsec/century", "GR perihelion advance of Mercury (Will 2014 quotes 42.98)", astropy_constants + "; JPL orbital elements"),

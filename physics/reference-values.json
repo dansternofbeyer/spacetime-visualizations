@@ -72,6 +72,30 @@
       "description": "Rise of Flamm's paraboloid from 2 r_s to 10 r_s (embedding condition integrated)",
       "source": "Numerical integration (SciPy quad)"
     },
+    "schwarzschild.radar_distance_from_2rs_to_10rs_in_rs": {
+      "value": 7.210526647916569,
+      "unit": "r_s",
+      "description": "Radar distance from a static observer at 2 r_s to 10 r_s (half the round-trip time on the observer's clock, times c)",
+      "source": "Numerical integration (SciPy quad)"
+    },
+    "schwarzschild.overhead_angle_ratio_at_2rs": {
+      "value": 0.7071067811850753,
+      "unit": "",
+      "description": "Angular size of a distant object overhead, seen by a static observer at 2 r_s, relative to no mass",
+      "source": "Numerical ray tracing (SciPy quad + brentq)"
+    },
+    "schwarzschild.shadow_radius_in_rs": {
+      "value": 2.598076211353316,
+      "unit": "r_s",
+      "description": "Apparent radius of a black hole's shadow seen from far away (critical impact parameter)",
+      "source": "Numerical minimisation (SciPy)"
+    },
+    "neutron_star_example.apparent_radius_km": {
+      "value": 14.822111798808452,
+      "unit": "km",
+      "description": "Apparent radius of a 1.4 solar-mass, 12 km neutron star seen from far away (largest impact parameter of light leaving its surface)",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
+    },
     "sun.limb_light_deflection_arcsec": {
       "value": 1.7511903255599846,
       "unit": "arcsec",

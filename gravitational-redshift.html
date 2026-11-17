@@ -144,6 +144,7 @@
   </div>
   <label id="observer-label" style="display:none">O's distance from the centre <span class="value" id="observer-value"></span>
     <input type="range" id="observer-slider" step="0.01"></label>
+  <label class="check"><input type="checkbox" id="radar-checkbox" checked> Show radar and ruler distances (observer frames)</label>
   <p class="note" id="frame-note"></p>
 
   <h2>Clocks and rulers</h2>
@@ -253,6 +254,23 @@
         but the extra distance between two radii is the same number for all of them. (A freely falling observer slices
         spacetime differently, and for them it disappears; that would be a separate view.)
         In the camera frame, r<sub>O</sub> is the camera's distance from the centre (on Flamm's paraboloid, from its axis).</p>
+      <p><b>Radar distance.</b> A static observer can measure distance with light: send a pulse straight up or down to a
+        point, time its return on their own clock, and take c × half the round trip. For points on the observer's radial line,</p>
+      <div class="tex" data-tex="d_{\text{radar}}=\sqrt{1-r_s/r_O}\;\big|r_*(r)-r_*(r_O)\big|"></div>
+      <p>Unlike ruler distance, this depends on whose clock times the pulse, so it changes with the frame. Next to the observer it
+        agrees with the rulers ("a meter is a meter" locally). Farther in, light is slow by the observer's clock, so radar
+        distances come out <i>longer</i> than rulers; farther out they come out <i>shorter</i>. Toward a black hole's horizon, the
+        radar distance grows without limit. The scale shows cyan radar ticks above the line and orange ruler ticks below it,
+        every 10 km. It is drawn along O's radial line; in the camera frame, at the camera's distance on that same line.</p>
+      <p><b>What observers see.</b> Light bending decides apparent sizes; the extra ruler distance doesn't make rulers look short.
+        From far away, a star of radius R ≥ 1.5 r<sub>s</sub> looks <span class="tex" data-tex="R/\sqrt{1-r_s/R}"></span> in radius, larger
+        than it is (light grazing its surface bends toward you), and more than half its surface is visible. A black hole, or a star
+        smaller than 1.5 r<sub>s</sub>, shows a shadow of radius <span class="tex" data-tex="\tfrac{3\sqrt3}{2}r_s"></span>, set by the photon sphere.
+        A static observer at r<sub>O</sub> sees distant objects near the zenith smaller by
+        <span class="tex" data-tex="\sqrt{1-r_s/r_O}"></span> (small-angle limit), and bluer and brighter: the outside sky crowds overhead.
+        That compression belongs to the <i>hovering</i> observer; a freely falling observer at the same place sees the sky differently
+        (aberration). The self-tests check this against light rays traced numerically, and the shadow against a numerical minimisation.
+        Before these are cited on a public page they still need a published source.</p>
       <p><b>Measuring sticks.</b> Rulers of ruler length L = 5 km are laid end to end from the surface (or the horizon):
         the k-th one spans ruler distances kL to (k+1)L, i.e. <span class="tex" data-tex="\ell(R, r_k) = kL"></span>.
         In the grid view, which is drawn at areal radius <i>r</i>, an outward ruler is drawn
@@ -299,6 +317,9 @@
     <dt class="observer-row">Seen by observer</dt><dd class="observer-row" id="readout-lambda-observer"></dd>
     <dt>Light time A → B</dt><dd id="readout-time"></dd>
     <dt>Ruler distance</dt><dd id="readout-distance"></dd>
+    <dt class="observer-row">Down to the surface</dt><dd class="observer-row" id="readout-down"></dd>
+    <dt>Body seen from far</dt><dd id="readout-apparent"></dd>
+    <dt>Sky overhead</dt><dd id="readout-sky"></dd>
     <dt>Wave front</dt><dd id="readout-front"></dd>
   </dl>
   <p class="note">Clock rates are compared with the reference frame's clock (see <i>Reference frame</i>). Wavelengths are
@@ -438,6 +459,43 @@ const PhysicsCore = {
     return 0.5 * (low + high);
   },
 
+  /**
+   * Radar distance from a static observer at r_O to a static point at r on the same radial line:
+   * half the round-trip time of a light pulse on the observer's clock, times c,
+   * i.e. sqrt(1 − r_s/r_O) · |r*(r) − r*(r_O)|.
+   */
+  radarDistance(observerRadius, targetRadius, schwarzschildRadius) {
+    const tortoiseDifference = Math.abs(PhysicsCore.tortoiseCoordinate(targetRadius, schwarzschildRadius)
+      - PhysicsCore.tortoiseCoordinate(observerRadius, schwarzschildRadius));
+    return PhysicsCore.clockRate(observerRadius, schwarzschildRadius) * tortoiseDifference;
+  },
+
+  /** Inverse of radarDistance: the radius at a given radar distance outward (+1) or inward (−1) from the observer. */
+  radiusAtRadarDistance(observerRadius, radarDistanceValue, direction, schwarzschildRadius) {
+    const tortoiseStep = radarDistanceValue / PhysicsCore.clockRate(observerRadius, schwarzschildRadius);
+    return PhysicsCore.radiusFromTortoise(PhysicsCore.tortoiseCoordinate(observerRadius, schwarzschildRadius)
+      + direction * tortoiseStep, schwarzschildRadius);
+  },
+
+  /**
+   * Apparent radius of a star (or black hole) of radius R, seen from far away: the largest impact parameter of
+   * light that reaches the distant observer. R / sqrt(1 − r_s/R) when R ≥ 1.5 r_s (light grazing the surface);
+   * otherwise the photon sphere sets it: (3√3 / 2) r_s, the black hole "shadow".
+   */
+  apparentRadiusFromFar(bodyRadius, schwarzschildRadius) {
+    if (bodyRadius >= 1.5 * schwarzschildRadius) return bodyRadius / PhysicsCore.clockRate(bodyRadius, schwarzschildRadius);
+    return 1.5 * Math.sqrt(3) * schwarzschildRadius;
+  },
+
+  /**
+   * How a static observer at r_O sees a distant object near the zenith: its angular size is
+   * sqrt(1 − r_s/r_O) times what it would be with no mass (small-angle limit). Below 1 means smaller.
+   */
+  overheadAngularScale(observerRadius, schwarzschildRadius) {
+    if (observerRadius === Infinity) return 1;
+    return PhysicsCore.clockRate(observerRadius, schwarzschildRadius);
+  },
+
   /** Height of Flamm's paraboloid, w(r) = 2 sqrt(r_s (r - r_s)). Has no physical meaning by itself. */
   flammHeight(radius, schwarzschildRadius) {
     return 2 * Math.sqrt(schwarzschildRadius * Math.max(radius - schwarzschildRadius, 0));
@@ -536,6 +594,45 @@ const PhysicsSelfTests = [
     expected: 1,
     relativeTolerance: 1e-15,
     source: "Fixed by definition",
+  },
+  {
+    name: "Radar distance from a static observer at 2 r_s to 10 r_s (in r_s)",
+    actual: () => PhysicsCore.radarDistance(2, 10, 1),
+    expected: 7.210526647916569,
+    relativeTolerance: 1e-10,
+    refKey: "schwarzschild.radar_distance_from_2rs_to_10rs_in_rs",
+    source: "SciPy quad in reference_values.py",
+  },
+  {
+    name: "Inverse radar distance round trip (observer at 4 r_s, target 1.5 r_s inward)",
+    actual: () => PhysicsCore.radiusAtRadarDistance(4, PhysicsCore.radarDistance(4, 1.5, 1), -1, 1),
+    expected: 1.5,
+    relativeTolerance: 1e-9,
+    source: "Fixed by construction (inverse function)",
+  },
+  {
+    name: "Distant object overhead, seen by a static observer at 2 r_s: angular size ratio",
+    actual: () => PhysicsCore.overheadAngularScale(2, 1),
+    expected: 0.7071067811850753,
+    relativeTolerance: 1e-8,
+    refKey: "schwarzschild.overhead_angle_ratio_at_2rs",
+    source: "Numerical ray tracing in reference_values.py (independent of the closed form)",
+  },
+  {
+    name: "Black hole shadow radius seen from far away (in r_s)",
+    actual: () => PhysicsCore.apparentRadiusFromFar(1, 1),
+    expected: 2.598076211353316,
+    relativeTolerance: 1e-9,
+    refKey: "schwarzschild.shadow_radius_in_rs",
+    source: "Numerical minimisation of r / sqrt(1 − r_s/r) in reference_values.py",
+  },
+  {
+    name: "Apparent radius of the 1.4 M☉, 12 km neutron star seen from far away (km)",
+    actual: () => PhysicsCore.apparentRadiusFromFar(12, 1.4 * sunSchwarzschildRadius() / 1000),
+    expected: 14.822111798808452,
+    relativeTolerance: 1e-7,
+    refKey: "neutron_star_example.apparent_radius_km",
+    source: "Astropy constants (reference_values.py)",
   },
   {
     name: "Weak-field limit z ≈ r_s/(2r) at r = 10⁶ r_s",
@@ -684,6 +781,7 @@ const viewState = {
   coordinateTimeSeconds: 0,  // distant-observer time t that drives the clocks (not reset by "Emit again")
   showClocks: true,
   showSticks: true,
+  showRadar: true,
   frame: "infinity",             // whose clock is the reference: "infinity", "observer" (O) or "camera"
   observerRadiusKm: 40,
   showEmbeddingLine: false,
@@ -1494,6 +1592,98 @@ function describeFrame() {
     + (viewState.frame === "camera" ? " Zoom toward the mass to move the observer." : "");
 }
 
+// ===== Radar and ruler scale (observer frames) =====
+//
+// A double scale along the observer's radial line. Cyan ticks above it: every 10 km of radar distance,
+// timed on the observer's clock. Orange ticks below it: every 10 km of ruler distance. Rulers are the same for
+// every static observer; radar distance depends on whose clock times the pulse. Near the observer the two agree.
+
+const SCALE_STEP_KM = 10;
+const SCALE_MAX_TICKS = 15;            // per direction
+const SCALE_TICK_KM = 4;               // drawn tick length
+const SCALE_MATERIAL_OPTIONS = { opacity: 1, transparent: true, depthTest: false, depthWrite: false };
+const radarTickMaterial = makeLineMaterial({ color: 0x5fd3ff, linewidth: 3, ...SCALE_MATERIAL_OPTIONS });
+const rulerTickMaterial = makeLineMaterial({ color: 0xff9a3c, linewidth: 3, ...SCALE_MATERIAL_OPTIONS });
+const scaleBaseMaterial = makeLineMaterial({ color: 0xffffff, linewidth: 1.2, ...SCALE_MATERIAL_OPTIONS, opacity: 0.6 });
+const scaleGroup = new THREE.Group();
+scene.add(scaleGroup);
+const radarScaleLabel = makeLabel("", "label faint");
+const rulerScaleLabel = makeLabel("", "label faint");
+const scaleOriginLabel = makeLabel("camera's distance");
+scene.add(radarScaleLabel, rulerScaleLabel, scaleOriginLabel);
+
+/** Tick direction: up in the grid view, across the surface in the Flamm view. */
+function scaleTickDirection() {
+  return viewState.view === "grid"
+    ? new THREE.Vector3(0, 1, 0)
+    : new THREE.Vector3(-Math.sin(OBSERVER_DIRECTION_ANGLE), 0, Math.cos(OBSERVER_DIRECTION_ANGLE));
+}
+
+/** Radii of the ticks every SCALE_STEP_KM outward (+1) or inward (−1) from the observer, for one kind of distance. */
+function scaleTickRadii(radiusAtDistance, direction) {
+  const radii = [];
+  for (let tick = 1; tick <= SCALE_MAX_TICKS; tick++) {
+    const radius = radiusAtDistance(tick * SCALE_STEP_KM, direction);
+    if (radius === null || radius <= spacetime.bodyRadiusKm * 1.0001 || radius > 4 * OBSERVER_MAX_RADIUS_KM) break;
+    radii.push(radius);
+  }
+  return radii;
+}
+
+function addLines(material, positions) {
+  if (positions.length === 0) return;
+  const geometry = new LineSegmentsGeometry();
+  geometry.setPositions(positions);
+  const lines = new LineSegments2(geometry, material);
+  lines.renderOrder = 950;
+  scaleGroup.add(lines);
+}
+
+function buildRadarScale() {
+  for (const child of [...scaleGroup.children]) { scaleGroup.remove(child); child.geometry.dispose(); }
+  const visible = viewState.showRadar && viewState.frame !== "infinity";
+  scaleGroup.visible = visible;
+  radarScaleLabel.visible = rulerScaleLabel.visible = visible;
+  scaleOriginLabel.visible = visible && viewState.frame === "camera";
+  if (!visible) return;
+
+  const rs = spacetime.schwarzschildRadiusKm;
+  const observerRadius = observerRadiusKm();
+  const radarRadius = (distance, direction) => PhysicsCore.radiusAtRadarDistance(observerRadius, distance, direction, rs);
+  const rulerRadius = (distance, direction) => PhysicsCore.radiusFromRulerCoordinate(observerRadius + direction * distance, rs, observerRadius);
+  const radarTicks = [...scaleTickRadii(radarRadius, -1), ...scaleTickRadii(radarRadius, 1)];
+  const rulerTicks = [...scaleTickRadii(rulerRadius, -1), ...scaleTickRadii(rulerRadius, 1)];
+  const up = scaleTickDirection().multiplyScalar(SCALE_TICK_KM);
+
+  const allRadii = [observerRadius, ...radarTicks, ...rulerTicks];
+  const innermost = Math.min(...allRadii);
+  const outermost = Math.max(...allRadii);
+  const base = [];
+  for (let piece = 0; piece < 40; piece++) {   // in pieces, to follow Flamm's surface
+    const from = innermost + (outermost - innermost) * piece / 40;
+    const to = innermost + (outermost - innermost) * (piece + 1) / 40;
+    base.push(...observerPosition(from).toArray(), ...observerPosition(to).toArray());
+  }
+  const origin = observerPosition(observerRadius);
+  base.push(...origin.clone().sub(up).toArray(), ...origin.clone().add(up).toArray());
+  addLines(scaleBaseMaterial, base);
+  addLines(radarTickMaterial, radarTicks.flatMap((radius) => {
+    const point = observerPosition(radius);
+    return [...point.toArray(), ...point.clone().add(up).toArray()];
+  }));
+  addLines(rulerTickMaterial, rulerTicks.flatMap((radius) => {
+    const point = observerPosition(radius);
+    return [...point.toArray(), ...point.clone().sub(up).toArray()];
+  }));
+
+  const outer = observerPosition(outermost);
+  radarScaleLabel.element.textContent = `radar, every ${SCALE_STEP_KM} km on ${observerName()}'s clock`;
+  radarScaleLabel.position.copy(outer).addScaledVector(up, 2.2);
+  rulerScaleLabel.element.textContent = `rulers, every ${SCALE_STEP_KM} km`;
+  rulerScaleLabel.position.copy(outer).addScaledVector(up, -2.2);
+  scaleOriginLabel.position.copy(origin).addScaledVector(up, 2);
+}
+
 // ===== Proper-length measuring sticks =====
 //
 // Rulers of equal true (ruler) length laid end to end outward from the surface, on the side opposite
@@ -1680,6 +1870,7 @@ function buildClocks() {
   }
   applyClockVisibility();
   refreshClockRates();
+  buildRadarScale();
 }
 
 function applyClockVisibility() {
@@ -1794,6 +1985,26 @@ function updateReadout() {
     ? `${(travelTimeSeconds * observerClockRate() * 1e6).toFixed(2)} µs on ${observerName()}'s clock (far clock: ${(travelTimeSeconds * 1e6).toFixed(2)} µs)`
     : `${(travelTimeSeconds * 1e6).toFixed(2)} µs (flat space: ${(flatTimeSeconds * 1e6).toFixed(2)} µs)`;
   document.getElementById("readout-distance").textContent = `${formatKm(rulerDistance)} (Δr = ${formatKm(Math.abs(receiver - emitter))})`;
+
+  // What observers see, and radar distance (see Physics notes).
+  const apparentRadius = PhysicsCore.apparentRadiusFromFar(spacetime.bodyRadiusKm, rs);
+  document.getElementById("readout-apparent").textContent = spacetime.isBlackHole
+    ? `shadow of radius ${formatKm(apparentRadius)} (2.598 rₛ; horizon ${formatKm(rs)})`
+    : `radius ${formatKm(apparentRadius)}, ×${(apparentRadius / BODY_RADIUS_KM).toFixed(3)} its true ${BODY_RADIUS_KM} km`
+      + (BODY_RADIUS_KM < 1.5 * rs ? " (set by the photon sphere, which is outside this star)" : "");
+  const skyScale = PhysicsCore.overheadAngularScale(observerRadius, rs);
+  document.getElementById("readout-sky").textContent = inObserverFrame
+    ? `distant objects look ×${skyScale.toFixed(3)} their size to ${observerName()} (bluer, brighter)`
+    : "normal size, seen from far away";
+  if (inObserverFrame) {
+    // Down to the surface (or, for a black hole, to the closest static radius: radar to the horizon is infinite).
+    const bottom = spacetime.closestBeamRadiusKm;
+    const bottomName = spacetime.isBlackHole ? `${CLOSEST_TO_HORIZON} rₛ` : "the surface";
+    document.getElementById("readout-down").textContent = observerRadius <= bottom * 1.0001
+      ? `${observerName()} is at ${bottomName}`
+      : `to ${bottomName}: rulers ${formatKm(PhysicsCore.properRadialDistance(bottom, observerRadius, rs))}, `
+        + `radar ${formatKm(PhysicsCore.radarDistance(observerRadius, bottom, rs))}`;
+  }
 }
 
 function updateFrontReadout() {
@@ -1971,6 +2182,11 @@ observerSlider.addEventListener("input", () => {
   onFrameChanged();
 });
 
+document.getElementById("radar-checkbox").addEventListener("change", (event) => {
+  viewState.showRadar = event.target.checked;
+  buildRadarScale();
+});
+
 document.getElementById("sticks-checkbox").addEventListener("change", (event) => {
   viewState.showSticks = event.target.checked;
   stickGroup.visible = viewState.showSticks;
@@ -2085,6 +2301,7 @@ function animate(now) {
     updateFrontReadout();
     if (viewState.frame === "camera") {   // the observer moves with the camera
       refreshClockRates();
+      buildRadarScale();
       updateReadout();
       describeFrame();
     }

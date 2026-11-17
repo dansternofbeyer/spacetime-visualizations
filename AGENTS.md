@@ -89,6 +89,12 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   colours are relative to that observer (warm = slower, cool = faster), playback follows its clock, and readouts add
   "Redshift A → observer". Lengths and wave colours are deliberately unchanged: static observers share the same
   space slices, and the wave colours are local measurements. Built for static observers only.
+- Radar distance and "what observers see" (2026-11-16): in observer frames a double scale along O's radial line
+  (cyan = radar every 10 km on the observer's clock, orange = rulers every 10 km). Readouts: the body's apparent
+  radius from far away (R/sqrt(1 − r_s/R), or the 2.598 r_s shadow when R < 1.5 r_s), the sky overhead seen by the
+  observer (×sqrt(1 − r_s/r_O), small-angle, static observer only), and rulers vs radar down to the surface.
+  The sky factor and shadow are checked against numerical ray tracing / minimisation in reference_values.py, but
+  still need a published citation before the page is promoted. The owner may want a ray-traced view next.
   Remaining ideas, in the suggested order: a fog hemisphere
   (density = 1/sqrt(1 − r_s/r) − 1, which equals z), then a free-fall (Gullstrand–Painlevé "river") view.
 - Proper-time clocks: at every second grid vertex in the plane through the centre (Flamm view: rings × 8 spokes),
