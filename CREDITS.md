@@ -53,11 +53,20 @@ The project's own code is MIT licensed (see `LICENSE`); everything listed here k
   Mercury's orbit.
 - Textbooks used for the Schwarzschild and FLRW equations: S. Carroll, *Spacetime and Geometry* (2004);
   J. Hartle, *Gravity* (2003); C. Misner, K. Thorne & J. Wheeler, *Gravitation* (1973).
+- **L. Flamm** (1916), "Beiträge zur Einsteinschen Gravitationstheorie", Physikalische Zeitschrift 17, 448;
+  English translation in Gen. Relativ. Gravit. (2015), doi:10.1007/s10714-015-1908-2. Flamm's paraboloid in
+  `gravitational-redshift.html`. (The 1916 original isn't indexed online; the translation's DOI was verified.)
+- **H. A. Buchdahl** (1959), "General Relativistic Fluid Spheres", Phys. Rev. 116, 1027, doi:10.1103/PhysRev.116.1027.
+  The R > 9/8 r_s limit where `gravitational-redshift.html` switches from a star to a black hole.
+- **C. Wyman, P.-P. Sloan & P. Shirley** (2013), "Simple Analytic Approximations to the CIE XYZ Color Matching
+  Functions", Journal of Computer Graphics Techniques 2(2), https://jcgt.org/published/0002/02/01/.
+  Turns wavelengths into on-screen colours in `gravitational-redshift.html`.
 - Physical constants: CODATA 2018 and IAU 2015 nominal values, via Astropy.
 
 ## Software used in the pages
 
-- **three.js** r160 (MIT), https://threejs.org. 3D rendering, OrbitControls, CSS2DRenderer.
+- **three.js** r160 (MIT), https://threejs.org. 3D rendering, OrbitControls, CSS2DRenderer, and the fat-line
+  add-ons (Line2, LineSegments2, LineMaterial).
 - **KaTeX** 0.16.11 (MIT), https://katex.org. Equation typesetting.
 - Both are loaded from the **jsDelivr** CDN.
 

@@ -1,6 +1,6 @@
 # Reference values
 
-Generated 2026-11-15 by `.claude/skills/spacetime-physics/scripts/reference_values.py` (Astropy 7.2.0). Do not edit by hand.
+Generated 2026-11-16 by `.claude/skills/spacetime-physics/scripts/reference_values.py` (Astropy 7.2.0). Do not edit by hand.
 
 | Key | Value | Unit | Description | Source |
 |---|---|---|---|---|
@@ -13,6 +13,8 @@ Generated 2026-11-15 by `.claude/skills/spacetime-physics/scripts/reference_valu
 | `schwarzschild.redshift_at_3rs` | 0.22474487 |  | z from r = 3 r_s (ISCO) to infinity | Exact from the formula |
 | `schwarzschild.proper_distance_rs_to_3rs_in_rs` | 3.5957056 | r_s | Proper radial distance from r_s to 3 r_s | Numerical integration (trapezoid, 200001 points) |
 | `schwarzschild.proper_distance_2rs_to_10rs_in_rs` | 9.0096923 | r_s | Proper radial distance from 2 r_s to 10 r_s | Numerical integration (trapezoid, 200001 points) |
+| `schwarzschild.coordinate_light_time_2rs_to_10rs_in_rs` | 10.197225 | r_s/c | Coordinate time (observer at infinity) for radial light from 2 r_s to 10 r_s, times c | Numerical integration (SciPy quad) |
+| `schwarzschild.flamm_height_2rs_to_10rs_in_rs` | 4 | r_s | Rise of Flamm's paraboloid from 2 r_s to 10 r_s (embedding condition integrated) | Numerical integration (SciPy quad) |
 | `sun.limb_light_deflection_arcsec` | 1.7511903 | arcsec | Light deflection grazing the solar limb (observed: 1.75 arcsec class) | Astropy constants (CODATA 2018, IAU 2015 nominal values) |
 | `mercury.perihelion_advance_arcsec_per_century` | 42.980475 | arcsec/century | GR perihelion advance of Mercury (Will 2014 quotes 42.98) | Astropy constants (CODATA 2018, IAU 2015 nominal values); JPL orbital elements |
 | `gps.gravitational_rate_us_per_day` | 45.652206 | us/day | GPS clock gain from weaker gravity (simplified model) | Astropy constants (CODATA 2018, IAU 2015 nominal values); Ashby 2003 orbit |

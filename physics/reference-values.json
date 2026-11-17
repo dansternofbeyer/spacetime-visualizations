@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated": "2026-11-15",
+    "generated": "2026-11-16",
     "astropy_version": "7.2.0",
     "numpy_version": "2.5.5",
     "generator": ".claude/skills/spacetime-physics/scripts/reference_values.py"
@@ -59,6 +59,18 @@
       "unit": "r_s",
       "description": "Proper radial distance from 2 r_s to 10 r_s",
       "source": "Numerical integration (trapezoid, 200001 points)"
+    },
+    "schwarzschild.coordinate_light_time_2rs_to_10rs_in_rs": {
+      "value": 10.197224577336222,
+      "unit": "r_s/c",
+      "description": "Coordinate time (observer at infinity) for radial light from 2 r_s to 10 r_s, times c",
+      "source": "Numerical integration (SciPy quad)"
+    },
+    "schwarzschild.flamm_height_2rs_to_10rs_in_rs": {
+      "value": 4.0,
+      "unit": "r_s",
+      "description": "Rise of Flamm's paraboloid from 2 r_s to 10 r_s (embedding condition integrated)",
+      "source": "Numerical integration (SciPy quad)"
     },
     "sun.limb_light_deflection_arcsec": {
       "value": 1.7511903255599846,

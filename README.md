@@ -13,7 +13,7 @@ from a CDN.
 | Page | What it shows | State |
 |---|---|---|
 | `galaxy-map.html` | ~158,000 real galaxies from the CfA2 (north), 6dFGS (south) and 2MRS (whole sky) redshift surveys in 3D, placed by redshift. You can switch between ΛCDM and Hubble-law distances, change H₀, colour by survey, and view the famous 1986 "slice of the universe". | Prototype |
-| Gravitational redshift (Schwarzschild) | Light climbing out of a gravity well, with warped-grid and embedding views | Planned |
+| `gravitational-redshift.html` | Light climbing out of a gravity well (Schwarzschild metric, observer at infinity). A star or black hole whose mass you can change, an emitter A and receiver B you can move, a playback-speed control for light, and two ways to draw space: a warped cube grid and Flamm's paraboloid. Everything is at true scale except the drawn size of the light wave. | Prototype |
 | Observable universe sphere | Our past light cone, from today back to recombination (the CMB) | Planned |
 
 ## How accuracy is kept

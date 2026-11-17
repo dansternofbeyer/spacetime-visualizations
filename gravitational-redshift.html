@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<!--
+  gravitational-redshift.html — light climbing out of a gravity well, in the Schwarzschild geometry.
+
+  A spherical mass sits at the centre. A light wave travels straight out (or in) from point A to
+  point B. Its colour at each point is the wavelength a static observer there would measure, so it
+  reddens as it climbs. The animation runs on the clock of an observer far away ("at infinity").
+  Space around the mass can be drawn two ways: a warped cube grid, or Flamm's paraboloid.
+
+  All physics lives in the PHYSICS CORE block and is checked by self-tests
+  (open with ?selftest, or run .claude/skills/spacetime-physics/scripts/check_physics.mjs).
+
+  Open by double-clicking. Needs internet only for three.js and KaTeX from the CDN.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gravitational Redshift</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<style>
+  :root {
+    --background: #05070d;
+    --panel: rgba(14, 18, 30, 0.92);
+    --panel-border: rgba(140, 160, 210, 0.25);
+    --text: #e6e9f2;
+    --muted: #9aa3b8;
+    --accent: #8ab4ff;
+    --warning: #ffcf7a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--background); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #scene { position: fixed; inset: 0; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 10px; padding: 12px 14px; backdrop-filter: blur(6px); }
+  #controls { top: 12px; left: 12px; width: 310px; max-height: calc(100% - 70px); overflow-y: auto; }
+  #readout { top: 12px; right: 12px; width: 300px; max-height: calc(100% - 70px); overflow-y: auto; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 6px; }
+  .subtitle { color: var(--muted); margin: 0 0 6px; font-size: 12.5px; }
+  label { display: block; margin: 6px 0; }
+  label.check { display: flex; gap: 6px; align-items: center; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .segmented button, button.small { background: #1b2236; color: var(--text); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 5px 8px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .segmented button.active { background: #2f4a80; border-color: var(--accent); }
+  input[type=range] { width: 100%; }
+  .value { float: right; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 12px; margin: 4px 0; }
+  .warning { color: var(--warning); }
+  #legend-bar { height: 10px; border-radius: 4px; margin-top: 4px; }
+  .legend-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  #readout dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0 0; }
+  #readout dt { color: var(--muted); }
+  #readout dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px;
+    vertical-align: -1px; border: 1px solid rgba(255, 255, 255, 0.3); }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--accent); }
+  #physics-notes { font-size: 12.5px; }
+  #physics-notes p { margin: 6px 0; }
+  .tex { overflow-x: auto; overflow-y: hidden; }
+  .label { color: var(--text); font-size: 12px; background: rgba(5, 7, 13, 0.6); padding: 1px 5px;
+    border-radius: 4px; pointer-events: none; white-space: nowrap; }
+  .label.faint { color: var(--muted); font-size: 11px; background: none; }
+  footer { position: fixed; bottom: 6px; left: 0; right: 0; text-align: center; font-size: 11.5px; color: var(--muted);
+    pointer-events: none; }
+  footer a { color: var(--muted); pointer-events: auto; }
+  #panel-toggle { display: none; }
+  .selftest-panel { position: fixed; bottom: 30px; right: 12px; max-width: min(760px, calc(100% - 24px)); max-height: 45%;
+    overflow: auto; margin: 0; font-size: 11.5px; background: #0d1220; border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 10px; z-index: 5; }
+  @media (max-width: 760px) {
+    #controls { top: auto; bottom: 82px; left: 8px; right: 8px; width: auto; max-height: 45%; }
+    footer { bottom: 0; padding: 4px 8px 6px; background: rgba(5, 7, 13, 0.85); }
+    .footer-extra { display: none; }
+    #controls.collapsed > :not(#panel-toggle):not(h1) { display: none; }
+    #panel-toggle { display: inline-block; float: right; }
+    #readout { top: 8px; left: 8px; right: 8px; width: auto; font-size: 12.5px; max-height: 32%; }
+  }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<section id="controls" class="panel">
+  <button id="panel-toggle" class="small">Hide</button>
+  <h1>Gravitational Redshift</h1>
+  <p class="subtitle">Light leaving a mass loses energy and its wavelength stretches. The wave is coloured by the
+    wavelength a <i>static observer at that spot</i> would measure. The motion is shown on the clock of an
+    observer far away.</p>
+
+  <h2>Central mass</h2>
+  <label>Mass <span class="value" id="mass-value"></span>
+    <input type="range" id="mass-slider" min="0.2" max="10" step="0.01"></label>
+  <p class="note" id="body-note"></p>
+
+  <h2>Light beam</h2>
+  <label>A, where light is emitted <span class="value" id="emitter-value"></span>
+    <input type="range" id="emitter-slider" step="0.01"></label>
+  <label>B, where light is received <span class="value" id="receiver-value"></span>
+    <input type="range" id="receiver-slider" step="0.01"></label>
+  <label>Wavelength emitted at A <span class="value" id="wavelength-value"></span>
+    <input type="range" id="wavelength-slider" min="380" max="700" step="1"></label>
+  <div class="row">
+    <button class="small" id="restart-button">Emit again</button>
+    <button class="small" id="pause-button">Pause</button>
+    <button class="small" id="swap-button">Swap A and B</button>
+  </div>
+
+  <h2>Speed of light (playback)</h2>
+  <label>Light speed on screen, far from the mass <span class="value" id="speed-value"></span>
+    <input type="range" id="speed-slider" min="0" max="1000" step="1"></label>
+  <p class="note" id="speed-note"></p>
+
+  <h2>How space is drawn</h2>
+  <div class="segmented row" id="view-mode">
+    <button data-view="grid" class="active">Warped cube grid</button>
+    <button data-view="flamm">Flamm's paraboloid</button>
+  </div>
+  <label class="check" id="flat-grid-label"><input type="checkbox" id="flat-grid-checkbox"> Show the flat grid for comparison</label>
+  <p class="note" id="view-note"></p>
+  <p class="note" style="margin-top:8px">Grid colour: redshift z that light from that spot has when it reaches a distant observer (log scale)</p>
+  <div id="legend-bar"></div>
+  <div class="legend-labels"><span>≤ 0.01</span><span>0.03</span><span>0.1</span><span>0.3</span><span>1</span><span>≥ 3</span></div>
+
+  <details>
+    <summary>Physics notes</summary>
+    <div id="physics-notes">
+      <p><b>Model.</b> Schwarzschild vacuum exterior of a non-rotating, uncharged, spherical mass M.
+        Distances are in km and masses in solar masses (M☉).</p>
+      <div class="tex" data-tex="ds^2 = -\left(1-\frac{r_s}{r}\right)c^2dt^2 + \frac{dr^2}{1-r_s/r} + r^2\,d\Omega^2,\qquad r_s=\frac{2GM}{c^2}"></div>
+      <p><i>t</i> is the time kept by a static observer far away ("at infinity"), and the whole animation runs on
+        that clock. <i>r</i> is the <i>areal</i> radius: a sphere at <i>r</i> has area 4π<i>r</i>². It is not the
+        distance to the centre.</p>
+
+      <p><b>Clocks and redshift.</b> A static clock at <i>r</i> runs slow compared with one at infinity, and light
+        passed between two static observers shifts by the ratio of their clock rates:</p>
+      <div class="tex" data-tex="\frac{d\tau}{dt}=\sqrt{1-\frac{r_s}{r}},\qquad 1+z=\frac{\lambda_B}{\lambda_A}=\sqrt{\frac{1-r_s/r_B}{1-r_s/r_A}}"></div>
+      <p>With B at infinity this becomes <span class="tex" data-tex="1+z=(1-r_s/r_A)^{-1/2}"></span>. Only the two
+        positions matter, not the path in between. If B is closer to the mass than A, z is negative (a blueshift).</p>
+
+      <p><b>The wave.</b> A radial light wave keeps the same phase along curves of constant
+        <span class="tex" data-tex="t \mp r_*/c"></span>, where <span class="tex" data-tex="r_*"></span> is the
+        "tortoise" coordinate:</p>
+      <div class="tex" data-tex="r_* = r + r_s\ln\!\left(\frac{r}{r_s}-1\right),\qquad \frac{dr}{dt}=\pm c\left(1-\frac{r_s}{r}\right)"></div>
+      <p>So the far observer sees the light crawl near the mass, even though every local observer measures it moving at c.
+        The far observer measures the same frequency ν<sub>∞</sub> everywhere along the beam. A static observer at
+        <i>r</i> measures <span class="tex" data-tex="\lambda(r)=\lambda_\infty\sqrt{1-r_s/r}"></span>, and that is the
+        colour drawn. The light-travel time A→B in the readout is
+        <span class="tex" data-tex="|r_*(r_B)-r_*(r_A)|/c"></span>, on the distant observer's clock.</p>
+
+      <p><b>Ruler distance</b> (what a chain of static rulers measures radially):</p>
+      <div class="tex" data-tex="\ell(r_1,r_2)=\int_{r_1}^{r_2}\frac{dr}{\sqrt{1-r_s/r}}=\Big[\sqrt{r(r-r_s)}+r_s\ln\!\big(\sqrt r+\sqrt{r-r_s}\big)\Big]_{r_1}^{r_2}"></div>
+
+      <p><b>Warped cube grid.</b> Curved 3D space can't be drawn in flat 3D without distorting something, so this
+        view makes one stated choice. The cube is laid out evenly in <i>ruler coordinates</i>: direction is kept, and the
+        distance from the centre is <span class="tex" data-tex="\rho = r_a + \ell(r_a, r)"></span>, with r<sub>a</sub> = 60 km
+        (the cube's half-width, where ρ = r). Each point is then drawn at its areal radius <i>r</i>. Near the mass
+        a ruler length takes up less <i>r</i>, so the grid lines crowd inward. Along the radius, the cells shrink by
+        exactly <span class="tex" data-tex="\sqrt{1-r_s/r}"></span>. Sideways sizes on the drawn cube are true at the
+        drawn radius. Nothing is exaggerated: this is the true scale. Lines inside the body or the horizon are not drawn.
+        Around a heavy black hole the ruler distance from the horizon out to 60 km is more than 60 km, so the whole
+        cube, centre included, ends up outside the horizon. The cube's centre is spread over a sphere just outside the horizon, which is where the inner lines bunch up.</p>
+
+      <p><b>Flamm's paraboloid.</b> The equatorial plane at one moment, embedded in flat 3D so that distances measured
+        along the surface equal real ruler distances:</p>
+      <div class="tex" data-tex="w(r)=2\sqrt{r_s\,(r-r_s)}"></div>
+      <p>The vertical direction has <b>no physical meaning</b>. It's an extra dimension added only to draw the
+        curvature, and it shows the curvature of space only. Most of everyday gravity comes from the slowing of clocks,
+        which this picture can't show. That is why the redshift colours are there. True scale, no exaggeration.
+        Inside a star, the surface continues as a spherical cap of radius
+        <span class="tex" data-tex="a=\sqrt{R^3/r_s}"></span> (orange). That cap assumes uniform density
+        (Schwarzschild's interior solution), and it meets the outside surface with the same slope.</p>
+
+      <p><b>The central mass.</b> The body has a fixed radius R = 12 km, about the size of a neutron star. No static star
+        can be smaller than <span class="tex" data-tex="R=\tfrac{9}{8}r_s"></span> (Buchdahl's limit), so above about
+        3.6 M☉ the page draws a black hole instead, with its horizon at r = r<sub>s</sub>. Real neutron stars collapse at a lower
+        mass, which depends on nuclear physics that isn't yet known. Around a black hole, A and B can't go closer than
+        1.01 r<sub>s</sub>. Static observers can't exist at or inside the horizon.</p>
+
+      <p class="warning"><b>Visual choices (not physics)</b></p>
+      <p>• <b>Wave size:</b> the wave is drawn <span id="exaggeration-note"></span> times longer than real light,
+        so you can see it. The <i>ratios</i> between wavelengths are true.</p>
+      <p>• <b>Speed of light slider:</b> this only slows the playback. Real light crosses the whole picture in about
+        0.3 milliseconds. Changing c itself wouldn't add anything new. In this geometry M and c only appear together as
+        r<sub>s</sub> = 2GM/c², so halving c acts exactly like making the mass four times bigger. Use the mass slider for that.</p>
+      <p>• <b>Colours</b> come from the CIE 1931 colour-matching functions (analytic fit by Wyman, Sloan &amp; Shirley 2013),
+        converted to sRGB and desaturated to fit the screen. Wavelengths beyond 780 nm (infrared) or below 380 nm
+        (ultraviolet) are invisible and are drawn grey. The readout always shows the true wavelength.</p>
+      <p>• The beam is radial, so it doesn't bend. Light bending and the photon sphere are left out.</p>
+
+      <p><b>Sources.</b> S. Carroll, <i>Spacetime and Geometry</i> (2004), ch. 5; J. Hartle, <i>Gravity</i> (2003), ch. 9–10;
+        C. Misner, K. Thorne &amp; J. Wheeler, <i>Gravitation</i> (1973), ch. 23 and 31 (embedding diagrams, stellar interiors).
+        L. Flamm (1916), Phys. Z. 17, 448; English translation in Gen. Relativ. Gravit. (2015),
+        <a href="https://doi.org/10.1007/s10714-015-1908-2">doi:10.1007/s10714-015-1908-2</a>.
+        H. A. Buchdahl (1959), "General Relativistic Fluid Spheres", Phys. Rev. 116, 1027,
+        <a href="https://doi.org/10.1103/PhysRev.116.1027">doi:10.1103/PhysRev.116.1027</a>.
+        C. Wyman, P.-P. Sloan &amp; P. Shirley (2013), "Simple Analytic Approximations to the CIE XYZ Color Matching
+        Functions", <a href="https://jcgt.org/published/0002/02/01/">J. Computer Graphics Techniques 2(2)</a>.
+        Constants: IAU 2015 nominal solar and terrestrial values (GM☉, R☉, GM⊕, R⊕), exact SI c.
+        Checks: Astropy and SciPy reference values (see <code>physics/reference-values.md</code>).</p>
+    </div>
+  </details>
+</section>
+
+<section id="readout" class="panel">
+  <h2 style="margin-top:0">Measured values</h2>
+  <dl>
+    <dt>Schwarzschild r<sub>s</sub></dt><dd id="readout-rs"></dd>
+    <dt>Body</dt><dd id="readout-body"></dd>
+    <dt>Clock rate at A</dt><dd id="readout-clock-a"></dd>
+    <dt>Clock rate at B</dt><dd id="readout-clock-b"></dd>
+    <dt>Emitted at A</dt><dd id="readout-lambda-a"></dd>
+    <dt>Received at B</dt><dd id="readout-lambda-b"></dd>
+    <dt>Redshift A → B</dt><dd id="readout-z-ab"></dd>
+    <dt>Redshift A → ∞</dt><dd id="readout-z-a-infinity"></dd>
+    <dt>Seen at infinity</dt><dd id="readout-lambda-infinity"></dd>
+    <dt>Light time A → B</dt><dd id="readout-time"></dd>
+    <dt>Ruler distance</dt><dd id="readout-distance"></dd>
+    <dt>Wave front</dt><dd id="readout-front"></dd>
+  </dl>
+  <p class="note">Clock rates are dτ/dt compared with a clock at infinity. Wavelengths are what a static observer
+    at that spot measures. Times are on the distant observer's clock.</p>
+</section>
+
+<footer>
+  Open source under the <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/LICENSE">MIT License</a>.
+  <span class="footer-extra">Physics: Schwarzschild (1916), Flamm (1916), Buchdahl (1959). Colours: CIE 1931 fit by Wyman, Sloan &amp; Shirley (2013).
+  Built with three.js, KaTeX and Astropy.</span>
+  <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/CREDITS.md">Full credits</a>.
+</footer>
+
+<script>
+// ===== PHYSICS CORE START =====
+// Physics notes: Schwarzschild vacuum exterior of a non-rotating, uncharged mass; static observers;
+// times on the clock of a static observer at infinity. Lengths may be in any one unit (the page uses km).
+// Sources: Carroll (2004) ch. 5; Hartle (2003) ch. 9–10; Misner, Thorne & Wheeler (1973) ch. 23, 31;
+// Flamm (1916); Buchdahl (1959). Constants: IAU 2015 nominal values, exact SI speed of light.
+
+const PhysicsConstants = {
+  speedOfLight: 299792458,            // m/s, exact (SI definition)
+  solarGM: 1.3271244e20,              // m^3/s^2, IAU 2015 nominal
+  earthGM: 3.986004e14,               // m^3/s^2, IAU 2015 nominal
+  solarRadius: 6.957e8,               // m, IAU 2015 nominal
+  earthEquatorialRadius: 6.3781e6,    // m, IAU 2015 nominal
+  buchdahlRatio: 9 / 8,               // any static star has R > (9/8) r_s (Buchdahl 1959)
+};
+
+const PhysicsCore = {
+  /** Schwarzschild radius r_s = 2GM/c^2, in metres, from GM in m^3/s^2. */
+  schwarzschildRadius(gravitationalParameter) {
+    return 2 * gravitationalParameter / PhysicsConstants.speedOfLight ** 2;
+  },
+
+  /** 1 - r_s/r, the factor in the metric. Clamped to 0 at and inside the horizon. */
+  metricFactor(radius, schwarzschildRadius) {
+    if (radius <= schwarzschildRadius) return 0;
+    return 1 - schwarzschildRadius / radius;
+  },
+
+  /** dτ/dt: how fast a static clock at r runs compared with a clock at infinity. */
+  clockRate(radius, schwarzschildRadius) {
+    return Math.sqrt(PhysicsCore.metricFactor(radius, schwarzschildRadius));
+  },
+
+  /**
+   * Redshift z of light sent from a static emitter at r_E to a static receiver at r_R:
+   * (1 + z)^2 = (1 - r_s/r_R) / (1 - r_s/r_E). Negative z means a blueshift.
+   * Written as expm1/log1p of a small difference so weak fields (z ~ 1e-15) stay accurate.
+   */
+  redshiftBetween(emitterRadius, receiverRadius, schwarzschildRadius) {
+    if (emitterRadius <= schwarzschildRadius || receiverRadius <= schwarzschildRadius) return Infinity;
+    const inverseRadiusDifference = (receiverRadius - emitterRadius) / (emitterRadius * receiverRadius);
+    const squaredRatioMinusOne = schwarzschildRadius * inverseRadiusDifference / (1 - schwarzschildRadius / emitterRadius);
+    return Math.expm1(0.5 * Math.log1p(squaredRatioMinusOne));
+  },
+
+  /** Redshift z of light from a static emitter at r, received by a static observer at infinity. */
+  redshiftToInfinity(emitterRadius, schwarzschildRadius) {
+    if (emitterRadius <= schwarzschildRadius) return Infinity;
+    return Math.expm1(-0.5 * Math.log1p(-schwarzschildRadius / emitterRadius));
+  },
+
+  /**
+   * Proper (ruler) radial distance from r1 to r2 at fixed t: the integral of dr / sqrt(1 - r_s/r).
+   * Signed: negative when r2 < r1. Both radii are clamped to at least r_s.
+   */
+  properRadialDistance(radius1, radius2, schwarzschildRadius) {
+    if (schwarzschildRadius === 0) return radius2 - radius1;
+    const antiderivative = (radius) => {
+      const r = Math.max(radius, schwarzschildRadius);
+      return Math.sqrt(r * (r - schwarzschildRadius))
+        + schwarzschildRadius * Math.log(Math.sqrt(r) + Math.sqrt(r - schwarzschildRadius));
+    };
+    return antiderivative(radius2) - antiderivative(radius1);
+  },
+
+  /** Tortoise coordinate r* = r + r_s ln(r/r_s - 1). Radial light keeps its phase along t ∓ r* / c. */
+  tortoiseCoordinate(radius, schwarzschildRadius) {
+    if (schwarzschildRadius === 0) return radius;
+    if (radius <= schwarzschildRadius) return -Infinity;
+    return radius + schwarzschildRadius * Math.log(radius / schwarzschildRadius - 1);
+  },
+
+  /** Inverse of the tortoise coordinate: the r (> r_s) where r* takes the given value. */
+  radiusFromTortoise(tortoiseValue, schwarzschildRadius) {
+    if (schwarzschildRadius === 0) return tortoiseValue;
+    // r* increases with r. At r = max(r*, 2 r_s) it is already at least the target value.
+    let low = schwarzschildRadius;
+    let high = Math.max(tortoiseValue, 2 * schwarzschildRadius);
+    for (let step = 0; step < 100; step++) {
+      const middle = 0.5 * (low + high);
+      if (PhysicsCore.tortoiseCoordinate(middle, schwarzschildRadius) < tortoiseValue) low = middle; else high = middle;
+    }
+    return 0.5 * (low + high);
+  },
+
+  /** Radial speed of light as charted by the observer at infinity, dr/dt, as a fraction of c. */
+  coordinateLightSpeedFraction(radius, schwarzschildRadius) {
+    return PhysicsCore.metricFactor(radius, schwarzschildRadius);
+  },
+
+  /**
+   * "Ruler coordinate" used to lay out the warped grid: rho = r_a + ℓ(r_a, r).
+   * Equal to r at the anchor radius r_a; elsewhere, radial differences in rho are true ruler distances.
+   */
+  rulerCoordinate(radius, schwarzschildRadius, anchorRadius) {
+    return anchorRadius + PhysicsCore.properRadialDistance(anchorRadius, radius, schwarzschildRadius);
+  },
+
+  /** Inverse of rulerCoordinate. Returns null when no r outside the horizon has that ruler coordinate. */
+  radiusFromRulerCoordinate(rulerValue, schwarzschildRadius, anchorRadius) {
+    if (schwarzschildRadius === 0) return rulerValue;
+    if (rulerValue < PhysicsCore.rulerCoordinate(schwarzschildRadius, schwarzschildRadius, anchorRadius)) return null;
+    // rho grows at least as fast as r, so r <= max(rho, r_a).
+    let low = schwarzschildRadius;
+    let high = Math.max(rulerValue, anchorRadius);
+    for (let step = 0; step < 80; step++) {
+      const middle = 0.5 * (low + high);
+      if (PhysicsCore.rulerCoordinate(middle, schwarzschildRadius, anchorRadius) < rulerValue) low = middle; else high = middle;
+    }
+    return 0.5 * (low + high);
+  },
+
+  /** Height of Flamm's paraboloid, w(r) = 2 sqrt(r_s (r - r_s)). Has no physical meaning by itself. */
+  flammHeight(radius, schwarzschildRadius) {
+    return 2 * Math.sqrt(schwarzschildRadius * Math.max(radius - schwarzschildRadius, 0));
+  },
+
+  /** Slope dw/dr of Flamm's paraboloid: sqrt(r_s / (r - r_s)). */
+  flammSlope(radius, schwarzschildRadius) {
+    return Math.sqrt(schwarzschildRadius / (radius - schwarzschildRadius));
+  },
+
+  /** Radius a = sqrt(R^3 / r_s) of the spherical cap that embeds a uniform-density star's interior. */
+  uniformStarCapRadius(starRadius, schwarzschildRadius) {
+    return Math.sqrt(starRadius ** 3 / schwarzschildRadius);
+  },
+
+  /** How far below the star's surface ring the interior cap sits at radius r (< R). */
+  uniformStarCapDepth(radius, starRadius, schwarzschildRadius) {
+    const capRadius = PhysicsCore.uniformStarCapRadius(starRadius, schwarzschildRadius);
+    return Math.sqrt(capRadius ** 2 - radius ** 2) - Math.sqrt(capRadius ** 2 - starRadius ** 2);
+  },
+
+  /** Slope of the interior cap where it meets the surface; it must equal the exterior flammSlope there. */
+  uniformStarCapSlopeAtSurface(starRadius, schwarzschildRadius) {
+    const capRadius = PhysicsCore.uniformStarCapRadius(starRadius, schwarzschildRadius);
+    return starRadius / Math.sqrt(capRadius ** 2 - starRadius ** 2);
+  },
+
+  /** Buchdahl's limit: a static star of radius R is possible only if R > (9/8) r_s. */
+  isStaticStarPossible(starRadius, schwarzschildRadius) {
+    return starRadius > PhysicsConstants.buchdahlRatio * schwarzschildRadius;
+  },
+};
+
+const sunSchwarzschildRadius = () => PhysicsCore.schwarzschildRadius(PhysicsConstants.solarGM);
+
+// Each test: actual() computes with PhysicsCore; expected is a literal from physics/reference-values.json
+// (refKey), an exact limit, or a value fixed by construction. Tolerances are relative.
+const PhysicsSelfTests = [
+  {
+    name: "Schwarzschild radius of the Sun (m)",
+    actual: () => sunSchwarzschildRadius(),
+    expected: 2953.2500761002498,
+    relativeTolerance: 1e-7,
+    refKey: "sun.schwarzschild_radius_m",
+    source: "Astropy constants (IAU 2015 nominal GM_sun)",
+  },
+  {
+    name: "Redshift from the Sun's surface to infinity",
+    actual: () => PhysicsCore.redshiftToInfinity(PhysicsConstants.solarRadius, sunSchwarzschildRadius()),
+    expected: 2.1225093276289186e-06,
+    relativeTolerance: 1e-7,
+    refKey: "sun.surface_redshift",
+    source: "Astropy constants (IAU 2015 nominal GM_sun, R_sun)",
+  },
+  {
+    name: "Surface redshift of a 1.4 M☉, 12 km neutron star (the page's default)",
+    actual: () => PhysicsCore.redshiftToInfinity(12000, 1.4 * sunSchwarzschildRadius()),
+    expected: 0.23517598323403766,
+    relativeTolerance: 1e-7,
+    refKey: "neutron_star_example.surface_redshift",
+    source: "Astropy constants",
+  },
+  {
+    name: "Redshift from r = 3 r_s to infinity",
+    actual: () => PhysicsCore.redshiftToInfinity(3, 1),
+    expected: 0.22474487139158894,
+    relativeTolerance: 1e-12,
+    refKey: "schwarzschild.redshift_at_3rs",
+    source: "Exact from the formula (reference script)",
+  },
+  {
+    name: "Two-radius formula with a very distant receiver matches the infinity formula (3 r_s)",
+    actual: () => PhysicsCore.redshiftBetween(3, 1e12, 1),
+    expected: 0.22474487139158894,
+    relativeTolerance: 1e-9,
+    refKey: "schwarzschild.redshift_at_3rs",
+    source: "Limit r_R → ∞ of the two-radius formula",
+  },
+  {
+    name: "Weak-field limit z ≈ r_s/(2r) at r = 10⁶ r_s",
+    actual: () => PhysicsCore.redshiftToInfinity(1e6, 1),
+    expected: 5e-7,
+    relativeTolerance: 2e-6,
+    source: "Weak-field expansion (equations.md §1); next term is 3/4·r_s/r smaller",
+  },
+  {
+    name: "Pound–Rebka: shift over 22.5 m at Earth's surface (vs g h/c² with standard g)",
+    actual: () => PhysicsCore.redshiftBetween(PhysicsConstants.earthEquatorialRadius,
+      PhysicsConstants.earthEquatorialRadius + 22.5, PhysicsCore.schwarzschildRadius(PhysicsConstants.earthGM)),
+    expected: 2.455058176244599e-15,
+    relativeTolerance: 3e-3,
+    refKey: "pound_rebka.fractional_shift",
+    source: "Pound & Rebka (1960) geometry; tolerance covers GM/R² (9.798) vs standard g (9.80665)",
+  },
+  {
+    name: "Ruler distance from r_s to 3 r_s (in r_s)",
+    actual: () => PhysicsCore.properRadialDistance(1, 3, 1),
+    expected: 3.5957055775705715,
+    relativeTolerance: 1e-6,
+    refKey: "schwarzschild.proper_distance_rs_to_3rs_in_rs",
+    source: "Numerical integration in reference_values.py",
+  },
+  {
+    name: "Ruler distance from 2 r_s to 10 r_s (in r_s)",
+    actual: () => PhysicsCore.properRadialDistance(2, 10, 1),
+    expected: 9.009692290348593,
+    relativeTolerance: 1e-6,
+    refKey: "schwarzschild.proper_distance_2rs_to_10rs_in_rs",
+    source: "Numerical integration in reference_values.py",
+  },
+  {
+    name: "Light travel time 2 r_s → 10 r_s, distant clock (Δr* in r_s)",
+    actual: () => PhysicsCore.tortoiseCoordinate(10, 1) - PhysicsCore.tortoiseCoordinate(2, 1),
+    expected: 10.197224577336222,
+    relativeTolerance: 1e-10,
+    refKey: "schwarzschild.coordinate_light_time_2rs_to_10rs_in_rs",
+    source: "SciPy quad of dr/(1 - r_s/r) in reference_values.py",
+  },
+  {
+    name: "Rise of Flamm's paraboloid from 2 r_s to 10 r_s (in r_s)",
+    actual: () => PhysicsCore.flammHeight(10, 1) - PhysicsCore.flammHeight(2, 1),
+    expected: 4.0,
+    relativeTolerance: 1e-10,
+    refKey: "schwarzschild.flamm_height_2rs_to_10rs_in_rs",
+    source: "SciPy quad of the embedding condition in reference_values.py",
+  },
+  {
+    name: "Flamm slope at the Sun's surface",
+    actual: () => PhysicsCore.flammSlope(PhysicsConstants.solarRadius, sunSchwarzschildRadius()),
+    expected: 0.002060345398333942,
+    relativeTolerance: 1e-7,
+    refKey: "sun.embedding_slope_at_surface",
+    source: "Astropy constants",
+  },
+  {
+    name: "Uniform-star interior cap meets the outside surface with the same slope (Sun)",
+    actual: () => PhysicsCore.uniformStarCapSlopeAtSurface(PhysicsConstants.solarRadius, sunSchwarzschildRadius()),
+    expected: 0.002060345398333942,
+    relativeTolerance: 1e-7,
+    refKey: "sun.embedding_slope_at_surface",
+    source: "Smooth joining of the interior and exterior embeddings",
+  },
+  {
+    name: "Inverse tortoise coordinate round trip at r = 1.37 r_s",
+    actual: () => PhysicsCore.radiusFromTortoise(PhysicsCore.tortoiseCoordinate(1.37, 1), 1),
+    expected: 1.37,
+    relativeTolerance: 1e-9,
+    source: "Fixed by construction (inverse function)",
+  },
+  {
+    name: "Inverse ruler coordinate round trip at r = 4.2 r_s (anchor 20 r_s)",
+    actual: () => PhysicsCore.radiusFromRulerCoordinate(PhysicsCore.rulerCoordinate(4.2, 1, 20), 1, 20),
+    expected: 4.2,
+    relativeTolerance: 1e-9,
+    source: "Fixed by construction (inverse function)",
+  },
+  {
+    name: "Metric factor is clamped to 0 inside the horizon (r = 0.5 r_s)",
+    actual: () => PhysicsCore.metricFactor(0.5, 1),
+    expected: 0,
+    relativeTolerance: 0,
+    source: "Static observers can't exist inside r_s (pitfalls.md)",
+  },
+];
+// ===== PHYSICS CORE END =====
+</script>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+
+// ===== Settings =====
+
+const BODY_RADIUS_KM = 12;                  // fixed radius of the central body (neutron-star sized)
+const SCENE_RADIUS_KM = 80;                 // farthest A or B can be; also the rim of Flamm's paraboloid
+const GRID_HALF_WIDTH_KM = 60;              // the cube grid spans ±60 km; also the anchor where ρ = r
+const GRID_LINES_PER_AXIS = 9;              // 15 km spacing
+const GRID_POINTS_PER_LINE = 61;            // 2 km steps along each grid line
+const BEAM_POINTS = 1400;
+const BEAM_DIRECTION_ANGLE = 0.35;          // radians from +x, so the beam doesn't sit on a grid line
+const WAVE_KM_PER_NM = 6 / 450;             // drawn wave length per nanometre of real wavelength
+const WAVE_EXAGGERATION = (WAVE_KM_PER_NM * 1e3) / 1e-9;
+const WAVE_AMPLITUDE_KM = 1.2;
+const CLOSEST_TO_HORIZON = 1.01;            // A and B stay outside 1.01 r_s around a black hole
+const SPEED_OF_LIGHT_KM_S = PhysicsConstants.speedOfLight / 1000;
+const SCREEN_SPEED_MIN_KM_S = 0.5;
+const SCREEN_SPEED_MAX_KM_S = 50;
+
+const viewState = {
+  massInSolarMasses: 1.4,
+  emitterRadiusKm: BODY_RADIUS_KM,
+  receiverRadiusKm: 70,
+  emittedWavelengthNm: 450,
+  screenLightSpeedKmS: 8,
+  view: "grid",
+  showFlatGrid: false,
+  paused: false,
+  travelledTortoiseKm: 0,    // c × (distant-observer time since emission began), measured in r*
+};
+
+let spacetime = describeSpacetime();
+
+/** Everything about the central mass that the drawing needs, in km. */
+function describeSpacetime() {
+  const schwarzschildRadiusKm =
+    PhysicsCore.schwarzschildRadius(PhysicsConstants.solarGM * viewState.massInSolarMasses) / 1000;
+  const isBlackHole = !PhysicsCore.isStaticStarPossible(BODY_RADIUS_KM, schwarzschildRadiusKm);
+  return {
+    schwarzschildRadiusKm,
+    isBlackHole,
+    bodyRadiusKm: isBlackHole ? schwarzschildRadiusKm : BODY_RADIUS_KM,
+    closestBeamRadiusKm: isBlackHole ? CLOSEST_TO_HORIZON * schwarzschildRadiusKm : BODY_RADIUS_KM,
+  };
+}
+
+// ===== Colour of light (CIE 1931 fit by Wyman, Sloan & Shirley 2013) =====
+
+function piecewiseGaussian(wavelength, mean, widthBelow, widthAbove) {
+  const scaled = (wavelength - mean) / (wavelength < mean ? widthBelow : widthAbove);
+  return Math.exp(-0.5 * scaled * scaled);
+}
+
+/** CIE 1931 2° colour-matching functions x̄, ȳ, z̄ (multi-lobe fit, JCGT 2013). */
+function cieColorMatching(wavelengthNm) {
+  const x = 1.056 * piecewiseGaussian(wavelengthNm, 599.8, 37.9, 31.0)
+    + 0.362 * piecewiseGaussian(wavelengthNm, 442.0, 16.0, 26.7)
+    - 0.065 * piecewiseGaussian(wavelengthNm, 501.1, 20.4, 26.2);
+  const y = 0.821 * piecewiseGaussian(wavelengthNm, 568.8, 46.9, 40.5)
+    + 0.286 * piecewiseGaussian(wavelengthNm, 530.9, 16.3, 31.1);
+  const z = 1.217 * piecewiseGaussian(wavelengthNm, 437.0, 11.8, 36.0)
+    + 0.681 * piecewiseGaussian(wavelengthNm, 459.0, 26.0, 13.8);
+  return { x, y, z };
+}
+
+/**
+ * Linear-sRGB colour of monochromatic light. Pure spectral colours lie outside the sRGB gamut,
+ * so negative parts are filled in with white (desaturation) and the brightest channel is scaled to 1.
+ * Invisible wavelengths come back grey with visible = false.
+ */
+function wavelengthToLinearRgb(wavelengthNm) {
+  if (!(wavelengthNm >= 380 && wavelengthNm <= 780)) return { r: 0.22, g: 0.22, b: 0.24, visible: false };
+  const { x, y, z } = cieColorMatching(wavelengthNm);
+  let red = 3.2406 * x - 1.5372 * y - 0.4986 * z;
+  let green = -0.9689 * x + 1.8758 * y + 0.0415 * z;
+  let blue = 0.0557 * x - 0.2040 * y + 1.0570 * z;
+  const lowest = Math.min(red, green, blue);
+  if (lowest < 0) { red -= lowest; green -= lowest; blue -= lowest; }
+  const highest = Math.max(red, green, blue);
+  // Fade toward the ends of the visible range, where the eye barely responds.
+  const edgeFade = wavelengthNm < 420 ? 0.3 + 0.7 * (wavelengthNm - 380) / 40
+    : wavelengthNm > 700 ? 0.3 + 0.7 * (780 - wavelengthNm) / 80 : 1;
+  return { r: red / highest * edgeFade, g: green / highest * edgeFade, b: blue / highest * edgeFade, visible: true };
+}
+
+function linearToCss({ r, g, b }) {
+  const encode = (channel) => Math.round(255 * (channel <= 0.0031308 ? 12.92 * channel : 1.055 * channel ** (1 / 2.4) - 0.055));
+  return `rgb(${encode(r)}, ${encode(g)}, ${encode(b)})`;
+}
+
+function describeBand(wavelengthNm) {
+  if (!isFinite(wavelengthNm)) return "infinitely redshifted";
+  if (wavelengthNm < 380) return "ultraviolet, invisible";
+  if (wavelengthNm > 780) return "infrared, invisible";
+  return "visible";
+}
+
+// ===== Grid colour: redshift to infinity, log scale =====
+
+const REDSHIFT_COLOR_STOPS = ["#2f5bff", "#1fb6e0", "#3ccf6e", "#e8d44a", "#ff8a2a", "#ff3b3b"]
+  .map((hex) => new THREE.Color(hex));
+const REDSHIFT_LOG_MIN = -2;    // z = 0.01
+const REDSHIFT_LOG_MAX = 0.5;   // z ≈ 3.2
+
+function redshiftColor(redshift, target) {
+  const logValue = isFinite(redshift) && redshift > 0 ? Math.log10(redshift) : (redshift > 0 ? REDSHIFT_LOG_MAX : REDSHIFT_LOG_MIN);
+  const position = Math.min(Math.max((logValue - REDSHIFT_LOG_MIN) / (REDSHIFT_LOG_MAX - REDSHIFT_LOG_MIN), 0), 1)
+    * (REDSHIFT_COLOR_STOPS.length - 1);
+  const index = Math.min(Math.floor(position), REDSHIFT_COLOR_STOPS.length - 2);
+  return target.copy(REDSHIFT_COLOR_STOPS[index]).lerp(REDSHIFT_COLOR_STOPS[index + 1], position - index);
+}
+
+function colorForRadius(radiusKm, target) {
+  return redshiftColor(PhysicsCore.redshiftToInfinity(radiusKm, spacetime.schwarzschildRadiusKm), target);
+}
+
+// ===== Scene setup =====
+
+const container = document.getElementById("scene");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+container.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.domElement.style.position = "fixed";
+labelRenderer.domElement.style.inset = "0";
+labelRenderer.domElement.style.pointerEvents = "none";
+document.body.appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05070d);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+const lineMaterials = [];   // LineMaterial needs the canvas size, kept current in resize()
+function makeLineMaterial(options) {
+  const material = new LineMaterial({ transparent: true, ...options });
+  lineMaterials.push(material);
+  return material;
+}
+
+function makeLabel(text, className = "label") {
+  const element = document.createElement("div");
+  element.className = className;
+  element.textContent = text;
+  return new CSS2DObject(element);
+}
+
+/**
+ * CSS2D labels ignore a hidden parent group, so each label's own visibility is set here:
+ * shown only in its view (and Flamm ring labels only outside the body).
+ */
+function applyLabelVisibility() {
+  bodyLabel.visible = viewState.view === "grid";
+  flammNoteLabel.visible = flammBodyLabel.visible = viewState.view === "flamm";
+  for (const { radius, label } of flammRingLabels) {
+    label.visible = viewState.view === "flamm" && radius > spacetime.bodyRadiusKm + 3;
+  }
+}
+
+const gridGroup = new THREE.Group();
+const flammGroup = new THREE.Group();
+scene.add(gridGroup, flammGroup);
+
+// ===== Central body: star or black hole (grid view) =====
+
+const starMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
+const starGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xffc070,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+const horizonMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+const horizonRim = new THREE.Mesh(new THREE.RingGeometry(1, 1.05, 96),
+  new THREE.MeshBasicMaterial({ color: 0xff9a4a, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
+const bodyLabel = makeLabel("", "label faint");
+gridGroup.add(starMesh, starGlow, horizonMesh, horizonRim, bodyLabel);
+
+function makeGlowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  const context = canvas.getContext("2d");
+  const gradient = context.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gradient.addColorStop(0, "rgba(255,255,255,0.9)");
+  gradient.addColorStop(0.35, "rgba(255,255,255,0.25)");
+  gradient.addColorStop(1, "rgba(255,255,255,0)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(canvas);
+}
+
+function updateCentralBody() {
+  const { isBlackHole, bodyRadiusKm } = spacetime;
+  starMesh.visible = starGlow.visible = !isBlackHole;
+  horizonMesh.visible = horizonRim.visible = isBlackHole;
+  starMesh.scale.setScalar(bodyRadiusKm);
+  starGlow.scale.setScalar(bodyRadiusKm * 4);
+  horizonMesh.scale.setScalar(bodyRadiusKm);
+  horizonRim.scale.setScalar(bodyRadiusKm);
+  bodyLabel.position.set(0, bodyRadiusKm + 4, 0);
+  bodyLabel.element.textContent = isBlackHole ? "event horizon, r = rₛ" : `star, R = ${BODY_RADIUS_KM} km`;
+}
+
+// ===== Warped cube grid =====
+
+const warpedGridMaterial = makeLineMaterial({ vertexColors: true, linewidth: 1.6, opacity: 0.9 });
+const flatGridMaterial = makeLineMaterial({ color: 0x8a93a8, linewidth: 1, opacity: 0.28 });
+let warpedGrid = null;
+let flatGrid = null;
+
+/** Places a point laid out in flat ruler coordinates at its areal radius r. Null if inside the body. */
+function warpGridPoint(x, y, z) {
+  const rulerValue = Math.hypot(x, y, z);
+  if (rulerValue < 1e-9) return null;
+  const radius = PhysicsCore.radiusFromRulerCoordinate(rulerValue, spacetime.schwarzschildRadiusKm, GRID_HALF_WIDTH_KM);
+  if (radius === null || radius < spacetime.bodyRadiusKm) return null;
+  const scale = radius / rulerValue;
+  return { x: x * scale, y: y * scale, z: z * scale, radius };
+}
+
+function buildWarpedGrid() {
+  const warpedPositions = [];
+  const warpedColors = [];
+  const flatPositions = [];
+  const color = new THREE.Color();
+  const lineSpacing = (2 * GRID_HALF_WIDTH_KM) / (GRID_LINES_PER_AXIS - 1);
+  const pointSpacing = (2 * GRID_HALF_WIDTH_KM) / (GRID_POINTS_PER_LINE - 1);
+
+  for (let axis = 0; axis < 3; axis++) {
+    for (let first = 0; first < GRID_LINES_PER_AXIS; first++) {
+      for (let second = 0; second < GRID_LINES_PER_AXIS; second++) {
+        const a = -GRID_HALF_WIDTH_KM + first * lineSpacing;
+        const b = -GRID_HALF_WIDTH_KM + second * lineSpacing;
+        let previousFlat = null;
+        let previousWarped = null;
+        for (let step = 0; step < GRID_POINTS_PER_LINE; step++) {
+          const t = -GRID_HALF_WIDTH_KM + step * pointSpacing;
+          const flat = axis === 0 ? [t, a, b] : axis === 1 ? [a, t, b] : [a, b, t];
+          const warped = warpGridPoint(...flat);
+          if (previousFlat) {
+            flatPositions.push(...previousFlat, ...flat);
+            // A line through the very centre flips direction there; don't join across it.
+            const crossesCentre = previousFlat[0] * flat[0] + previousFlat[1] * flat[1] + previousFlat[2] * flat[2] < 0;
+            if (previousWarped && warped && !crossesCentre) {
+              warpedPositions.push(previousWarped.x, previousWarped.y, previousWarped.z, warped.x, warped.y, warped.z);
+              for (const point of [previousWarped, warped]) {
+                colorForRadius(point.radius, color);
+                warpedColors.push(color.r, color.g, color.b);
+              }
+            }
+          }
+          previousFlat = flat;
+          previousWarped = warped;
+        }
+      }
+    }
+  }
+
+  if (warpedGrid) { gridGroup.remove(warpedGrid); warpedGrid.geometry.dispose(); }
+  const warpedGeometry = new LineSegmentsGeometry();
+  warpedGeometry.setPositions(warpedPositions);
+  warpedGeometry.setColors(warpedColors);
+  warpedGrid = new LineSegments2(warpedGeometry, warpedGridMaterial);
+  gridGroup.add(warpedGrid);
+
+  if (!flatGrid) {   // the flat grid never changes
+    const flatGeometry = new LineSegmentsGeometry();
+    flatGeometry.setPositions(flatPositions);
+    flatGrid = new LineSegments2(flatGeometry, flatGridMaterial);
+    gridGroup.add(flatGrid);
+  }
+  flatGrid.visible = viewState.showFlatGrid;
+}
+
+// ===== Flamm's paraboloid =====
+
+const FLAMM_RINGS = 90;
+const FLAMM_SEGMENTS = 120;
+const flammLineMaterial = makeLineMaterial({ vertexColors: true, linewidth: 1.4, opacity: 0.9 });
+const horizonLineMaterial = makeLineMaterial({ color: 0xff9a4a, linewidth: 2.5, opacity: 1 });
+const flammSurfaceMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.16,
+  side: THREE.DoubleSide, depthWrite: false });
+const starCapMaterial = new THREE.MeshBasicMaterial({ color: 0xffb060, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
+const flammNoteLabel = makeLabel("Flamm's paraboloid: the vertical direction has no physical meaning", "label faint");
+const flammBodyLabel = makeLabel("", "label faint");
+flammGroup.add(flammNoteLabel, flammBodyLabel);
+const flammRingLabels = [20, 40, 60, 80].map((radius) => {
+  const label = makeLabel(`r = ${radius} km`, "label faint");
+  flammGroup.add(label);
+  return { radius, label };
+});
+let flammObjects = [];
+
+/** Height of the drawn surface at areal radius r (rim at 0, the well goes down). */
+function flammSurfaceY(radiusKm) {
+  const { schwarzschildRadiusKm: rs, isBlackHole } = spacetime;
+  const rim = PhysicsCore.flammHeight(SCENE_RADIUS_KM, rs);
+  if (isBlackHole || radiusKm >= BODY_RADIUS_KM) return PhysicsCore.flammHeight(Math.max(radiusKm, rs), rs) - rim;
+  // Inside the star: the uniform-density interior cap.
+  return PhysicsCore.flammHeight(BODY_RADIUS_KM, rs) - rim - PhysicsCore.uniformStarCapDepth(radiusKm, BODY_RADIUS_KM, rs);
+}
+
+/** Radii spaced more tightly near the inner edge, where the surface is steepest. */
+function flammRingRadius(ringIndex, innerRadius) {
+  const fraction = ringIndex / FLAMM_RINGS;
+  return innerRadius + (SCENE_RADIUS_KM - innerRadius) * fraction * fraction;
+}
+
+function buildPolarMesh(radiusAt, ringCount, material, colorAt) {
+  const positions = [];
+  const colors = [];
+  const indices = [];
+  const color = new THREE.Color();
+  for (let ring = 0; ring <= ringCount; ring++) {
+    const radius = radiusAt(ring);
+    const height = flammSurfaceY(radius);
+    if (colorAt) colorAt(radius, color);
+    for (let segment = 0; segment <= FLAMM_SEGMENTS; segment++) {
+      const angle = (segment / FLAMM_SEGMENTS) * 2 * Math.PI;
+      positions.push(radius * Math.cos(angle), height, radius * Math.sin(angle));
+      if (colorAt) colors.push(color.r, color.g, color.b);
+      if (ring > 0 && segment > 0) {
+        const current = ring * (FLAMM_SEGMENTS + 1) + segment;
+        const previousRing = current - (FLAMM_SEGMENTS + 1);
+        indices.push(previousRing - 1, previousRing, current, previousRing - 1, current, current - 1);
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  if (colorAt) geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  return new THREE.Mesh(geometry, material);
+}
+
+function circlePositions(radius, lift = 0.05) {
+  const positions = [];
+  const height = flammSurfaceY(radius) + lift;
+  for (let segment = 0; segment < FLAMM_SEGMENTS; segment++) {
+    const angle1 = (segment / FLAMM_SEGMENTS) * 2 * Math.PI;
+    const angle2 = ((segment + 1) / FLAMM_SEGMENTS) * 2 * Math.PI;
+    positions.push(radius * Math.cos(angle1), height, radius * Math.sin(angle1),
+      radius * Math.cos(angle2), height, radius * Math.sin(angle2));
+  }
+  return positions;
+}
+
+function buildFlammSurface() {
+  for (const object of flammObjects) { flammGroup.remove(object); object.geometry.dispose(); }
+  flammObjects = [];
+  const { schwarzschildRadiusKm: rs, isBlackHole, bodyRadiusKm } = spacetime;
+  const innerRadius = bodyRadiusKm;
+
+  flammObjects.push(buildPolarMesh((ring) => flammRingRadius(ring, innerRadius), FLAMM_RINGS,
+    flammSurfaceMaterial, colorForRadius));
+
+  // Wire lines: circles of constant r every 10 km, and radial lines every 15°.
+  const linePositions = [];
+  const lineColors = [];
+  const color = new THREE.Color();
+  const addColoredSegment = (radius1, radius2, ...coordinates) => {
+    linePositions.push(...coordinates);
+    for (const radius of [radius1, radius2]) { colorForRadius(radius, color); lineColors.push(color.r, color.g, color.b); }
+  };
+  const circleRadii = [innerRadius];
+  for (let radius = Math.ceil((innerRadius + 0.5) / 10) * 10; radius <= SCENE_RADIUS_KM; radius += 10) circleRadii.push(radius);
+  for (const radius of circleRadii) {
+    const positions = circlePositions(radius);
+    for (let index = 0; index < positions.length; index += 6) addColoredSegment(radius, radius, ...positions.slice(index, index + 6));
+  }
+  for (let spoke = 0; spoke < 24; spoke++) {
+    const angle = (spoke / 24) * 2 * Math.PI;
+    for (let ring = 0; ring < FLAMM_RINGS; ring++) {
+      const radius1 = flammRingRadius(ring, innerRadius);
+      const radius2 = flammRingRadius(ring + 1, innerRadius);
+      addColoredSegment(radius1, radius2,
+        radius1 * Math.cos(angle), flammSurfaceY(radius1) + 0.05, radius1 * Math.sin(angle),
+        radius2 * Math.cos(angle), flammSurfaceY(radius2) + 0.05, radius2 * Math.sin(angle));
+    }
+  }
+  const lineGeometry = new LineSegmentsGeometry();
+  lineGeometry.setPositions(linePositions);
+  lineGeometry.setColors(lineColors);
+  flammObjects.push(new LineSegments2(lineGeometry, flammLineMaterial));
+
+  if (isBlackHole) {
+    const horizonGeometry = new LineSegmentsGeometry();
+    horizonGeometry.setPositions(circlePositions(rs, 0.1));
+    flammObjects.push(new LineSegments2(horizonGeometry, horizonLineMaterial));
+  } else {
+    flammObjects.push(buildPolarMesh((ring) => BODY_RADIUS_KM * ring / 30, 30, starCapMaterial, null));
+  }
+  flammGroup.add(...flammObjects);
+
+  flammBodyLabel.element.textContent = isBlackHole ? "event horizon (throat), r = rₛ" : "star interior (uniform density)";
+  flammBodyLabel.position.set(0, flammSurfaceY(isBlackHole ? rs : 0) - 3, 0);
+  flammNoteLabel.position.set(0, 6, -SCENE_RADIUS_KM);
+  for (const { radius, label } of flammRingLabels) {
+    label.position.set(-radius * 0.71, flammSurfaceY(radius) + 1.5, radius * 0.71);
+  }
+}
+
+// ===== Light beam =====
+
+const beamGeometry = new LineGeometry();
+beamGeometry.setPositions(new Float32Array(BEAM_POINTS * 3));
+beamGeometry.setColors(new Float32Array(BEAM_POINTS * 3));
+const beamLine = new Line2(beamGeometry, makeLineMaterial({ vertexColors: true, linewidth: 3, opacity: 1 }));
+beamLine.frustumCulled = false;
+const beamPathGeometry = new LineGeometry();
+beamPathGeometry.setPositions([0, 0, 0, 1, 0, 0]);
+const beamPath = new Line2(beamPathGeometry, makeLineMaterial({ color: 0xffffff, linewidth: 1, opacity: 0.25 }));
+const frontMarker = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const emitterMarker = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const receiverMarker = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const emitterLabel = makeLabel("A");
+const receiverLabel = makeLabel("B");
+emitterMarker.add(emitterLabel);
+receiverMarker.add(receiverLabel);
+emitterLabel.position.set(0, 2.6, 0);
+receiverLabel.position.set(0, 2.6, 0);
+scene.add(beamLine, beamPath, frontMarker, emitterMarker, receiverMarker);
+
+const beam = {
+  radii: new Float64Array(BEAM_POINTS),          // areal radius r of each sample
+  tortoiseOffsets: new Float64Array(BEAM_POINTS), // |r*(sample) − r*(A)|: how far (in r*) the wave has travelled to get there
+  basePositions: new Float32Array(BEAM_POINTS * 3),
+  points: new Float32Array(BEAM_POINTS * 3),
+  wiggleDirection: new THREE.Vector3(),
+  drawnWavelengthAtInfinityKm: 1,
+  wavelengthAtInfinityNm: 0,
+  lastDrawnIndex: 0,
+};
+
+const beamDirection = new THREE.Vector3(Math.cos(BEAM_DIRECTION_ANGLE), 0, Math.sin(BEAM_DIRECTION_ANGLE));
+
+/** Where the beam's centre line is drawn at areal radius r, in the current view. */
+function beamBasePosition(radiusKm, target) {
+  target.copy(beamDirection).multiplyScalar(radiusKm);
+  if (viewState.view === "flamm") target.y = flammSurfaceY(radiusKm) + 0.3;
+  return target;
+}
+
+function localWavelengthNm(radiusKm) {
+  return beam.wavelengthAtInfinityNm * PhysicsCore.clockRate(radiusKm, spacetime.schwarzschildRadiusKm);
+}
+
+/**
+ * Samples the beam evenly in r* (so every wave crest gets the same number of samples), and
+ * colours each sample by the wavelength a static observer there measures.
+ */
+function rebuildBeam() {
+  const rs = spacetime.schwarzschildRadiusKm;
+  const emitter = viewState.emitterRadiusKm;
+  const receiver = viewState.receiverRadiusKm;
+  const tortoiseAtEmitter = PhysicsCore.tortoiseCoordinate(emitter, rs);
+  const tortoiseAtReceiver = PhysicsCore.tortoiseCoordinate(receiver, rs);
+  beam.wavelengthAtInfinityNm = viewState.emittedWavelengthNm / PhysicsCore.clockRate(emitter, rs);
+  beam.drawnWavelengthAtInfinityKm = beam.wavelengthAtInfinityNm * WAVE_KM_PER_NM;
+
+  const colors = new Float32Array(BEAM_POINTS * 3);
+  const position = new THREE.Vector3();
+  for (let index = 0; index < BEAM_POINTS; index++) {
+    const fraction = index / (BEAM_POINTS - 1);
+    const tortoiseValue = tortoiseAtEmitter + (tortoiseAtReceiver - tortoiseAtEmitter) * fraction;
+    const radius = index === 0 ? emitter : index === BEAM_POINTS - 1 ? receiver : PhysicsCore.radiusFromTortoise(tortoiseValue, rs);
+    beam.radii[index] = radius;
+    beam.tortoiseOffsets[index] = Math.abs(tortoiseValue - tortoiseAtEmitter);
+    beamBasePosition(radius, position).toArray(beam.basePositions, index * 3);
+    const rgb = wavelengthToLinearRgb(localWavelengthNm(radius));
+    colors.set([rgb.r, rgb.g, rgb.b], index * 3);
+  }
+  beamGeometry.setColors(colors);
+
+  // Wiggle sideways: up in the grid view, along the surface (across the beam) on Flamm's paraboloid.
+  if (viewState.view === "grid") beam.wiggleDirection.set(0, 1, 0);
+  else beam.wiggleDirection.set(-Math.sin(BEAM_DIRECTION_ANGLE), 0, Math.cos(BEAM_DIRECTION_ANGLE));
+
+  const pathPoints = [];
+  for (let index = 0; index < BEAM_POINTS; index += 20) pathPoints.push(...beam.basePositions.slice(index * 3, index * 3 + 3));
+  pathPoints.push(...beam.basePositions.slice((BEAM_POINTS - 1) * 3));
+  beamPath.geometry.dispose();
+  beamPath.geometry = new LineGeometry();
+  beamPath.geometry.setPositions(pathPoints);
+
+  const sizeKm = viewState.view === "grid" ? 1.1 : 1.3;
+  emitterMarker.scale.setScalar(sizeKm);
+  receiverMarker.scale.setScalar(sizeKm);
+  emitterMarker.position.fromArray(beam.basePositions, 0);
+  receiverMarker.position.fromArray(beam.basePositions, (BEAM_POINTS - 1) * 3);
+  const emittedRgb = wavelengthToLinearRgb(viewState.emittedWavelengthNm);
+  const receivedRgb = wavelengthToLinearRgb(localWavelengthNm(receiver));
+  emitterMarker.material.color.setRGB(emittedRgb.r, emittedRgb.g, emittedRgb.b);
+  receiverMarker.material.color.setRGB(receivedRgb.r, receivedRgb.g, receivedRgb.b);
+}
+
+/** Moves the wave along by the distant observer's clock and redraws the part that has been emitted so far. */
+function advanceBeam(elapsedRealSeconds) {
+  if (!viewState.paused) viewState.travelledTortoiseKm += elapsedRealSeconds * viewState.screenLightSpeedKmS;
+  const travelled = viewState.travelledTortoiseKm;
+  const wavenumber = (2 * Math.PI) / beam.drawnWavelengthAtInfinityKm;
+  let lastDrawnIndex = -1;
+  for (let index = 0; index < BEAM_POINTS; index++) {
+    if (beam.tortoiseOffsets[index] > travelled) break;
+    // The phase is constant along t − r*/c (outgoing) or t + r*/c (ingoing); both give this form.
+    const displacement = WAVE_AMPLITUDE_KM * Math.sin(wavenumber * (travelled - beam.tortoiseOffsets[index]));
+    for (let axis = 0; axis < 3; axis++) {
+      beam.points[index * 3 + axis] = beam.basePositions[index * 3 + axis] + displacement * beam.wiggleDirection.getComponent(axis);
+    }
+    lastDrawnIndex = index;
+  }
+  beam.lastDrawnIndex = lastDrawnIndex;
+
+  // Write the segments straight into the line's instance buffer (one segment = two points).
+  const segmentArray = beamGeometry.attributes.instanceStart.data.array;
+  const segmentCount = Math.max(lastDrawnIndex, 0);
+  for (let segment = 0; segment < segmentCount; segment++) {
+    segmentArray.set(beam.points.subarray(segment * 3, segment * 3 + 6), segment * 6);
+  }
+  beamGeometry.attributes.instanceStart.data.needsUpdate = true;
+  beamGeometry.instanceCount = segmentCount;
+
+  frontMarker.visible = lastDrawnIndex >= 0 && viewState.emitterRadiusKm !== viewState.receiverRadiusKm;
+  if (frontMarker.visible) {
+    frontMarker.position.fromArray(beam.basePositions, lastDrawnIndex * 3);
+    const rgb = wavelengthToLinearRgb(localWavelengthNm(beam.radii[lastDrawnIndex]));
+    frontMarker.material.color.setRGB(rgb.r, rgb.g, rgb.b);
+  }
+}
+
+// ===== Formatting =====
+
+function formatRedshift(redshift) {
+  if (!isFinite(redshift)) return "∞";
+  const magnitude = Math.abs(redshift);
+  const text = magnitude !== 0 && magnitude < 1e-3 ? redshift.toExponential(3) : redshift.toFixed(4);
+  return redshift < 0 ? `${text} (blueshift)` : text;
+}
+
+function formatWavelength(wavelengthNm) {
+  const swatch = `<span class="swatch" style="background:${linearToCss(wavelengthToLinearRgb(wavelengthNm))}"></span>`;
+  const value = wavelengthNm >= 1e4 ? `${(wavelengthNm / 1000).toFixed(2)} µm` : `${wavelengthNm.toFixed(1)} nm`;
+  return `${swatch}${value} <span class="note">(${describeBand(wavelengthNm)})</span>`;
+}
+
+const formatKm = (value) => `${value.toFixed(2)} km`;
+const formatSmall = (value) => (value < 1e-3 ? value.toExponential(3) : value.toFixed(4));
+
+// ===== Readout =====
+
+function updateReadout() {
+  const rs = spacetime.schwarzschildRadiusKm;
+  const emitter = viewState.emitterRadiusKm;
+  const receiver = viewState.receiverRadiusKm;
+  const redshiftAB = PhysicsCore.redshiftBetween(emitter, receiver, rs);
+  const travelTimeSeconds = Math.abs(PhysicsCore.tortoiseCoordinate(receiver, rs) - PhysicsCore.tortoiseCoordinate(emitter, rs)) / SPEED_OF_LIGHT_KM_S;
+  const flatTimeSeconds = Math.abs(receiver - emitter) / SPEED_OF_LIGHT_KM_S;
+  const rulerDistance = Math.abs(PhysicsCore.properRadialDistance(emitter, receiver, rs));
+
+  document.getElementById("readout-rs").textContent = formatKm(rs);
+  document.getElementById("readout-body").textContent = spacetime.isBlackHole
+    ? "black hole (horizon at rₛ)" : `star, R = ${BODY_RADIUS_KM} km`;
+  document.getElementById("readout-clock-a").textContent = `${PhysicsCore.clockRate(emitter, rs).toFixed(5)} at r = ${formatKm(emitter)}`;
+  document.getElementById("readout-clock-b").textContent = `${PhysicsCore.clockRate(receiver, rs).toFixed(5)} at r = ${formatKm(receiver)}`;
+  document.getElementById("readout-lambda-a").innerHTML = formatWavelength(viewState.emittedWavelengthNm);
+  document.getElementById("readout-lambda-b").innerHTML = formatWavelength(viewState.emittedWavelengthNm * (1 + redshiftAB));
+  document.getElementById("readout-z-ab").textContent = formatRedshift(redshiftAB);
+  document.getElementById("readout-z-a-infinity").textContent = formatRedshift(PhysicsCore.redshiftToInfinity(emitter, rs));
+  document.getElementById("readout-lambda-infinity").innerHTML = formatWavelength(beam.wavelengthAtInfinityNm);
+  document.getElementById("readout-time").textContent =
+    `${(travelTimeSeconds * 1e6).toFixed(2)} µs (flat space: ${(flatTimeSeconds * 1e6).toFixed(2)} µs)`;
+  document.getElementById("readout-distance").textContent = `${formatKm(rulerDistance)} (Δr = ${formatKm(Math.abs(receiver - emitter))})`;
+}
+
+function updateFrontReadout() {
+  const element = document.getElementById("readout-front");
+  if (beam.lastDrawnIndex < 0) { element.textContent = "not emitted yet"; return; }
+  const radius = beam.radii[beam.lastDrawnIndex];
+  const arrived = beam.lastDrawnIndex === BEAM_POINTS - 1;
+  const speedFraction = PhysicsCore.coordinateLightSpeedFraction(radius, spacetime.schwarzschildRadiusKm);
+  element.innerHTML = `${arrived ? "arrived at B" : `r = ${formatKm(radius)}`}, ${formatWavelength(localWavelengthNm(radius))}`
+    + `<br><span class="note">speed seen from far away: ${formatSmall(speedFraction)} c</span>`;
+}
+
+// ===== Controls =====
+
+const massSlider = document.getElementById("mass-slider");
+const emitterSlider = document.getElementById("emitter-slider");
+const receiverSlider = document.getElementById("receiver-slider");
+const wavelengthSlider = document.getElementById("wavelength-slider");
+const speedSlider = document.getElementById("speed-slider");
+
+/** The light-speed slider is logarithmic: position 0…1000 maps to 0.5…50 km/s. */
+function sliderPositionToSpeed(position) {
+  return SCREEN_SPEED_MIN_KM_S * (SCREEN_SPEED_MAX_KM_S / SCREEN_SPEED_MIN_KM_S) ** (position / 1000);
+}
+function speedToSliderPosition(speed) {
+  return 1000 * Math.log(speed / SCREEN_SPEED_MIN_KM_S) / Math.log(SCREEN_SPEED_MAX_KM_S / SCREEN_SPEED_MIN_KM_S);
+}
+
+/** Keeps A and B outside the body (or just outside the horizon) and updates the slider ranges. */
+function clampBeamEnds() {
+  // Round up to the slider's 0.01 km step so the slider can't land just inside the limit.
+  const minimum = Math.ceil(spacetime.closestBeamRadiusKm * 100) / 100;
+  viewState.emitterRadiusKm = Math.min(Math.max(viewState.emitterRadiusKm, minimum), SCENE_RADIUS_KM);
+  viewState.receiverRadiusKm = Math.min(Math.max(viewState.receiverRadiusKm, minimum), SCENE_RADIUS_KM);
+  for (const slider of [emitterSlider, receiverSlider]) {
+    slider.min = minimum;
+    slider.max = SCENE_RADIUS_KM;
+  }
+  emitterSlider.value = viewState.emitterRadiusKm;
+  receiverSlider.value = viewState.receiverRadiusKm;
+}
+
+function describeBodyNote() {
+  const { isBlackHole, schwarzschildRadiusKm } = spacetime;
+  const element = document.getElementById("body-note");
+  if (isBlackHole) {
+    element.innerHTML = `<span class="warning">Black hole.</span> A ${BODY_RADIUS_KM} km body this heavy can't stay static
+      (Buchdahl limit R &gt; 9/8 rₛ = ${(1.125 * schwarzschildRadiusKm).toFixed(2)} km), so it has collapsed.
+      A and B stay outside ${CLOSEST_TO_HORIZON} rₛ.`;
+  } else {
+    element.textContent = `A star of radius ${BODY_RADIUS_KM} km (neutron-star size). It would collapse to a black hole
+      above ${(BODY_RADIUS_KM / (1.125 * sunSchwarzschildKm())).toFixed(2)} M☉ (Buchdahl limit).`;
+  }
+}
+
+function sunSchwarzschildKm() {
+  return PhysicsCore.schwarzschildRadius(PhysicsConstants.solarGM) / 1000;
+}
+
+function showSliderValues() {
+  document.getElementById("mass-value").textContent = `${viewState.massInSolarMasses.toFixed(2)} M☉`;
+  document.getElementById("emitter-value").textContent = `r = ${formatKm(viewState.emitterRadiusKm)}`;
+  document.getElementById("receiver-value").textContent = `r = ${formatKm(viewState.receiverRadiusKm)}`;
+  document.getElementById("wavelength-value").textContent = `${viewState.emittedWavelengthNm} nm`;
+  const speed = viewState.screenLightSpeedKmS;
+  document.getElementById("speed-value").textContent = `${speed < 10 ? speed.toFixed(1) : speed.toFixed(0)} km/s`;
+  const slowdown = SPEED_OF_LIGHT_KM_S / speed;
+  document.getElementById("speed-note").textContent =
+    `Playback only: real light (${SPEED_OF_LIGHT_KM_S.toLocaleString("en-US")} km/s) is shown ${Math.round(slowdown).toLocaleString("en-US")}× slower. `
+    + "Near the mass the light visibly slows, as charted by the distant observer.";
+}
+
+function describeView() {
+  const element = document.getElementById("view-note");
+  document.getElementById("flat-grid-label").style.display = viewState.view === "grid" ? "" : "none";
+  element.textContent = viewState.view === "grid"
+    ? "The cube is laid out evenly in ruler distance from the centre, then each point is drawn at its areal radius r. "
+      + "Lines crowd toward the mass because there is more radial distance there than flat space would allow. True scale."
+      + (spacetime.isBlackHole ? " Around this black hole there is so much radial distance that the whole cube fits outside"
+        + " the horizon: the cube's centre lands on a sphere just outside it." : "")
+    : "The equatorial plane embedded in 3D: distances along the surface are true ruler distances. "
+      + "The depth itself means nothing physical. True scale.";
+}
+
+/** Rebuilds what depends on the mass (grid, surface, body), then the beam. */
+function onMassChanged() {
+  spacetime = describeSpacetime();
+  clampBeamEnds();
+  updateCentralBody();
+  buildWarpedGrid();
+  buildFlammSurface();
+  describeBodyNote();
+  describeView();
+  applyLabelVisibility();
+  onBeamChanged();
+}
+
+function onBeamChanged() {
+  showSliderValues();
+  rebuildBeam();
+  updateReadout();
+}
+
+massSlider.addEventListener("input", () => { viewState.massInSolarMasses = Number(massSlider.value); onMassChanged(); });
+emitterSlider.addEventListener("input", () => { viewState.emitterRadiusKm = Number(emitterSlider.value); onBeamChanged(); });
+receiverSlider.addEventListener("input", () => { viewState.receiverRadiusKm = Number(receiverSlider.value); onBeamChanged(); });
+wavelengthSlider.addEventListener("input", () => { viewState.emittedWavelengthNm = Number(wavelengthSlider.value); onBeamChanged(); });
+speedSlider.addEventListener("input", () => { viewState.screenLightSpeedKmS = sliderPositionToSpeed(Number(speedSlider.value)); showSliderValues(); });
+
+document.getElementById("restart-button").addEventListener("click", () => { viewState.travelledTortoiseKm = 0; });
+document.getElementById("pause-button").addEventListener("click", (event) => {
+  viewState.paused = !viewState.paused;
+  event.target.textContent = viewState.paused ? "Play" : "Pause";
+});
+document.getElementById("swap-button").addEventListener("click", () => {
+  [viewState.emitterRadiusKm, viewState.receiverRadiusKm] = [viewState.receiverRadiusKm, viewState.emitterRadiusKm];
+  viewState.travelledTortoiseKm = 0;
+  clampBeamEnds();
+  onBeamChanged();
+});
+
+document.getElementById("view-mode").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-view]");
+  if (!button) return;
+  setView(button.dataset.view);
+});
+
+document.getElementById("flat-grid-checkbox").addEventListener("change", (event) => {
+  viewState.showFlatGrid = event.target.checked;
+  if (flatGrid) flatGrid.visible = viewState.showFlatGrid;
+});
+
+function setView(view) {
+  viewState.view = view;
+  document.querySelectorAll("#view-mode button").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+  gridGroup.visible = view === "grid";
+  flammGroup.visible = view === "flamm";
+  describeView();
+  applyLabelVisibility();
+  rebuildBeam();
+  if (view === "grid") { camera.position.set(110, 75, 175); controls.target.set(0, 0, 0); }
+  else { camera.position.set(55, 105, 185); controls.target.set(0, -20, 0); }
+  controls.update();
+}
+
+document.getElementById("panel-toggle").addEventListener("click", (event) => {
+  const panel = document.getElementById("controls");
+  panel.classList.toggle("collapsed");
+  event.target.textContent = panel.classList.contains("collapsed") ? "Show" : "Hide";
+});
+
+function drawLegend() {
+  const stops = REDSHIFT_COLOR_STOPS.map((color, index) =>
+    `#${color.getHexString()} ${(100 * index / (REDSHIFT_COLOR_STOPS.length - 1)).toFixed(0)}%`);
+  document.getElementById("legend-bar").style.background = `linear-gradient(to right, ${stops.join(", ")})`;
+}
+
+// ===== Equations (KaTeX) =====
+
+function renderEquations() {
+  if (!window.katex) return;
+  document.querySelectorAll("[data-tex]").forEach((element) => {
+    katex.render(element.dataset.tex, element, { throwOnError: false, displayMode: element.tagName === "DIV" });
+  });
+}
+if (window.katex) renderEquations(); else window.addEventListener("load", renderEquations);
+
+// ===== Self-test panel (open the page with ?selftest) =====
+
+function runPhysicsSelfTests() {
+  return PhysicsSelfTests.map((test) => {
+    const actualValue = test.actual();
+    const relativeError = test.expected === 0 ? Math.abs(actualValue)
+      : Math.abs(actualValue - test.expected) / Math.abs(test.expected);
+    return { ...test, actualValue, relativeError, passed: relativeError <= test.relativeTolerance };
+  });
+}
+
+function showSelfTestPanel() {
+  const results = runPhysicsSelfTests();
+  const passedCount = results.filter((result) => result.passed).length;
+  const panel = document.createElement("pre");
+  panel.className = "selftest-panel";
+  panel.textContent = `Physics self-tests: ${passedCount}/${results.length} passed\n\n` + results
+    .map((r) => `${r.passed ? "PASS" : "FAIL"}  ${r.name}: ${r.actualValue.toPrecision(9)} vs ${r.expected} (rel. err ${r.relativeError.toExponential(2)})`)
+    .join("\n");
+  document.body.appendChild(panel);
+}
+
+// ===== Resize and animation loop =====
+
+function resize() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  renderer.setSize(width, height);
+  labelRenderer.setSize(width, height);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  for (const material of lineMaterials) material.resolution.set(width, height);
+}
+window.addEventListener("resize", resize);
+
+let previousFrameTime = performance.now();
+let frameCounter = 0;
+function animate(now) {
+  requestAnimationFrame(animate);
+  const elapsedSeconds = Math.min((now - previousFrameTime) / 1000, 0.1);
+  previousFrameTime = now;
+  advanceBeam(elapsedSeconds);
+  if (frameCounter++ % 6 === 0) updateFrontReadout();
+  horizonRim.quaternion.copy(camera.quaternion);   // keep the rim facing the viewer
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+
+// ===== Start =====
+
+const [exaggerationMantissa, exaggerationExponent] = WAVE_EXAGGERATION.toExponential(1).split("e+");
+document.getElementById("exaggeration-note").innerHTML = `about ${exaggerationMantissa} × 10<sup>${exaggerationExponent}</sup>`;
+massSlider.value = viewState.massInSolarMasses;
+wavelengthSlider.value = viewState.emittedWavelengthNm;
+speedSlider.value = speedToSliderPosition(viewState.screenLightSpeedKmS);
+drawLegend();
+resize();
+onMassChanged();
+setView("grid");
+if (window.innerWidth <= 760) document.getElementById("panel-toggle").click();
+if (new URLSearchParams(location.search).has("selftest")) showSelfTestPanel();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

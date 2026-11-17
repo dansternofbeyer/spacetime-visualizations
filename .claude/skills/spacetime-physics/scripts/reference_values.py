@@ -91,6 +91,26 @@ def proper_radial_distance_numeric(inner_radius_in_rs, outer_radius_in_rs, steps
     return float(np.trapezoid(integrand, s_values))
 
 
+def coordinate_light_time_numeric(inner_radius_in_rs, outer_radius_in_rs):
+    """
+    Schwarzschild coordinate time for radial light, c*dt = dr / (1 - r_s/r), in units of r_s,
+    integrated numerically (independent of the closed-form tortoise coordinate pages use).
+    """
+    from scipy.integrate import quad
+
+    return quad(lambda r: 1 / (1 - 1 / r), inner_radius_in_rs, outer_radius_in_rs, epsabs=0, epsrel=1e-12)[0]
+
+
+def flamm_height_numeric(inner_radius_in_rs, outer_radius_in_rs):
+    """
+    Height gained on Flamm's paraboloid, integrating the embedding condition
+    dw/dr = sqrt(1/(1 - r_s/r) - 1) numerically, in units of r_s.
+    """
+    from scipy.integrate import quad
+
+    return quad(lambda r: math.sqrt(1 / (1 - 1 / r) - 1), inner_radius_in_rs, outer_radius_in_rs, epsabs=0, epsrel=1e-12)[0]
+
+
 def light_deflection_arcsec(gravitational_parameter, impact_parameter):
     """alpha = 4GM / (c^2 b), weak field."""
     angle = 4 * gravitational_parameter / (SPEED_OF_LIGHT**2 * impact_parameter)
@@ -184,6 +204,8 @@ def build_reference_values():
         # --- Proper distance (numerical, independent of the closed form) ---
         "schwarzschild.proper_distance_rs_to_3rs_in_rs": entry(proper_radial_distance_numeric(1.0, 3.0), "r_s", "Proper radial distance from r_s to 3 r_s", "Numerical integration (trapezoid, 200001 points)"),
         "schwarzschild.proper_distance_2rs_to_10rs_in_rs": entry(proper_radial_distance_numeric(2.0, 10.0), "r_s", "Proper radial distance from 2 r_s to 10 r_s", "Numerical integration (trapezoid, 200001 points)"),
+        "schwarzschild.coordinate_light_time_2rs_to_10rs_in_rs": entry(coordinate_light_time_numeric(2.0, 10.0), "r_s/c", "Coordinate time (observer at infinity) for radial light from 2 r_s to 10 r_s, times c", "Numerical integration (SciPy quad)"),
+        "schwarzschild.flamm_height_2rs_to_10rs_in_rs": entry(flamm_height_numeric(2.0, 10.0), "r_s", "Rise of Flamm's paraboloid from 2 r_s to 10 r_s (embedding condition integrated)", "Numerical integration (SciPy quad)"),
         # --- Classic weak-field tests ---
         "sun.limb_light_deflection_arcsec": entry(light_deflection_arcsec(const.GM_sun, const.R_sun), "arcsec", "Light deflection grazing the solar limb (observed: 1.75 arcsec class)", astropy_constants),
         "mercury.perihelion_advance_arcsec_per_century": entry(perihelion_advance_arcsec_per_century(const.GM_sun, MERCURY_SEMI_MAJOR_AXIS, MERCURY_ECCENTRICITY), "arcsec/century", "GR perihelion advance of Mercury (Will 2014 quotes 42.98)", astropy_constants + "; JPL orbital elements"),

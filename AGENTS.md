@@ -11,9 +11,11 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 ## Current state (2026-11-15)
 
 - `galaxy-map.html`: working prototype, a 3D map of ~158,500 galaxies (CfA2 north + 6dFGS south + 2MRS whole sky). All 13 physics self-tests pass.
+- `gravitational-redshift.html` (added 2026-11-16): working prototype. Radial light from A to B around a 12 km
+  star or, above Buchdahl's limit (~3.6 M☉), a black hole. Views: warped cube grid and Flamm's paraboloid. All 16 physics self-tests pass.
+  The owner asked to see this first version before more controls are added.
 - `index.html`: a landing page that links to each diagram.
-- Planned next: gravitational redshift (Schwarzschild, observer at infinity, warped grid and embedding views),
-  and the observable-universe sphere (centre = now, edge = recombination).
+- Planned next: the observable-universe sphere (centre = now, edge = recombination).
 
 ## Files that matter
 
@@ -21,6 +23,7 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 |---|---|
 | `index.html` | Landing page |
 | `galaxy-map.html` | CfA2 galaxy map (physics core + three.js view) |
+| `gravitational-redshift.html` | Schwarzschild gravitational redshift: warped grid, Flamm's paraboloid, animated wave |
 | `data/cfa2-galaxies.js` | CfA2 galaxy data, generated; don't edit by hand |
 | `data/2mrs-galaxies.js` | 2MRS galaxy data (journal/VizieR copy), CfA2 and 6dFGS duplicates removed; built by `data/build_2mrs.py` (run last) |
 | `data/2mrs-redshift-sources.md` | Generated list of every paper behind the 2MRS redshifts shown (required citation) |
@@ -58,6 +61,18 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 - Double-click any page. The data loads with a plain `<script>` tag, so it works without a server.
 - The Claude desktop app's browser pane opens local files as snapshots without their data files. To preview there,
   use the `spacetime-static` server in `../.claude/launch.json` (http://localhost:8737).
+
+## Decisions made: gravitational redshift page
+
+- Units are real: km and solar masses (IAU 2015 nominal GM☉). The body radius is fixed at 12 km.
+- The animation clock is the distant observer's coordinate time t. The wave is sampled evenly in the tortoise
+  coordinate r*, and its colour is the wavelength a static observer measures locally.
+- The "speed of light" slider is **playback speed only**. Changing c physically is the same as changing the mass,
+  since only r_s = 2GM/c² appears. This is explained on the page.
+- Warped grid: laid out evenly in the ruler coordinate ρ = r_a + ℓ(r_a, r) (anchor r_a = 60 km), drawn at areal r.
+  This is one stated choice among several (see pitfalls.md); the alternatives are Gullstrand–Painlevé flow lines
+  or drawing in proper distance.
+- Wave length on screen is exaggerated by about 1.3 × 10¹⁰ (stated on the page); everything else is true scale.
 
 ## Known issues and open questions
 
