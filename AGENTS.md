@@ -78,6 +78,10 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   The grid is nested (owner asked for no maximum distance, 2026-11-16): 20 km spacing out to 160 km, then spacing
   and reach double per level until z falls to 0.01 (`visibleExtentKm`, capped at 5000 km). Lines unique to a level
   fade out over the outer half of its reach. ρ → r is inverted with a lookup table.
+- Layout (2026-11-17, owner's request): everything sits in the Flamm line's plane (z = 0). The beam (A → B), O and the
+  radar scale run along +x (O shares the beam's radial line), the rulers along −x. In the grid view they are drawn
+  0.4 km toward +z so they don't sit on the grid's x-axis line. Clocks skip the x axis (grid row k = 0; Flamm spokes are
+  offset by half a step).
 - Section cut (2026-11-17): optional; drops grid lines, flat-grid lines and grid clocks on the z > 0 side of the
   Flamm line's plane (z = 0), so the default camera looks at the cut face. Beam, rulers, O and labels are not cut.
 - Optional Flamm embedding line in the grid view: the paraboloid's profile in the x–y plane at the same areal r,
