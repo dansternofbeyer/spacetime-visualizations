@@ -785,26 +785,27 @@ const CLOCK_SIZE_KM = 2.6;                  // radius of a clock face
 const CLOCK_LINE_COUNT = 6;                 // labelled clocks along the line at right angles to the section cut
 const CLOCK_REGION_KM = 125;                // grid view: clocks on vertices within this flat distance
 
+// The state the page opens in (the owner's chosen defaults, 2026-11-17). The controls are set from it on load.
 const viewState = {
-  massInSolarMasses: 1.4,
+  massInSolarMasses: 1.75,
   emitterRadiusKm: BODY_RADIUS_KM,
-  receiverRadiusKm: 70,
-  emittedWavelengthNm: 450,
-  screenLightSpeedKmS: 8,
+  receiverRadiusKm: 75,
+  emittedWavelengthNm: 400,
+  screenLightSpeedKmS: 15,
   view: "grid",
   showFlatGrid: false,
   paused: false,
   travelledTortoiseKm: 0,    // c × (distant-observer time since emission began), measured in r*
   coordinateTimeSeconds: 0,  // distant-observer time t that drives the clocks (not reset by "Emit again")
   showClocks: true,
-  showSticks: true,
-  showRadar: true,
+  showSticks: false,
+  showRadar: false,
   frame: "infinity",             // whose clock is the reference: "infinity", "observer" (O) or "camera"
   observerRadiusKm: 40,
-  showEmbeddingLine: false,
-  sectionCut: false,             // hide the grid (and its clocks) on the z > 0 side of the Flamm line's plane
-  gridAnchor: "surface",         // where the grid matches flat space: "surface" (or horizon) or "far"
-  fullBrightnessRedshift: 0.2,   // lines are fully bright where the redshift to infinity is at least this
+  showEmbeddingLine: true,
+  sectionCut: true,              // hide the grid (and its clocks) on the z > 0 side of the Flamm line's plane
+  gridAnchor: "far",             // where the grid matches flat space: "surface" (or horizon), "far", "observer" or "camera"
+  fullBrightnessRedshift: 2,     // lines are fully bright where the redshift to infinity is at least this
 };
 
 let spacetime = describeSpacetime();
@@ -2454,12 +2455,30 @@ function animate(now) {
 
 // ===== Start =====
 
+/** Sets every checkbox and button group to match viewState, so the defaults above are the only place to change them. */
+function syncControlsToState() {
+  const checkboxes = {
+    "flat-grid-checkbox": viewState.showFlatGrid,
+    "embedding-checkbox": viewState.showEmbeddingLine,
+    "section-checkbox": viewState.sectionCut,
+    "radar-checkbox": viewState.showRadar,
+    "sticks-checkbox": viewState.showSticks,
+    "clocks-checkbox": viewState.showClocks,
+  };
+  for (const [id, checked] of Object.entries(checkboxes)) document.getElementById(id).checked = checked;
+  const groups = { "anchor-mode": ["anchor", viewState.gridAnchor], "frame-mode": ["frame", viewState.frame] };
+  for (const [id, [key, value]] of Object.entries(groups)) {
+    document.querySelectorAll(`#${id} button`).forEach((button) => button.classList.toggle("active", button.dataset[key] === value));
+  }
+}
+
 const [exaggerationMantissa, exaggerationExponent] = WAVE_EXAGGERATION.toExponential(1).split("e+");
 document.getElementById("exaggeration-note").innerHTML = `about ${exaggerationMantissa} × 10<sup>${exaggerationExponent}</sup>`;
 massSlider.value = viewState.massInSolarMasses;
 wavelengthSlider.value = viewState.emittedWavelengthNm;
 speedSlider.value = speedToSliderPosition(viewState.screenLightSpeedKmS);
 brightnessSlider.value = redshiftToSliderPosition(viewState.fullBrightnessRedshift);
+syncControlsToState();
 drawLegend();
 resize();
 onMassChanged();
