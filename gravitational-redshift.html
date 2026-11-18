@@ -69,6 +69,9 @@
     pointer-events: none; }
   footer a { color: var(--muted); pointer-events: auto; }
   #panel-toggle { display: none; }
+  #camera-hud { bottom: 40px; left: 50%; transform: translateX(-50%); padding: 6px 12px; font-size: 12.5px;
+    font-variant-numeric: tabular-nums; text-align: center; width: max-content; max-width: calc(100% - 16px); }
+  #camera-hud[hidden] { display: none; }
   .selftest-panel { position: fixed; bottom: 30px; right: 12px; max-width: min(760px, calc(100% - 24px)); max-height: 45%;
     overflow: auto; margin: 0; font-size: 11.5px; background: #0d1220; border: 1px solid var(--panel-border);
     border-radius: 8px; padding: 10px; z-index: 5; }
@@ -154,7 +157,8 @@
   <label class="check"><input type="checkbox" id="sticks-checkbox" checked> Show measuring sticks</label>
   <p class="note" style="margin-top:0">White and orange rulers, each 5 km long, laid end to end outward from the surface, with
     a sideways ruler at each one's middle. In the grid, the outward ones shrink near the mass and the sideways ones don't:
-    space is stretched only along the radius. On Flamm's paraboloid all of them keep their length.</p>
+    space is stretched only along the radius. On Flamm's paraboloid all of them keep their length. With the Flamm line
+    shown, the grid view also lays the same rulers along that curve, joined to the 3D ones by faint links.</p>
   <label class="check"><input type="checkbox" id="clocks-checkbox" checked> Show clocks</label>
   <div class="row" style="align-items:center; flex-wrap:nowrap; gap:10px">
     <svg width="36" height="36" viewBox="-18 -18 36 36" aria-label="Clock far from the mass" style="flex:none">
@@ -333,6 +337,8 @@
   <p class="note">Clock rates are compared with the reference frame's clock (see <i>Reference frame</i>). Wavelengths are
     what a static observer at that spot measures, which is the same in every frame.</p>
 </section>
+
+<div id="camera-hud" class="panel" hidden></div>
 
 <footer>
   Open source under the <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/LICENSE">MIT License</a>.
@@ -751,7 +757,8 @@ import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 // ===== Settings =====
 
 const BODY_RADIUS_KM = 12;                  // fixed radius of the central body (neutron-star sized)
-const SCENE_RADIUS_KM = 80;                 // farthest A or B can be; also the rim of Flamm's paraboloid
+const SCENE_RADIUS_KM = 80;                 // Flamm's paraboloid is at height 0 here (its labelled rim)
+const BEAM_MAX_RADIUS_KM = 200;             // farthest A or B can be
 const GRID_INNER_HALF_WIDTH_KM = 160;       // reach of the finest grid level; each further level doubles it
 const GRID_LINE_SPACING_KM = 20;            // spacing of the finest level; doubles with each level
 const LEVEL_FADE_START = 0.5;               // a level's own lines hand over to the next level from half its reach
@@ -775,6 +782,7 @@ const SCREEN_SPEED_MIN_KM_S = 0.5;
 const SCREEN_SPEED_MAX_KM_S = 50;
 const CLOCK_PERIOD_SECONDS = 100e-6;        // a far-away clock turns once per 100 µs of distant-observer time
 const CLOCK_SIZE_KM = 2.6;                  // radius of a clock face
+const CLOCK_LINE_COUNT = 6;                 // labelled clocks along the line at right angles to the section cut
 const CLOCK_REGION_KM = 125;                // grid view: clocks on vertices within this flat distance
 
 const viewState = {
@@ -925,6 +933,7 @@ function applyLabelVisibility() {
   bodyLabel.visible = viewState.view === "grid";
   embeddingLabel.visible = viewState.view === "grid" && viewState.showEmbeddingLine;
   innerStickLabel.visible = outerStickLabel.visible = viewState.showSticks;
+  curveStickLabel.visible = viewState.showSticks && viewState.view === "grid" && viewState.showEmbeddingLine;
   flammNoteLabel.visible = flammBodyLabel.visible = viewState.view === "flamm";
   for (const { radius, label } of flammRingLabels) {
     label.visible = viewState.view === "flamm" && radius > spacetime.bodyRadiusKm + 3;
@@ -1405,7 +1414,7 @@ function buildFlammSurface() {
 
   flammBodyLabel.element.textContent = isBlackHole ? "event horizon (throat), r = rₛ" : "star interior (uniform density)";
   flammBodyLabel.position.set(0, flammSurfaceY(isBlackHole ? rs : 0) - 3, 0);
-  flammNoteLabel.position.set(0, 6, -SCENE_RADIUS_KM);
+  flammNoteLabel.position.set(-0.7 * SCENE_RADIUS_KM, 8, -0.7 * SCENE_RADIUS_KM);   // clear of the −z clock line
   for (const { radius, label } of flammRingLabels) {
     label.position.set(-radius * 0.71, flammSurfaceY(radius) + 1.5, radius * 0.71);
   }
@@ -1722,6 +1731,20 @@ function buildRadarScale() {
   scaleOriginLabel.position.copy(origin).addScaledVector(up, 2);
 }
 
+// ===== Camera readout (camera frame) =====
+
+/** A small on-screen line about the camera's own position: its radius, its clock, and its sky. */
+function updateCameraReadout() {
+  const element = document.getElementById("camera-hud");
+  element.hidden = viewState.frame !== "camera";
+  if (element.hidden) return;
+  const rs = spacetime.schwarzschildRadiusKm;
+  const radius = cameraRadiusKm();
+  const rate = PhysicsCore.clockRate(radius, rs);
+  element.textContent = `Camera at r = ${formatKm(radius)} · clock ${formatRatePercent(rate)} of a far clock`
+    + ` · far clocks ${(1 / rate).toFixed(3)}× faster · sky overhead ×${PhysicsCore.overheadAngularScale(radius, rs).toFixed(3)}`;
+}
+
 // ===== Proper-length measuring sticks =====
 //
 // Rulers of equal true (ruler) length laid end to end outward from the surface, on the side opposite
@@ -1739,8 +1762,16 @@ const STICK_COLORS = [new THREE.Color(0xf4f4f4), new THREE.Color(0xff9a3c)];   /
 const STICK_MATERIAL_OPTIONS = { vertexColors: true, opacity: 1, transparent: true, depthTest: false, depthWrite: false };
 const radialStickMaterial = makeLineMaterial({ linewidth: 4, ...STICK_MATERIAL_OPTIONS });
 const sidewaysStickMaterial = makeLineMaterial({ linewidth: 2.5, ...STICK_MATERIAL_OPTIONS });
+const stickDropMaterial = makeLineMaterial({ color: 0xc9d2e8, linewidth: 1, ...STICK_MATERIAL_OPTIONS, vertexColors: false, opacity: 0.3 });
 const stickGroup = new THREE.Group();
 scene.add(stickGroup);
+const curveStickLabel = makeLabel(`same ${STICK_LENGTH_KM} km rulers on the Flamm line: full length along the curve`, "label faint");
+scene.add(curveStickLabel);
+
+/** A point on the grid view's Flamm embedding line, on the rulers' side (−x), at areal radius r. */
+function flammLinePoint(radiusKm) {
+  return new THREE.Vector3(-radiusKm, flammSurfaceY(radiusKm), PLANE_OFFSET_KM);
+}
 const innerStickLabel = makeLabel("", "label faint");
 const outerStickLabel = makeLabel("", "label faint");
 scene.add(innerStickLabel, outerStickLabel);
@@ -1757,8 +1788,10 @@ function stickPosition(radiusKm) {
 
 /** The sideways direction: up in the grid view, across the surface on Flamm's paraboloid. */
 function sidewaysDirection() {
+  // Grid view: along z, at right angles to the cut plane (turned 90° about the radial axis from vertical),
+  // so the rulers lie flat, the way they lie on the paraboloid.
   return viewState.view === "grid"
-    ? new THREE.Vector3(0, 1, 0)
+    ? new THREE.Vector3(0, 0, 1)
     : new THREE.Vector3(-Math.sin(STICK_DIRECTION_ANGLE), 0, Math.cos(STICK_DIRECTION_ANGLE));
 }
 
@@ -1776,6 +1809,8 @@ function buildMeasuringSticks() {
   const sidewaysColors = [];
   const sideways = sidewaysDirection().multiplyScalar(STICK_LENGTH_KM / 2);
   const ends = [];   // areal radius of each ruler's start and end
+  const projectOntoFlammLine = viewState.view === "grid" && viewState.showEmbeddingLine;
+  const dropPositions = [];   // faint links from each 3D ruler joint down to the same joint on the Flamm line
 
   for (let index = 0; ; index++) {
     const start = radiusAtRulerDistance(index * STICK_LENGTH_KM);
@@ -1789,9 +1824,23 @@ function buildMeasuringSticks() {
       radialPositions.push(...stickPosition(from).toArray(), ...stickPosition(to).toArray());
       radialColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
     }
-    const middle = stickPosition(radiusAtRulerDistance((index + 0.5) * STICK_LENGTH_KM));
+    const middleRadius = radiusAtRulerDistance((index + 0.5) * STICK_LENGTH_KM);
+    const middle = stickPosition(middleRadius);
     sidewaysPositions.push(...middle.clone().sub(sideways).toArray(), ...middle.clone().add(sideways).toArray());
     sidewaysColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+    if (projectOntoFlammLine) {
+      // The same ruler, laid along the Flamm line below, where its length along the curve is the true 5 km.
+      for (let piece = 0; piece < pieces; piece++) {
+        const from = start + (end - start) * piece / pieces;
+        const to = start + (end - start) * (piece + 1) / pieces;
+        radialPositions.push(...flammLinePoint(from).toArray(), ...flammLinePoint(to).toArray());
+        radialColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+      }
+      const curveMiddle = flammLinePoint(middleRadius);
+      sidewaysPositions.push(...curveMiddle.clone().sub(sideways).toArray(), ...curveMiddle.clone().add(sideways).toArray());
+      sidewaysColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+      dropPositions.push(...stickPosition(end).toArray(), ...flammLinePoint(end).toArray());
+    }
     ends.push([start, end]);
     if (end > STICK_REACH_KM) break;
   }
@@ -1804,6 +1853,16 @@ function buildMeasuringSticks() {
     const sticks = new LineSegments2(geometry, material);
     sticks.renderOrder = 900;
     stickGroup.add(sticks);
+  }
+  if (dropPositions.length) {
+    const geometry = new LineSegmentsGeometry();
+    geometry.setPositions(dropPositions);
+    const drops = new LineSegments2(geometry, stickDropMaterial);
+    drops.renderOrder = 899;
+    stickGroup.add(drops);
+  }
+  if (projectOntoFlammLine) {
+    curveStickLabel.position.copy(flammLinePoint((ends[0][0] + ends[0][1]) / 2)).add(new THREE.Vector3(0, -4, 0));
   }
 
   // Labels: how long the first and last radial rulers are drawn.
@@ -1863,33 +1922,49 @@ function makeClock(radiusKm, position, sizeKm, showRateLabel) {
   return { group, hand, parts, rate, radiusKm, label, rimMaterial, distance: 0 };
 }
 
-/** Grid vertices that get a clock, in the current view: [radius, position, show rate label]. */
+/**
+ * Grid vertices that get a clock, in the current view: [radius, position, show rate label].
+ * One line of labelled clocks runs straight out from the mass at right angles to the section cut (along −z),
+ * so you can stand near the star and look along it.
+ */
 function clockSites() {
   const sites = [];
+  const step = 2 * GRID_LINE_SPACING_KM;
   if (viewState.view === "grid") {
     // Every second vertex of the horizontal plane through the centre, within CLOCK_REGION_KM.
-    const step = 2 * GRID_LINE_SPACING_KM;
     for (let i = -4; i <= 4; i++) {
       for (let k = -4; k <= 4; k++) {
         if (Math.hypot(i, k) * step > CLOCK_REGION_KM) continue;
         if (viewState.sectionCut && k > 0) continue;   // in the cut-away half (z > 0)
-        if (k === 0) continue;                          // the x axis holds the beam, O, the radar and the rulers
+        // The x axis holds the beam, O, the radar and the rulers; the z line is added below.
+        if (k === 0 || i === 0) continue;
         const point = warpGridPoint(i * step, 0, k * step);
         if (!point || point.radius < spacetime.bodyRadiusKm + CLOCK_SIZE_KM) continue;
-        sites.push([point.radius, new THREE.Vector3(point.x, point.y, point.z), i < 0 && k === -1]);
+        sites.push([point.radius, new THREE.Vector3(point.x, point.y, point.z), false]);
       }
+    }
+    // The labelled line along z (both ways without the section cut), reaching farther than the rest.
+    for (let k = -CLOCK_LINE_COUNT; k <= CLOCK_LINE_COUNT; k++) {
+      if (k === 0 || (viewState.sectionCut && k > 0)) continue;
+      const point = warpGridPoint(0, 0, k * step);
+      if (!point || point.radius < spacetime.bodyRadiusKm + CLOCK_SIZE_KM) continue;
+      sites.push([point.radius, new THREE.Vector3(point.x, point.y, point.z), true]);
     }
   } else {
     // Where the 10 km circles meet eight spokes (between the x axis, which holds the beam and rulers), lifted just above the surface.
+    const lift = (radius) => flammSurfaceY(radius) + CLOCK_SIZE_KM + 0.5;
     const radii = [spacetime.bodyRadiusKm + 4, 20, 40, 60, 80].filter((radius, index) =>
       index === 0 || radius > spacetime.bodyRadiusKm + 8);
     for (const radius of radii) {
       for (let spoke = 0; spoke < 8; spoke++) {
         const angle = ((spoke + 0.5) / 8) * 2 * Math.PI;
-        const position = new THREE.Vector3(radius * Math.cos(angle), flammSurfaceY(radius) + CLOCK_SIZE_KM + 0.5, radius * Math.sin(angle));
-        sites.push([radius, position, spoke === 4]);
+        sites.push([radius, new THREE.Vector3(radius * Math.cos(angle), lift(radius), radius * Math.sin(angle)), false]);
       }
     }
+    // The labelled line along −z, at right angles to the beam's plane, reaching farther out.
+    const lineRadii = [spacetime.bodyRadiusKm + 4];
+    for (let radius = 20; radius <= 20 * (CLOCK_LINE_COUNT + 1); radius += 20) if (radius > spacetime.bodyRadiusKm + 8) lineRadii.push(radius);
+    for (const radius of lineRadii) sites.push([radius, new THREE.Vector3(0, lift(radius), -radius), true]);
   }
   return sites;
 }
@@ -1927,14 +2002,14 @@ function refreshClockRates() {
   const observerRadius = observerRadiusKm();
   for (const clock of clocks) {
     const relativeRate = PhysicsCore.relativeClockRate(clock.radiusKm, observerRadius, spacetime.schwarzschildRadiusKm);
-    if (clock.label) clock.label.element.textContent = `×${relativeRate.toFixed(3)}`;
+    if (clock.label) clock.label.element.textContent = formatRatePercent(relativeRate);
     if (viewState.frame === "infinity") colorForRadius(clock.radiusKm, clock.rimMaterial.color);
     else relativeRateColor(relativeRate, clock.rimMaterial.color);
   }
   const name = observerName();
   document.getElementById("reference-clock-note").textContent = `This is ${viewState.frame === "infinity" ? "a clock far from the mass" : `${name}'s clock`}. `
     + "It turns once per 100 µs of its own time, slowed down like the light. Each clock in the picture shows its own proper time τ; "
-    + `the labels give its rate compared with ${name}.`;
+    + `the labels give its rate as a percentage of ${name}'s.`;
 }
 
 /** True when the central star or black hole sits between the camera and this point (grid view only). */
@@ -1986,6 +2061,8 @@ function formatWavelength(wavelengthNm) {
 }
 
 const formatKm = (value) => `${value.toFixed(2)} km`;
+/** A clock rate as a percentage of the reference clock's, e.g. 0.9827 → "98.3%". */
+const formatRatePercent = (rate) => `${(100 * rate).toFixed(rate < 0.1 ? 2 : 1)}%`;
 const formatSmall = (value) => (value < 1e-3 ? value.toExponential(3) : value.toFixed(4));
 
 // ===== Readout =====
@@ -2088,11 +2165,11 @@ function speedToSliderPosition(speed) {
 function clampBeamEnds() {
   // Round up to the slider's 0.01 km step so the slider can't land just inside the limit.
   const minimum = Math.ceil(spacetime.closestBeamRadiusKm * 100) / 100;
-  viewState.emitterRadiusKm = Math.min(Math.max(viewState.emitterRadiusKm, minimum), SCENE_RADIUS_KM);
-  viewState.receiverRadiusKm = Math.min(Math.max(viewState.receiverRadiusKm, minimum), SCENE_RADIUS_KM);
+  viewState.emitterRadiusKm = Math.min(Math.max(viewState.emitterRadiusKm, minimum), BEAM_MAX_RADIUS_KM);
+  viewState.receiverRadiusKm = Math.min(Math.max(viewState.receiverRadiusKm, minimum), BEAM_MAX_RADIUS_KM);
   for (const slider of [emitterSlider, receiverSlider]) {
     slider.min = minimum;
-    slider.max = SCENE_RADIUS_KM;
+    slider.max = BEAM_MAX_RADIUS_KM;
   }
   emitterSlider.value = viewState.emitterRadiusKm;
   receiverSlider.value = viewState.receiverRadiusKm;
@@ -2264,6 +2341,7 @@ document.getElementById("section-checkbox").addEventListener("change", (event) =
 document.getElementById("embedding-checkbox").addEventListener("change", (event) => {
   viewState.showEmbeddingLine = event.target.checked;
   embeddingGroup.visible = viewState.showEmbeddingLine;
+  buildMeasuringSticks();   // the rulers get a copy on the Flamm line
   applyLabelVisibility();
 });
 
@@ -2352,6 +2430,7 @@ function animate(now) {
   advanceBeam(elapsedSeconds);
   if (frameCounter++ % 6 === 0) {
     updateFrontReadout();
+    updateCameraReadout();
     // A grid anchored at the camera (directly, or through the camera frame) follows it;
     // rebuild only when the anchor has moved by more than 1%.
     const followsCamera = viewState.gridAnchor === "camera" || (viewState.gridAnchor === "observer" && viewState.frame === "camera");

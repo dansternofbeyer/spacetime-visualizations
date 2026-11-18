@@ -82,6 +82,10 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   radar scale run along +x (O shares the beam's radial line), the rulers along −x. In the grid view they are drawn
   0.4 km toward +z so they don't sit on the grid's x-axis line. Clocks skip the x axis (grid row k = 0; Flamm spokes are
   offset by half a step).
+- 2026-11-17 tweaks: clock rate labels are percentages; a labelled clock line runs along −z (right angles to the cut,
+  6 clocks per side, out to 240 km in the grid view, 140 km on Flamm's surface). Grid-view rulers lie flat (sideways
+  rulers along z), and with the Flamm line on, a copy of each ruler is laid along the curve (full length) with faint
+  links up to the 3D ones. A camera readout line (radius, clock %, sky factor) shows in the camera frame. A and B reach 200 km.
 - Section cut (2026-11-17): optional; drops grid lines, flat-grid lines and grid clocks on the z > 0 side of the
   Flamm line's plane (z = 0), so the default camera looks at the cut face. Beam, rulers, O and labels are not cut.
 - Optional Flamm embedding line in the grid view: the paraboloid's profile in the x–y plane at the same areal r,
