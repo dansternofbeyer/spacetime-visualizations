@@ -122,6 +122,7 @@
   </div>
   <label class="check grid-only"><input type="checkbox" id="flat-grid-checkbox"> Show the flat grid for comparison</label>
   <label class="check grid-only"><input type="checkbox" id="embedding-checkbox"> Show a Flamm embedding line (along the x axis)</label>
+  <label class="check grid-only"><input type="checkbox" id="section-checkbox"> Section cut: hide the near half of the grid (z &gt; 0)</label>
   <p class="note grid-only" style="margin-bottom:2px">Grid matches flat space…</p>
   <div class="segmented row grid-only" id="anchor-mode">
     <button data-anchor="surface" class="active">at the surface</button>
@@ -792,6 +793,7 @@ const viewState = {
   frame: "infinity",             // whose clock is the reference: "infinity", "observer" (O) or "camera"
   observerRadiusKm: 40,
   showEmbeddingLine: false,
+  sectionCut: false,             // hide the grid (and its clocks) on the z > 0 side of the Flamm line's plane
   gridAnchor: "surface",         // where the grid matches flat space: "surface" (or horizon) or "far"
   fullBrightnessRedshift: 0.2,   // lines are fully bright where the redshift to infinity is at least this
 };
@@ -1093,6 +1095,8 @@ function fadedColorForRadius(radius, target) {
 function traceGridLine(axis, a, b, level, isOutermostLevel, positions, colors) {
   const color = new THREE.Color();
   const reach = Math.sqrt(level.halfWidth ** 2 - a * a - b * b);
+  // With the section cut, lines along z stop at the cut plane z = 0.
+  const end = viewState.sectionCut && axis === 2 ? 0 : reach;
   const flatPoint = (t) => (axis === 0 ? [t, a, b] : axis === 1 ? [a, t, b] : [a, b, t]);
   let previousFlat = null;
   let previousPoint = null;
@@ -1115,9 +1119,9 @@ function traceGridLine(axis, a, b, level, isOutermostLevel, positions, colors) {
     }
     previousFlat = flat;
     previousPoint = point;
-    if (t >= reach) break;
+    if (t >= end) break;
     const step = Math.min(Math.max(0.04 * Math.hypot(...flat), 1), level.spacing / 4);
-    t = Math.min(t + step, reach);
+    t = Math.min(t + step, end);
   }
 }
 
@@ -1138,6 +1142,7 @@ function buildWarpedGrid() {
           const a = first * level.spacing;
           const b = second * level.spacing;
           if (Math.hypot(a, b) >= level.halfWidth) continue;
+          if (isCutAway(axis, b)) continue;
           traceGridLine(axis, a, b, level, isOutermostLevel, positions, colors);
         }
       }
@@ -1151,20 +1156,31 @@ function buildWarpedGrid() {
   warpedGrid = new LineSegments2(geometry, warpedGridMaterial);
   gridGroup.add(warpedGrid);
 
-  if (!flatGrid) flatGrid = buildFlatGrid();
+  if (flatGrid) { gridGroup.remove(flatGrid); flatGrid.geometry.dispose(); }
+  flatGrid = buildFlatGrid();
   flatGrid.visible = viewState.showFlatGrid;
   buildEmbeddingLine();
 }
 
-/** The undistorted cube (±60 km) for comparison. It never changes. */
+/**
+ * Section cut: hides the half of the grid on the +z side (toward the starting camera) of the plane the Flamm line
+ * lies in (z = 0). Lines along x or y lie at a fixed z = b, so they are dropped entirely when b > 0.
+ */
+function isCutAway(axis, b) {
+  return viewState.sectionCut && axis !== 2 && b > 0;
+}
+
+/** The undistorted cube (±60 km) for comparison, cut the same way as the warped grid. */
 function buildFlatGrid() {
   const positions = [];
   const halfWidth = FLAT_GRID_HALF_WIDTH_KM;
   for (let axis = 0; axis < 3; axis++) {
     for (let a = -halfWidth; a <= halfWidth; a += GRID_LINE_SPACING_KM) {
       for (let b = -halfWidth; b <= halfWidth; b += GRID_LINE_SPACING_KM) {
+        if (isCutAway(axis, b)) continue;
+        const lineEnd = viewState.sectionCut && axis === 2 ? 0 : halfWidth;
         const start = axis === 0 ? [-halfWidth, a, b] : axis === 1 ? [a, -halfWidth, b] : [a, b, -halfWidth];
-        const end = axis === 0 ? [halfWidth, a, b] : axis === 1 ? [a, halfWidth, b] : [a, b, halfWidth];
+        const end = axis === 0 ? [halfWidth, a, b] : axis === 1 ? [a, halfWidth, b] : [a, b, lineEnd];
         positions.push(...start, ...end);
       }
     }
@@ -1852,6 +1868,7 @@ function clockSites() {
     for (let i = -4; i <= 4; i++) {
       for (let k = -4; k <= 4; k++) {
         if (Math.hypot(i, k) * step > CLOCK_REGION_KM) continue;
+        if (viewState.sectionCut && k > 0) continue;   // in the cut-away half (z > 0)
         const point = warpGridPoint(i * step, 0, k * step);
         if (!point || point.radius < spacetime.bodyRadiusKm + CLOCK_SIZE_KM) continue;
         sites.push([point.radius, new THREE.Vector3(point.x, point.y, point.z), i < 0 && k === 0]);
@@ -2229,6 +2246,12 @@ document.getElementById("anchor-mode").addEventListener("click", (event) => {
   viewState.gridAnchor = button.dataset.anchor;
   document.querySelectorAll("#anchor-mode button").forEach((element) => element.classList.toggle("active", element === button));
   describeView();
+  buildWarpedGrid();
+  buildClocks();
+});
+
+document.getElementById("section-checkbox").addEventListener("change", (event) => {
+  viewState.sectionCut = event.target.checked;
   buildWarpedGrid();
   buildClocks();
 });
