@@ -137,7 +137,20 @@
     <button data-view="landscape">Clock-rate landscape</button>
     <button data-view="embedding">True-length surface</button>
   </div>
-  <label class="check grid-only"><input type="checkbox" id="bands-checkbox"> Ruler bands (every 5 km of true length)</label>
+  <p class="note grid-only" style="margin-bottom:2px">Grid lines…</p>
+  <div class="segmented row grid-only" id="grid-style">
+    <button data-style="anchored">laid out from an anchor</button>
+    <button data-style="bands">straight, with ruler bands</button>
+  </div>
+  <p class="note anchored-only" style="margin-bottom:2px">Grid matches flat space…</p>
+  <div class="segmented row anchored-only" id="anchor-mode">
+    <button data-anchor="star1">at star 1's surface</button>
+    <button data-anchor="reddest">at the reddest point</button>
+    <button data-anchor="star2">at star 2's surface</button>
+    <button data-anchor="observer">at O's spot on the line</button>
+    <button data-anchor="far">far out on the line</button>
+  </div>
+  <label class="check bands-only"><input type="checkbox" id="bands-checkbox"> Ruler bands (every 5 km of true length)</label>
   <label class="check grid-only"><input type="checkbox" id="section-checkbox"> Section cut: hide the near half of the grid (z &gt; 0)</label>
   <p class="note" id="view-note"></p>
   <label>Lines fully visible where z ≥ <span class="value" id="brightness-value"></span>
@@ -241,10 +254,26 @@
       <p>• <b>Positions</b> (grid and landscape) are drawn in Weyl's coordinates (ρ, z), the coordinates the solution is written in. Far from the
         stars they become ordinary distances. Near a star they are squeezed: a 12 km star is drawn as a slightly elongated body
         about 10 km across. The readouts always give true ruler distances.</p>
-      <p>• <b>Grid with ruler bands.</b> The grid lines are straight lines of Weyl's coordinates. A 3D grid can't show curved
+      <p>• <b>Grid with ruler bands</b> (the other grid style). The grid lines are straight lines of Weyl's coordinates. A 3D grid can't show curved
         space without distorting something, so instead of bending the lines the page marks true length on them: each line is
         painted in alternating bright and dim bands, each 5 km long by rulers, counted from the grid's middle planes. Where bands
         crowd, there is more true distance than the drawing shows. The grid is drawn at true scale.</p>
+      <p>• <b>Anchored grid</b> (the default grid). The one-star page lays its grid out in ruler distance along the straight-out
+        lines from the star's centre, anchored on a sphere. Two stars have no centre and no special spheres, so here the anchor is a
+        point on the line through both stars. From it, the straightest paths of space (geodesics) are followed in every direction:
+        each grid point keeps its flat-grid direction from the anchor and sits at its flat-grid distance measured with rulers along
+        that path (Riemann normal coordinates, which don't depend on any choice of coordinates). Paths from a point on the line stay
+        in a plane through the line, so a fan of paths in one such plane, turned about the line, covers all of space. In that plane,
+        with f = γ − U and ψ the path's heading:</p>
+      <div class="tex" data-tex="\frac{dz}{ds}=e^{-f}\cos\psi,\quad \frac{d\rho}{ds}=e^{-f}\sin\psi,\quad \frac{d\psi}{ds}=e^{-f}\left(\partial_\rho f\cos\psi-\partial_z f\sin\psi\right)"></div>
+      <p>The self-tests check these paths against independent calculations: in Schwarzschild coordinates for one star, and with
+        numerically integrated potentials for two. The grid is undisturbed at the anchor itself. Away from it, true distances along
+        the paths are longer than in flat space, so the grid is drawn pulled in toward the anchor and bent around the stars. Paths
+        that hit a star stop, and paths passing on either side of a star spread apart (space here curves like a saddle), so the region
+        behind each star, as seen from the anchor, is left empty: the star's shadow. With one star this is a point-anchored version
+        of the one-star page's grid, not the same picture (that one is anchored on a whole sphere). For anchors between the stars, the
+        anchor sits on the strut, where space has 0.2% too much angle around the line; right next to the line the grid can't match
+        flat space exactly there. Anchors off the line (O anywhere, or the camera) need full 3D paths and aren't built yet.</p>
       <p>• <b>Clock-rate landscape.</b> A graph, not an embedding: the plane through both stars, sunk by
         <span id="depth-scale-note"></span> × (1 − dτ/dt). The depth shows how slowly clocks run, compared with a clock far away,
         which is what makes the redshift. (For the shape of space itself, see the true-length surface below.) Inside each star the exterior solution doesn't apply; the star is drawn
@@ -918,6 +947,108 @@ const PhysicsCore = {
     return [0, 1, 2].map((axis) => positions[3 * below + axis] + fraction * (positions[3 * above + axis] - positions[3 * below + axis]));
   },
 
+  // ----- Anchored grid: straightest paths (geodesics of space) from a point on the line -----
+  //
+  // From an anchor on the axis, a geodesic of space that starts in a plane through the axis stays in that plane
+  // (mirror symmetry), and that plane's geometry is dℓ² = e^(2f)(dρ² + dz²) with f = γ − U. Following such paths in
+  // every direction, by true length, gives the anchored grid (Riemann normal coordinates centred on the anchor).
+
+  /** Gradient (dU/dρ, dU/dz) of the Weyl potential, closed form: for each rod dU/dS = 2m/(S² − 4m²), S = R+ + R−. */
+  weylPotentialGradient(rho, z, rods) {
+    let alongRho = 0;
+    let alongZ = 0;
+    for (const rod of rods) {
+      if (rod.halfLength === 0) continue;
+      const { upper, lower } = PhysicsCore.rodEndDistances(rho, z, rod);
+      const sum = upper + lower;
+      const slope = 2 * rod.halfLength / (sum * sum - 4 * rod.halfLength ** 2);
+      alongRho += slope * (rho / upper + rho / lower);
+      alongZ += slope * ((z - rod.centre - rod.halfLength) / upper + (z - rod.centre + rod.halfLength) / lower);
+    }
+    return { alongRho, alongZ };
+  },
+
+  /**
+   * f = γ − U (the plane's metric is e^(2f)(dρ² + dz²)) and its gradient. γ's gradient comes from its field equations:
+   * ∂γ/∂ρ = ρ(U_ρ² − U_z²), ∂γ/∂z = 2ρ U_ρ U_z.
+   */
+  sliceExponent(rho, z, rods) {
+    const { alongRho, alongZ } = PhysicsCore.weylPotentialGradient(rho, z, rods);
+    return {
+      value: PhysicsCore.weylGamma(rho, z, rods) - PhysicsCore.weylPotential(rho, z, rods),
+      alongRho: rho * (alongRho ** 2 - alongZ ** 2) - alongRho,
+      alongZ: 2 * rho * alongRho * alongZ - alongZ,
+    };
+  },
+
+  /**
+   * A geodesic of space in a plane through the axis, by true length s (RK4, `step` long), from (startRho, startZ)
+   * heading at angle `heading` from +z toward +ρ (angles are true angles: the plane's metric is conformally flat).
+   * With ψ the heading in coordinates: dz/ds = e^(−f) cos ψ, dρ/ds = e^(−f) sin ψ, dψ/ds = e^(−f)(f_ρ cos ψ − f_z sin ψ).
+   * Returns the points every step until `length`, stopping early inside a star (own radius < starRadius) or past the axis.
+   */
+  meridianGeodesic(startRho, startZ, heading, length, step, rods, starRadius) {
+    const derivative = ([z, rho, direction]) => {
+      const exponent = PhysicsCore.sliceExponent(Math.max(rho, 0), z, rods);
+      const scale = Math.exp(-exponent.value);
+      return [scale * Math.cos(direction), scale * Math.sin(direction),
+        scale * (exponent.alongRho * Math.cos(direction) - exponent.alongZ * Math.sin(direction))];
+    };
+    const isBlocked = (z, rho) => rho < -1e-9
+      || rods.some((rod) => rod.halfLength > 0 && PhysicsCore.isolatedStarRadius(rho, z, rod) < starRadius);
+    const zs = [startZ];
+    const rhos = [startRho];
+    let state = [startZ, startRho, heading];
+    for (let travelled = 0; travelled < length - 1e-9; travelled += step) {
+      const k1 = derivative(state);
+      const k2 = derivative(state.map((value, index) => value + 0.5 * step * k1[index]));
+      const k3 = derivative(state.map((value, index) => value + 0.5 * step * k2[index]));
+      const k4 = derivative(state.map((value, index) => value + step * k3[index]));
+      state = state.map((value, index) => value + step / 6 * (k1[index] + 2 * k2[index] + 2 * k3[index] + k4[index]));
+      if (isBlocked(state[0], state[1])) break;
+      zs.push(state[0]);
+      rhos.push(Math.max(state[1], 0));
+    }
+    return { zs, rhos };
+  },
+
+  /**
+   * The anchored grid's lookup table: geodesics from the axis point anchorZ at `headingCount` evenly spaced headings
+   * from 0 to π, sampled every `step` of true length out to `length`.
+   */
+  geodesicFan(anchorZ, rods, starRadius, length, step, headingCount) {
+    const paths = [];
+    for (let index = 0; index < headingCount; index++) {
+      paths.push(PhysicsCore.meridianGeodesic(0, anchorZ, Math.PI * index / (headingCount - 1), length, step, rods, starRadius));
+    }
+    return { anchorZ, step, headingCount, paths };
+  },
+
+  /**
+   * Where the point at true distance `distance` from the anchor, in the direction at angle `heading` from +z, lies:
+   * Weyl {rho, z}, interpolated in the fan; null when a star blocks the way (or it is beyond the fan).
+   */
+  geodesicFanPoint(fan, heading, distance) {
+    const position = heading / Math.PI * (fan.headingCount - 1);
+    const lowerIndex = Math.min(Math.floor(position), fan.headingCount - 2);
+    const headingFraction = position - lowerIndex;
+    const sample = distance / fan.step;
+    const sampleIndex = Math.floor(sample);
+    const sampleFraction = sample - sampleIndex;
+    let rho = 0;
+    let z = 0;
+    for (const [index, weight] of [[lowerIndex, 1 - headingFraction], [lowerIndex + 1, headingFraction]]) {
+      const path = fan.paths[index];
+      if (sampleIndex + 1 >= path.zs.length) {
+        if (weight < 1e-12 && sampleIndex < path.zs.length) continue;
+        return null;
+      }
+      rho += weight * (path.rhos[sampleIndex] + sampleFraction * (path.rhos[sampleIndex + 1] - path.rhos[sampleIndex]));
+      z += weight * (path.zs[sampleIndex] + sampleFraction * (path.zs[sampleIndex + 1] - path.zs[sampleIndex]));
+    }
+    return { rho, z };
+  },
+
   /** Buchdahl's limit: a static star of radius R is possible only if R > (9/8) r_s. */
   isStaticStarPossible(starRadius, schwarzschildRadius) {
     return starRadius > PhysicsConstants.buchdahlRatio * schwarzschildRadius;
@@ -1117,6 +1248,55 @@ const PhysicsSelfTests = [
     source: "Fixed by construction: the relaxation's own goal, checked on the default pair (coarse test mesh)",
   },
   {
+    name: "Anchored grid, one star: a straight path of space from r = 5 r_s (60° from outward, 6 r_s long) ends at r",
+    actual: () => { const rods = singleRod(0.5); const path = PhysicsCore.meridianGeodesic(0, 4.5, Math.PI / 3, 6, 0.02, rods, 1.0001);
+      const last = path.zs.length - 1; return PhysicsCore.isolatedStarRadius(path.rhos[last], path.zs[last], rods[0]); },
+    expected: 9.124009236887906,
+    relativeTolerance: 1e-7,
+    refKey: "schwarzschild.spatial_geodesic_end_radius_in_rs",
+    source: "SciPy solve_ivp of the geodesic in Schwarzschild coordinates (reference_values.py)",
+  },
+  {
+    name: "Anchored grid, one star: the same path's end angle θ (rad)",
+    actual: () => { const rods = singleRod(0.5); const path = PhysicsCore.meridianGeodesic(0, 4.5, Math.PI / 3, 6, 0.02, rods, 1.0001);
+      const last = path.zs.length - 1; const { upper, lower } = PhysicsCore.rodEndDistances(path.rhos[last], path.zs[last], rods[0]);
+      return Math.acos((lower - upper) / (2 * rods[0].halfLength)); },
+    expected: 0.6028626151071109,
+    relativeTolerance: 1e-7,
+    refKey: "schwarzschild.spatial_geodesic_end_angle_rad",
+    source: "SciPy solve_ivp of the geodesic in Schwarzschild coordinates (reference_values.py)",
+  },
+  {
+    name: "Anchored grid, two stars: path from the reddest point (70°, 50 km) ends at z (from star 1's centre)",
+    actual: () => { const pair = testPair(); const anchor = PhysicsCore.reddestAxisPoint(pair.leftSurfaceZ, pair.rightSurfaceZ, pair.rods);
+      const path = PhysicsCore.meridianGeodesic(0, anchor, 70 * Math.PI / 180, 50, 0.25, pair.rods, 12);
+      return path.zs[path.zs.length - 1] - pair.rods[0].centre; },
+    expected: 70.86685074066118,
+    relativeTolerance: 1e-6,
+    refKey: "two_body.example_geodesic_end_z_from_star1_km",
+    source: "SciPy solve_ivp with numerical rod potentials, γ carried by its field equations (reference_values.py)",
+  },
+  {
+    name: "Anchored grid, two stars: the same path's end distance from the line (rho)",
+    actual: () => { const pair = testPair(); const anchor = PhysicsCore.reddestAxisPoint(pair.leftSurfaceZ, pair.rightSurfaceZ, pair.rods);
+      const path = PhysicsCore.meridianGeodesic(0, anchor, 70 * Math.PI / 180, 50, 0.25, pair.rods, 12);
+      return path.rhos[path.rhos.length - 1]; },
+    expected: 43.39392500409202,
+    relativeTolerance: 1e-6,
+    refKey: "two_body.example_geodesic_end_rho_km",
+    source: "SciPy solve_ivp with numerical rod potentials, γ carried by its field equations (reference_values.py)",
+  },
+  {
+    name: "Anchored grid: the lookup fan (0.5°, 1 km) agrees with a direct path between its samples (73.3°, 37.4 km), rho",
+    actual: () => { const pair = testPair(); const anchor = PhysicsCore.reddestAxisPoint(pair.leftSurfaceZ, pair.rightSurfaceZ, pair.rods);
+      const fan = PhysicsCore.geodesicFan(anchor, pair.rods, 12, 40, 1, 361);
+      return PhysicsCore.geodesicFanPoint(fan, 73.3 * Math.PI / 180, 37.4).rho; },
+    expected: (() => { const pair = testPair(); const anchor = PhysicsCore.reddestAxisPoint(pair.leftSurfaceZ, pair.rightSurfaceZ, pair.rods);
+      const path = PhysicsCore.meridianGeodesic(0, anchor, 73.3 * Math.PI / 180, 37.4, 0.1, pair.rods, 12); return path.rhos[path.rhos.length - 1]; })(),
+    relativeTolerance: 1e-3,
+    source: "A direct, finer geodesic (checks only the table's interpolation, which the drawing uses)",
+  },
+  {
     name: "Buchdahl: a 3.5 M☉, 12 km star can be static",
     actual: () => Number(PhysicsCore.isStaticStarPossible(12, 2 * PhysicsCore.geometricMassKm(3.5))),
     expected: 1,
@@ -1189,6 +1369,8 @@ const viewState = {
   coordinateTimeSeconds: 0,  // distant-observer time t that drives the clocks
   showClocks: true,
   showBands: true,
+  gridStyle: "anchored",     // "anchored" (laid out along geodesics from an anchor) or "bands" (straight, ruler bands)
+  gridAnchor: "reddest",     // anchored grid: "star1", "reddest", "star2", "observer" (O's spot on the line) or "far"
   sectionCut: true,
   frame: "infinity",         // "infinity", "observer" (O) or "camera"
   observerX: 0,
@@ -1452,7 +1634,7 @@ function sceneHalfLength() {
  * Traces one straight grid line from its anchor point (parameter 0) to `end` (positive or negative), adding coloured
  * segments. pointAt(t) gives the scene point; the band count starts at 0 at the anchor.
  */
-function traceGridHalfLine(pointAt, direction, end, positions, colors) {
+function traceBandedHalfLine(pointAt, direction, end, positions, colors) {
   const color = new THREE.Color();
   const sign = Math.sign(end);
   let travelled = 0;            // drawn (Weyl) distance from the anchor
@@ -1494,6 +1676,12 @@ function traceGridHalfLine(pointAt, direction, end, positions, colors) {
 function buildGrid() {
   const positions = [];
   const colors = [];
+  const isAnchored = viewState.gridStyle === "anchored";
+  if (isAnchored) prepareAnchoredGrid();
+  // Each grid line is traced as two halves from its middle (parameter 0) outward.
+  const traceGridHalfLine = (pointAt, direction, end, linePositions, lineColors) => (isAnchored
+    ? traceAnchoredHalfLine(pointAt, end, linePositions, lineColors)
+    : traceBandedHalfLine(pointAt, direction, end, linePositions, lineColors));
   const halfLength = sceneHalfLength();
   const reach = GRID_SIDE_REACH_KM;
   const xCount = Math.floor(halfLength / GRID_SPACING_KM);
@@ -1530,6 +1718,91 @@ function buildGrid() {
   geometry.setColors(colors);
   gridLines = new LineSegments2(geometry, gridMaterial);
   gridGroup.add(gridLines);
+  placeAnchorMarker();
+}
+
+// ===== Anchored grid (laid out along geodesics from an anchor on the line) =====
+//
+// Every grid point keeps its flat-grid direction from the anchor and is placed at its flat-grid distance measured in
+// true (ruler) length along the straightest path of space in that direction (Riemann normal coordinates). Paths from an
+// anchor on the line stay in a plane through the line, so a fan of 2D paths (PhysicsCore.geodesicFan) covers all of
+// space by turning it about the line. Points the paths can't reach, behind a star as seen from the anchor, are left out.
+
+const ANCHOR_FAN_HEADINGS = 241;   // paths from 0 to 180°, every 0.75°
+const ANCHOR_FAN_STEP_KM = 1;
+const ANCHORED_SAMPLE_KM = 1;      // spacing of the samples along each flat grid line
+const ANCHORED_MAX_JUMP_KM = 6;    // don't join two samples drawn farther apart than this (an edge of a shadow)
+let anchorFan = null;
+
+/** Weyl z of the anchor on the line, for the chosen anchor. */
+function gridAnchorZ() {
+  if (viewState.gridAnchor === "star1") return spacetime.leftSurfaceZ;
+  if (viewState.gridAnchor === "star2") return spacetime.rightSurfaceZ;
+  if (viewState.gridAnchor === "reddest") return spacetime.reddestZ;
+  if (viewState.gridAnchor === "observer") return pushOutsideStars({ rho: 0, z: viewState.observerX }).z;
+  return -sceneHalfLength();   // far out on the line: the grid's left end, beyond star 1
+}
+
+/** Builds the fan of paths from the anchor, long enough to reach every grid corner. */
+function prepareAnchoredGrid() {
+  const anchorZ = gridAnchorZ();
+  const halfLength = sceneHalfLength();
+  const farthest = Math.max(Math.abs(halfLength - anchorZ), Math.abs(-halfLength - anchorZ));
+  const length = Math.hypot(farthest, GRID_SIDE_REACH_KM, GRID_SIDE_REACH_KM) + 2;
+  anchorFan = PhysicsCore.geodesicFan(anchorZ, spacetime.rods, STAR_RADIUS_KM, length, ANCHOR_FAN_STEP_KM, ANCHOR_FAN_HEADINGS);
+}
+
+/**
+ * Where the flat-grid point (x, y, z) goes: same direction from the anchor, same distance in true length along the
+ * straightest path. Returns scene coordinates plus its Weyl rho, or null where no path from the anchor reaches it.
+ */
+function anchoredGridPoint(x, y, z) {
+  const along = x - anchorFan.anchorZ;
+  const across = Math.hypot(y, z);
+  const distance = Math.hypot(along, across);
+  if (distance < 1e-9) return { x: anchorFan.anchorZ, y: 0, z: 0, rho: 0 };
+  const weyl = PhysicsCore.geodesicFanPoint(anchorFan, Math.atan2(across, along), distance);
+  if (!weyl) return null;
+  const turn = across > 1e-9 ? weyl.rho / across : 0;   // keep the angle around the line
+  return { x: weyl.z, y: y * turn, z: z * turn, rho: weyl.rho };
+}
+
+/** Traces half of one flat grid line, from its middle (t = 0) to `end`, through the anchored map. */
+function traceAnchoredHalfLine(pointAt, end, positions, colors) {
+  const color = new THREE.Color();
+  const sign = Math.sign(end);
+  let previous = null;
+  for (let travelled = 0; Math.abs(travelled) <= Math.abs(end) + 1e-9; travelled += sign * ANCHORED_SAMPLE_KM) {
+    const flat = pointAt(Math.abs(travelled) > Math.abs(end) ? end : travelled);
+    const point = anchoredGridPoint(flat.x, flat.y, flat.z);
+    let current = null;
+    if (point && starContaining(point.rho, point.x) < 0) {
+      const redshift = PhysicsCore.redshiftToInfinity(point.rho, point.x, spacetime.rods);
+      const brightness = lineBrightness(redshift);
+      redshiftColor(redshift, color).multiplyScalar(brightness);
+      current = { point, color: [color.r, color.g, color.b], brightness };
+    }
+    if (previous && current && Math.max(previous.brightness, current.brightness) > 0.01
+      && Math.hypot(current.point.x - previous.point.x, current.point.y - previous.point.y, current.point.z - previous.point.z) < ANCHORED_MAX_JUMP_KM) {
+      positions.push(previous.point.x, previous.point.y, previous.point.z, current.point.x, current.point.y, current.point.z);
+      colors.push(...previous.color, ...current.color);
+    }
+    previous = current;
+  }
+}
+
+const anchorMarker = new THREE.Mesh(new THREE.RingGeometry(1.4, 2, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide,
+  depthTest: false, transparent: true }));
+anchorMarker.renderOrder = 950;
+const anchorLabel = makeLabel("anchor: the grid matches flat space here");
+anchorLabel.position.set(0, 3.5, 0);
+anchorMarker.add(anchorLabel);
+gridGroup.add(anchorMarker);
+
+function placeAnchorMarker() {
+  anchorMarker.visible = viewState.gridStyle === "anchored";
+  anchorLabel.visible = anchorMarker.visible && viewState.view === "grid";
+  if (anchorMarker.visible) anchorMarker.position.set(anchorFan.anchorZ, 0, -PLANE_OFFSET_KM);
 }
 
 // ===== Strut (both views) =====
@@ -2210,13 +2483,21 @@ function makeClock(weylPoint, position, sizeKm, showRateLabel) {
 
 /** Clock sites in the plane through both stars, every 20 km, on the side the section cut keeps. */
 function planeClockSites() {
+  // With the anchored grid shown, the clocks ride on its (moved) vertices.
+  const onAnchoredGrid = viewState.view === "grid" && viewState.gridStyle === "anchored" && anchorFan;
+  const placeVertex = (point) => {
+    if (!onAnchoredGrid) return point;
+    const moved = anchoredGridPoint(point.z, 0, -point.rho);
+    return moved ? { rho: moved.rho, z: moved.x } : null;
+  };
   const sites = [];
   const step = GRID_SPACING_KM;
   const xCount = Math.floor(sceneHalfLength() / step) - 1;
   for (let i = -xCount; i <= xCount; i++) {
     for (let k = 1; k <= 4; k++) {
-      const weylPoint = { rho: k * step, z: i * step };
-      const nearStar = spacetime.rods.some((rod, index) =>
+      const weylPoint = placeVertex({ rho: k * step, z: i * step });
+      if (!weylPoint) continue;
+      const nearStar = spacetime.rods.some((rod) =>
         PhysicsCore.isolatedStarRadius(weylPoint.rho, weylPoint.z, rod) < STAR_RADIUS_KM + 2 * CLOCK_SIZE_KM);
       if (!nearStar) sites.push(weylPoint);
     }
@@ -2584,11 +2865,22 @@ function describeBodyNote() {
 }
 
 function describeView() {
-  document.querySelectorAll(".grid-only").forEach((element) => { element.style.display = viewState.view === "grid" ? "" : "none"; });
+  const showIf = (selector, shown) => document.querySelectorAll(selector).forEach((element) => { element.style.display = shown ? "" : "none"; });
+  showIf(".grid-only", viewState.view === "grid");
+  showIf(".anchored-only", viewState.view === "grid" && viewState.gridStyle === "anchored");
+  showIf(".bands-only", viewState.view === "grid" && viewState.gridStyle === "bands");
   if (viewState.view === "embedding") {
     document.getElementById("view-note").textContent = "The plane through both stars at one moment, bent in 3D so that every distance "
       + "along the surface is the true ruler distance: the two-star version of Flamm's paraboloid. There is no formula for it, so "
       + "it is computed, and the height means nothing physical. Lines are every 10 km of Weyl's coordinates." + describeEmbeddingProgress();
+    return;
+  }
+  if (viewState.view === "grid" && viewState.gridStyle === "anchored") {
+    document.getElementById("view-note").textContent = "From the anchor (white ring), every grid point keeps its flat-grid "
+      + "direction and sits at its flat-grid distance measured with rulers along the straightest path of space in that "
+      + "direction. Near the anchor the grid is undisturbed; away from it, it shows how space differs from flat. Stars block "
+      + "the paths, so the grid is left empty in each star's shadow as seen from the anchor. True scale, drawn in Weyl's coordinates."
+      + (viewState.gridAnchor === "observer" ? " The anchor is the point on the line nearest O (set O under Reference frame)." : "");
     return;
   }
   document.getElementById("view-note").textContent = viewState.view === "grid"
@@ -2630,6 +2922,7 @@ function onBeamChanged() {
 }
 
 function onFrameChanged() {
+  if (viewState.gridStyle === "anchored" && viewState.gridAnchor === "observer") buildGrid();   // the anchor follows O
   placeObserverMarker();
   buildObserverLevel();
   buildClocks();
@@ -2699,6 +2992,26 @@ document.getElementById("clocks-checkbox").addEventListener("change", (event) =>
   viewState.showClocks = event.target.checked;
   applyClockVisibility();
 });
+/** Grid style and anchor buttons: rebuild the grid, and the clocks that ride on its vertices. */
+function onGridChoiceChanged() {
+  syncControlsToState();
+  describeView();
+  buildGrid();
+  buildClocks();
+}
+document.getElementById("grid-style").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-style]");
+  if (!button) return;
+  viewState.gridStyle = button.dataset.style;
+  onGridChoiceChanged();
+});
+document.getElementById("anchor-mode").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-anchor]");
+  if (!button) return;
+  viewState.gridAnchor = button.dataset.anchor;
+  onGridChoiceChanged();
+});
+
 document.getElementById("bands-checkbox").addEventListener("change", (event) => {
   viewState.showBands = event.target.checked;
   buildGrid();
@@ -2710,6 +3023,7 @@ document.getElementById("section-checkbox").addEventListener("change", (event) =
 
 /** CSS2D labels ignore a hidden parent group, so each label's visibility is set here. */
 function applyLabelVisibility() {
+  anchorLabel.visible = viewState.view === "grid" && viewState.gridStyle === "anchored";
   for (const star of starObjects) star.label.visible = viewState.view === "grid";
   landscapeNoteLabel.visible = viewState.view === "landscape";
   for (const label of landscapeStarLabels) label.visible = viewState.view === "landscape";
@@ -2837,7 +3151,10 @@ function syncControlsToState() {
     "clocks-checkbox": viewState.showClocks,
   };
   for (const [id, checked] of Object.entries(checkboxes)) document.getElementById(id).checked = checked;
-  document.querySelectorAll("#frame-mode button").forEach((button) => button.classList.toggle("active", button.dataset.frame === viewState.frame));
+  const groups = { "frame-mode": ["frame", viewState.frame], "grid-style": ["style", viewState.gridStyle], "anchor-mode": ["anchor", viewState.gridAnchor] };
+  for (const [id, [key, value]] of Object.entries(groups)) {
+    document.querySelectorAll(`#${id} button`).forEach((button) => button.classList.toggle("active", button.dataset[key] === value));
+  }
   mass1Slider.value = viewState.star1Mass;
   mass2Slider.value = viewState.star2Mass;
   gapSlider.value = viewState.gapKm;

@@ -16,7 +16,8 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   The owner asked to see this first version before more controls are added.
 - `two-body-problem.html` (added 2026-11-20): working prototype. Two 12 km stars on a line, exact static Weyl /
   Israel–Khan solution. Light A → B along the line, clocks along the path, reference frames. Three views, including a
-  numerically computed true-length surface (two-star Flamm). All 24 physics self-tests pass.
+  numerically computed true-length surface (two-star Flamm); the grid can be anchored at points on the line.
+  All 29 physics self-tests pass.
 - `index.html`: a landing page that links to each diagram.
 - Planned next: the observable-universe sphere (centre = now, edge = recombination).
 
@@ -142,6 +143,17 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 - Drawing is in Weyl coordinates (scene x = Weyl z, origin halfway between the rod centres; rho = distance from the
   x axis). A 12 km star appears as a spheroid with semi-axes R − m (along) and sqrt(R(R − 2m)) (across); heavier stars
   look smaller. Labels give the true radius.
+- Anchored grid (owner's request, 2026-11-20; now the default grid style): the one-star page's anchor options,
+  generalised. Anchor = a point on the line (star 1's facing surface, the reddest point, star 2's facing surface, O's
+  spot on the line, or far out = the grid's left end). Grid points keep their flat direction from the anchor and are
+  placed at their flat distance in ruler length along spatial geodesics (Riemann normal coordinates). Geodesics from an
+  axis point stay in a meridian plane, so `PhysicsCore.geodesicFan` (241 headings, 1 km steps, RK4 of
+  dz/ds = e^(−f)cosψ, dρ/ds = e^(−f)sinψ, dψ/ds = e^(−f)(f_ρ cosψ − f_z sinψ), f = γ − U, γ' from its field
+  equations) covers all space by rotation; ~0.1–0.2 s per rebuild. Paths stop at a star, so each star casts a shadow
+  (left empty); with the far anchor the shadow behind star 1 is large. Grid clocks ride on the moved vertices.
+  Checked against SciPy geodesics in Schwarzschild coordinates (one star) and with numerical potentials (two stars).
+  Not the same picture as the one-star page with one star (that one is anchored on a sphere). Anchors between the stars
+  sit on the strut (0.2% excess angle). Not built yet: anchors off the line (O anywhere, camera), which need 3D geodesics.
 - Views: "Grid with ruler bands" (straight Weyl-coordinate lines, 20 km apart, with alternating bands every 5 km of true
   length, counted from the grid's middle planes; replaces the one-star page's warped ruler-coordinate grid, which has no
   unique two-body version) and "Clock-rate landscape" (plane through both stars sunk by 100 km × (1 − dτ/dt): a graph,

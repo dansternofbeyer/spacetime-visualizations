@@ -335,6 +335,30 @@
       "unit": "",
       "description": "gamma at rho = 15.0 km, z = 40.0 km from star 1's centre; 1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km",
       "source": "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py"
+    },
+    "schwarzschild.spatial_geodesic_end_radius_in_rs": {
+      "value": 9.124009236887906,
+      "unit": "r_s",
+      "description": "End radius of a spatial geodesic from r = 5.0 r_s on the axis, 60.0 deg from outward, 6.0 r_s long",
+      "source": "SciPy solve_ivp in Schwarzschild coordinates"
+    },
+    "schwarzschild.spatial_geodesic_end_angle_rad": {
+      "value": 0.6028626151071109,
+      "unit": "rad",
+      "description": "End polar angle of a spatial geodesic from r = 5.0 r_s on the axis, 60.0 deg from outward, 6.0 r_s long",
+      "source": "SciPy solve_ivp in Schwarzschild coordinates"
+    },
+    "two_body.example_geodesic_end_z_from_star1_km": {
+      "value": 70.86685074066118,
+      "unit": "km",
+      "description": "Weyl z (from star 1's centre) at the end of a spatial geodesic from the reddest point, 70.0 deg from +z, 50.0 km long; 1.75 + 1.2 M_sun, Weyl centre separation 100 km",
+      "source": "SciPy solve_ivp with numerical rod potentials, gamma carried by its field equations"
+    },
+    "two_body.example_geodesic_end_rho_km": {
+      "value": 43.39392500409202,
+      "unit": "km",
+      "description": "Weyl rho at the end of a spatial geodesic from the reddest point, 70.0 deg from +z, 50.0 km long; 1.75 + 1.2 M_sun, Weyl centre separation 100 km",
+      "source": "SciPy solve_ivp with numerical rod potentials, gamma carried by its field equations"
     }
   }
 }

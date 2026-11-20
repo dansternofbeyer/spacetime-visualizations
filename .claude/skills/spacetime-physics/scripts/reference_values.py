@@ -337,6 +337,89 @@ def two_body_reference_values():
     }
 
 
+# ----- Geodesics of space (for the anchored grid in two-body-problem.html) -----
+
+GEODESIC_SINGLE_START_RADIUS_IN_RS = 5.0
+GEODESIC_SINGLE_HEADING_DEG = 60.0
+GEODESIC_SINGLE_LENGTH_IN_RS = 6.0
+GEODESIC_TWO_BODY_HEADING_DEG = 70.0
+GEODESIC_TWO_BODY_LENGTH_KM = 50.0
+
+
+def schwarzschild_spatial_geodesic(start_radius, heading, length):
+    """
+    A geodesic of the Schwarzschild spatial metric dr^2/(1 - 1/r) + r^2 dtheta^2 (units of r_s), in a plane, by its
+    Hamiltonian: dr/ds = (1 - 1/r) p_r, dp_r/ds = -(p_r^2/r^2 - 2 L^2/r^3)/2, dtheta/ds = L/r^2. Starts at theta = 0,
+    heading at `heading` from the outward radial direction. Returns (r, theta) after true length `length`.
+    """
+    from scipy.integrate import solve_ivp
+
+    angular_momentum = start_radius * math.sin(heading)
+
+    def derivative(_, state):
+        radius, radial_momentum, _angle = state
+        return [(1 - 1 / radius) * radial_momentum,
+                -0.5 * (radial_momentum**2 / radius**2 - 2 * angular_momentum**2 / radius**3),
+                angular_momentum / radius**2]
+
+    start = [start_radius, math.cos(heading) / math.sqrt(1 - 1 / start_radius), 0.0]
+    solution = solve_ivp(derivative, (0, length), start, rtol=1e-12, atol=1e-14, method="DOP853")
+    return solution.y[0, -1], solution.y[2, -1]
+
+
+def weyl_meridian_geodesic_numeric(rods, start_z, heading, length, start_gamma):
+    """
+    A geodesic of dl^2 = e^(2(gamma - U))(drho^2 + dz^2) from the axis point start_z, with U from numerical rod
+    integrals and gamma carried along the path by its field equations (starting from start_gamma). Returns (z, rho).
+    """
+    from scipy.integrate import solve_ivp
+
+    def derivative(_, state):
+        z, rho, direction, gamma = state
+        potential = weyl_potential_numeric(rho, z, rods)
+        u_rho, u_z = weyl_potential_gradient(rho, z, rods)
+        gamma_rho = rho * (u_rho**2 - u_z**2)
+        gamma_z = 2 * rho * u_rho * u_z
+        scale = math.exp(potential - gamma)
+        dz = scale * math.cos(direction)
+        drho = scale * math.sin(direction)
+        turn = scale * ((gamma_rho - u_rho) * math.cos(direction) - (gamma_z - u_z) * math.sin(direction))
+        return [dz, drho, turn, gamma_rho * drho + gamma_z * dz]
+
+    solution = solve_ivp(derivative, (0, length), [start_z, 0.0, heading, start_gamma], rtol=1e-10, atol=1e-12, method="DOP853")
+    return solution.y[0, -1], solution.y[1, -1]
+
+
+def geodesic_reference_values():
+    from scipy.optimize import minimize_scalar
+
+    radius, angle = schwarzschild_spatial_geodesic(GEODESIC_SINGLE_START_RADIUS_IN_RS,
+                                                   math.radians(GEODESIC_SINGLE_HEADING_DEG), GEODESIC_SINGLE_LENGTH_IN_RS)
+    rods = two_body_rods()
+    (centre1, mass1), (centre2, mass2) = rods
+    surface1 = centre1 + (TWO_BODY_STAR_RADIUS_KM - mass1)
+    surface2 = centre2 - (TWO_BODY_STAR_RADIUS_KM - mass2)
+    reddest = minimize_scalar(lambda z: -weyl_potential_numeric(0.0, z, rods), bounds=(surface1, surface2),
+                              method="bounded", options={"xatol": 1e-9}).x
+    gamma_strut = weyl_gamma_numeric(1e-7, reddest, rods)
+    end_z, end_rho = weyl_meridian_geodesic_numeric(rods, reddest, math.radians(GEODESIC_TWO_BODY_HEADING_DEG),
+                                                    GEODESIC_TWO_BODY_LENGTH_KM, gamma_strut)
+    single = (f"from r = {GEODESIC_SINGLE_START_RADIUS_IN_RS} r_s on the axis, {GEODESIC_SINGLE_HEADING_DEG} deg from outward, "
+              f"{GEODESIC_SINGLE_LENGTH_IN_RS} r_s long")
+    two = (f"from the reddest point, {GEODESIC_TWO_BODY_HEADING_DEG} deg from +z, {GEODESIC_TWO_BODY_LENGTH_KM} km long; "
+           "1.75 + 1.2 M_sun, Weyl centre separation 100 km")
+    return {
+        "schwarzschild.spatial_geodesic_end_radius_in_rs": entry(radius, "r_s", f"End radius of a spatial geodesic {single}",
+                                                                 "SciPy solve_ivp in Schwarzschild coordinates"),
+        "schwarzschild.spatial_geodesic_end_angle_rad": entry(angle, "rad", f"End polar angle of a spatial geodesic {single}",
+                                                              "SciPy solve_ivp in Schwarzschild coordinates"),
+        "two_body.example_geodesic_end_z_from_star1_km": entry(end_z - centre1, "km", f"Weyl z (from star 1's centre) at the end of a spatial geodesic {two}",
+                                                               "SciPy solve_ivp with numerical rod potentials, gamma carried by its field equations"),
+        "two_body.example_geodesic_end_rho_km": entry(end_rho, "km", f"Weyl rho at the end of a spatial geodesic {two}",
+                                                      "SciPy solve_ivp with numerical rod potentials, gamma carried by its field equations"),
+    }
+
+
 def astropy_constants_label():
     return "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
 
@@ -405,6 +488,7 @@ def build_reference_values():
         values[f"cosmology.lookback_time_z{label}_gyr"] = entry(Planck18.lookback_time(redshift).to_value(u.Gyr), "Gyr", f"Lookback time to z = {redshift}", planck)
     # --- Two static bodies (Weyl / Israel–Khan), for two-body-problem.html ---
     values.update(two_body_reference_values())
+    values.update(geodesic_reference_values())
     return values
 
 
