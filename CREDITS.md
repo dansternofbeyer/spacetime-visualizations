@@ -55,7 +55,7 @@ The project's own code is MIT licensed (see `LICENSE`); everything listed here k
   J. Hartle, *Gravity* (2003); C. Misner, K. Thorne & J. Wheeler, *Gravitation* (1973).
 - **L. Flamm** (1916), "Beiträge zur Einsteinschen Gravitationstheorie", Physikalische Zeitschrift 17, 448;
   English translation in Gen. Relativ. Gravit. (2015), doi:10.1007/s10714-015-1908-2. Flamm's paraboloid in
-  `gravitational-redshift.html`. (The 1916 original isn't indexed online; the translation's DOI was verified.)
+  `gravitational-redshift.html`, and the one-star check of the true-length surface in `two-body-problem.html`. (The 1916 original isn't indexed online; the translation's DOI was verified.)
 - **H. A. Buchdahl** (1959), "General Relativistic Fluid Spheres", Phys. Rev. 116, 1027, doi:10.1103/PhysRev.116.1027.
   The R > 9/8 r_s limit where `gravitational-redshift.html` switches from a star to a black hole.
 - **H. Weyl** (1917), "Zur Gravitationstheorie", Ann. Phys. 54, 117, doi:10.1002/andp.19173591804
@@ -69,6 +69,8 @@ The project's own code is MIT licensed (see `LICENSE`); everything listed here k
   Class. Quantum Grav. 15, 421, arXiv:gr-qc/9710122. The strut and its force.
 - **J. B. Griffiths & J. Podolský** (2009), *Exact Space-Times in Einstein's General Relativity*, Cambridge University Press,
   ch. 10 (static axially symmetric space-times).
+- **J. Nocedal & S. J. Wright** (2006), *Numerical Optimization*, 2nd ed., Springer, ch. 7. The L-BFGS method that
+  relaxes the true-length surface in `two-body-problem.html`.
 - **C. Wyman, P.-P. Sloan & P. Shirley** (2013), "Simple Analytic Approximations to the CIE XYZ Color Matching
   Functions", Journal of Computer Graphics Techniques 2(2), https://jcgt.org/published/0002/02/01/.
   Turns wavelengths into on-screen colours in `gravitational-redshift.html` and `two-body-problem.html`.

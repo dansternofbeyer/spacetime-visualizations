@@ -15,7 +15,8 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   star or, above Buchdahl's limit (~3.6 M☉), a black hole. Views: warped cube grid and Flamm's paraboloid. All 16 physics self-tests pass.
   The owner asked to see this first version before more controls are added.
 - `two-body-problem.html` (added 2026-11-20): working prototype. Two 12 km stars on a line, exact static Weyl /
-  Israel–Khan solution. Light A → B along the line, clocks along the path, reference frames. All 21 physics self-tests pass.
+  Israel–Khan solution. Light A → B along the line, clocks along the path, reference frames. Three views, including a
+  numerically computed true-length surface (two-star Flamm). All 24 physics self-tests pass.
 - `index.html`: a landing page that links to each diagram.
 - Planned next: the observable-universe sphere (centre = now, edge = recombination).
 
@@ -145,10 +146,22 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   length, counted from the grid's middle planes; replaces the one-star page's warped ruler-coordinate grid, which has no
   unique two-body version) and "Clock-rate landscape" (plane through both stars sunk by 100 km × (1 − dτ/dt): a graph,
   not an embedding; Flamm's paraboloid has no exact two-body version). In an observer frame the landscape shows O's level.
+- True-length surface (owner's request, 2026-11-20): the plane through both stars embedded isometrically in flat 3D,
+  the two-star version of Flamm's paraboloid. No closed form, so `PhysicsCore.buildSliceMesh` + `relaxEmbedding`:
+  a graded mesh over the half-plane rho ≥ 0 (nodes next to a star snapped onto its surface; each cell has 4 sides and
+  both diagonals), target edge lengths ∫e^(γ−U) (Simpson), L-BFGS from the stars' own Flamm shapes combined, axis nodes
+  held in the mirror plane, other half mirrored. A weak smoothness term (staged 1e-1 → 1e-2 → 1e-3, 300 steps each)
+  picks the smoothest of the equally true shapes; without it the free outer edge buckled into ~1 km zigzags in long thin
+  cells. Runs 25 steps per animation frame (so it pauses in a hidden tab), stops at 1e-4 RMS or 4000 steps; the view
+  note shows the live RMS and worst edge error (about 0.01% RMS, worst ~0.2%). Self-tests: Flamm's exact surface fits
+  the slice metric (2.5e-5 RMS); one star relaxed keeps Flamm's rise 2 r_s → 10 r_s (within 0.2%: the smoothness
+  term's pull); two stars relax below 0.1% RMS. Curvature of the slice is negative everywhere (checked for the default
+  pair), like Flamm's. Shape isn't unique (saddle surfaces bend without stretching): stated on the page.
 - Light runs only along the axis (straight by symmetry): c dt = e^(γ₀−2U) dz, ruler dℓ = e^(γ₀−U) dz. Wave sampled evenly in
   L = ∫e^(γ₀−2U)dz. Same wave exaggeration and colour method as the one-star page.
 - Not carried over from the one-star page (possible next steps): measuring sticks, radar distances, sky/apparent-size
-  readouts, grid anchors, the Flamm line, black holes, light off the axis.
+  readouts, grid anchors, the Flamm line, black holes, light off the axis. Possible extra: exact Flamm-style surfaces of
+  revolution for slices across the line (they show the strut as a region near the line that can't be embedded).
 
 ## Known issues and open questions
 
