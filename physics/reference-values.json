@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated": "2026-11-16",
+    "generated": "2026-11-20",
     "astropy_version": "7.2.0",
     "numpy_version": "2.5.5",
     "generator": ".claude/skills/spacetime-physics/scripts/reference_values.py"
@@ -269,6 +269,72 @@
       "unit": "Gyr",
       "description": "Lookback time to z = 10",
       "source": "Astropy Planck18 (Planck 2018 VI, arXiv:1807.06209)"
+    },
+    "two_body.example_redshift_surface1_to_surface2": {
+      "value": 0.10232310575834773,
+      "unit": "",
+      "description": "Redshift from star 1's facing surface point to star 2's (negative = blueshift); 1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km",
+      "source": "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py"
+    },
+    "two_body.example_redshift_surface1_to_infinity": {
+      "value": 0.35150962199771213,
+      "unit": "",
+      "description": "Redshift from star 1's facing surface point to infinity; 1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km",
+      "source": "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py"
+    },
+    "two_body.example_strut_gamma": {
+      "value": -0.0018333544429750307,
+      "unit": "",
+      "description": "gamma on the axis between the bodies (the strut); 1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km",
+      "source": "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py"
+    },
+    "two_body.example_strut_force_newtons": {
+      "value": 5.552156520295285e+40,
+      "unit": "N",
+      "description": "Strut force (1/4)(exp(-gamma) - 1) c^4/G; 1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km",
+      "source": "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py; Astropy constants"
+    },
+    "two_body.newton_force_at_1e6km_newtons": {
+      "value": 5.541621238868879e+32,
+      "unit": "N",
+      "description": "Newtonian force G M1 M2 / d^2 for the default pair at d = 10^6 km",
+      "source": "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
+    },
+    "two_body.example_ruler_gap_km": {
+      "value": 90.62448142064342,
+      "unit": "km",
+      "description": "Ruler distance along the axis between the facing surfaces; 1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km",
+      "source": "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py"
+    },
+    "two_body.example_light_time_gap_us": {
+      "value": 342.23797603832793,
+      "unit": "us",
+      "description": "Light time along the axis between the facing surfaces, distant observer's clock; 1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km",
+      "source": "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py"
+    },
+    "two_body.example_reddest_point_offset_km": {
+      "value": 54.71093107527388,
+      "unit": "km",
+      "description": "Weyl z of the reddest (highest-potential) point between the bodies, from star 1's centre; 1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km",
+      "source": "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py + minimize_scalar"
+    },
+    "two_body.example_reddest_point_redshift_to_infinity": {
+      "value": 0.0902556964055073,
+      "unit": "",
+      "description": "Redshift to infinity from that point; 1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km",
+      "source": "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py + minimize_scalar"
+    },
+    "two_body.example_clock_rate_off_axis": {
+      "value": 0.9146560827629527,
+      "unit": "",
+      "description": "Static clock rate dtau/dt at rho = 15.0 km, z = 40.0 km from star 1's centre; 1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km",
+      "source": "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py"
+    },
+    "two_body.example_gamma_off_axis": {
+      "value": -0.001921889885618486,
+      "unit": "",
+      "description": "gamma at rho = 15.0 km, z = 40.0 km from star 1's centre; 1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km",
+      "source": "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py"
     }
   }
 }

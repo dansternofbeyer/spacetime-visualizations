@@ -210,6 +210,137 @@ def redshift_of_max_angular_diameter_distance():
     return float(redshifts[np.argmax(distances)])
 
 
+# ===== Two static bodies: Weyl / Israel–Khan double Schwarzschild =====
+#
+# Independent of the page's closed forms: each Weyl potential U is the Newtonian potential of a
+# uniform rod (linear density 1/2 in G = c = 1 units), integrated numerically; the second metric
+# function gamma is found by integrating its field equations along a path from the outer axis
+# (where gamma = 0); axis integrals use SciPy quad. Lengths in km, m = GM/c^2.
+# Sources: Weyl (1917); Bach & Weyl (1922); Israel & Khan (1964); Letelier & Oliveira (1998).
+
+TWO_BODY_STAR_RADIUS_KM = 12.0
+TWO_BODY_MASSES_SOLAR = (1.75, 1.2)      # the page's default pair (a model, not a measured binary)
+TWO_BODY_CENTRE_SEPARATION_KM = 100.0    # Weyl coordinate distance between the rod centres
+TWO_BODY_OFF_AXIS_POINT_KM = (15.0, 40.0)  # (rho, z) with z measured from star 1's centre
+
+
+def geometric_mass_km(mass_in_solar_masses):
+    """m = GM/c^2 in km."""
+    return (const.G * mass_in_solar_masses * const.M_sun / SPEED_OF_LIGHT**2).to_value(u.km)
+
+
+def two_body_rods():
+    """[(centre, m), ...]: star 1 at z = 0, star 2 at z = d."""
+    mass1, mass2 = (geometric_mass_km(mass) for mass in TWO_BODY_MASSES_SOLAR)
+    return [(0.0, mass1), (TWO_BODY_CENTRE_SEPARATION_KM, mass2)]
+
+
+def rod_potential_numeric(rho, z, centre, half_length):
+    """U = -(1/2) * integral over the rod of dz' / distance, by quadrature."""
+    from scipy.integrate import quad
+
+    integrand = lambda z_prime: 1.0 / math.hypot(rho, z - z_prime)
+    return -0.5 * quad(integrand, centre - half_length, centre + half_length, epsabs=1e-14, epsrel=1e-13, limit=200)[0]
+
+
+def weyl_potential_numeric(rho, z, rods):
+    return sum(rod_potential_numeric(rho, z, centre, half_length) for centre, half_length in rods)
+
+
+def weyl_potential_gradient(rho, z, rods, step=1e-5):
+    """(dU/drho, dU/dz) by central differences of the numerical potential."""
+    d_rho = (weyl_potential_numeric(rho + step, z, rods) - weyl_potential_numeric(rho - step, z, rods)) / (2 * step)
+    d_z = (weyl_potential_numeric(rho, z + step, rods) - weyl_potential_numeric(rho, z - step, rods)) / (2 * step)
+    return d_rho, d_z
+
+
+def weyl_gamma_numeric(target_rho, target_z, rods):
+    """
+    gamma at (rho, z) from its field equations, d gamma/d rho = rho (U_rho^2 - U_z^2) and
+    d gamma/d z = 2 rho U_rho U_z, integrated from the axis above both rods (gamma = 0 there:
+    elementary flatness, no strings outward) out to large rho, down to the target z, then in to the target rho.
+    """
+    from scipy.integrate import quad
+
+    centres = [centre for centre, _ in rods]
+    span = max(centres) - min(centres) + 2 * sum(half for _, half in rods)
+    top_z = max(centres) + 3 * span
+    far_rho = 3 * span
+
+    def radial_derivative(rho, z):
+        u_rho, u_z = weyl_potential_gradient(rho, z, rods)
+        return rho * (u_rho**2 - u_z**2)
+
+    def axial_derivative(rho, z):
+        u_rho, u_z = weyl_potential_gradient(rho, z, rods)
+        return 2 * rho * u_rho * u_z
+
+    gamma = quad(lambda rho: radial_derivative(rho, top_z), 0.0, far_rho, limit=400)[0]
+    gamma += quad(lambda z: axial_derivative(far_rho, z), top_z, target_z, limit=400)[0]
+    gamma += quad(lambda rho: radial_derivative(rho, target_z), far_rho, target_rho, limit=400)[0]
+    return gamma
+
+
+def two_body_reference_values():
+    """Values for two-body-problem.html (default pair, Weyl centre separation 100 km)."""
+    from scipy.integrate import quad
+    from scipy.optimize import minimize_scalar
+
+    rods = two_body_rods()
+    (centre1, mass1), (centre2, mass2) = rods
+    radius = TWO_BODY_STAR_RADIUS_KM
+    # Facing surface points on the axis: where the isolated-star radius (R+ + R-)/2 + m equals R.
+    surface1 = centre1 + (radius - mass1)
+    surface2 = centre2 - (radius - mass2)
+    middle = 0.5 * (surface1 + surface2)
+    gamma_strut = weyl_gamma_numeric(1e-7, middle, rods)
+
+    axis_potential = lambda z: weyl_potential_numeric(0.0, z, rods)
+    ruler_gap = quad(lambda z: math.exp(gamma_strut - axis_potential(z)), surface1, surface2, epsrel=1e-11, limit=200)[0]
+    light_length = quad(lambda z: math.exp(gamma_strut - 2 * axis_potential(z)), surface1, surface2, epsrel=1e-11, limit=200)[0]
+    light_time_us = light_length / SPEED_OF_LIGHT.to_value(u.km / u.s) * 1e6
+
+    reddest = minimize_scalar(lambda z: -axis_potential(z), bounds=(surface1, surface2), method="bounded",
+                              options={"xatol": 1e-9})
+    off_rho, off_z = TWO_BODY_OFF_AXIS_POINT_KM
+
+    force_unit = (SPEED_OF_LIGHT**4 / const.G).to_value(u.N)   # c^4/G, the unit of force in G = c = 1
+    strut_force = 0.25 * (math.exp(-gamma_strut) - 1) * force_unit
+    newton_distance_km = 1e6
+    newton_force = (const.G * TWO_BODY_MASSES_SOLAR[0] * const.M_sun * TWO_BODY_MASSES_SOLAR[1] * const.M_sun
+                    / (newton_distance_km * u.km) ** 2).to_value(u.N)
+
+    source = "Numerical rod potentials and gamma field equations (SciPy quad) in reference_values.py"
+    setup = "1.75 + 1.2 M_sun, R = 12 km, Weyl centre separation 100 km"
+    return {
+        "two_body.example_redshift_surface1_to_surface2": entry(
+            math.expm1(axis_potential(surface2) - axis_potential(surface1)), "",
+            f"Redshift from star 1's facing surface point to star 2's (negative = blueshift); {setup}", source),
+        "two_body.example_redshift_surface1_to_infinity": entry(
+            math.expm1(-axis_potential(surface1)), "", f"Redshift from star 1's facing surface point to infinity; {setup}", source),
+        "two_body.example_strut_gamma": entry(gamma_strut, "", f"gamma on the axis between the bodies (the strut); {setup}", source),
+        "two_body.example_strut_force_newtons": entry(strut_force, "N",
+            f"Strut force (1/4)(exp(-gamma) - 1) c^4/G; {setup}", source + "; Astropy constants"),
+        "two_body.newton_force_at_1e6km_newtons": entry(newton_force, "N",
+            "Newtonian force G M1 M2 / d^2 for the default pair at d = 10^6 km", astropy_constants_label()),
+        "two_body.example_ruler_gap_km": entry(ruler_gap, "km", f"Ruler distance along the axis between the facing surfaces; {setup}", source),
+        "two_body.example_light_time_gap_us": entry(light_time_us, "us",
+            f"Light time along the axis between the facing surfaces, distant observer's clock; {setup}", source),
+        "two_body.example_reddest_point_offset_km": entry(reddest.x - centre1, "km",
+            f"Weyl z of the reddest (highest-potential) point between the bodies, from star 1's centre; {setup}", source + " + minimize_scalar"),
+        "two_body.example_reddest_point_redshift_to_infinity": entry(math.expm1(-axis_potential(reddest.x)), "",
+            f"Redshift to infinity from that point; {setup}", source + " + minimize_scalar"),
+        "two_body.example_clock_rate_off_axis": entry(math.exp(weyl_potential_numeric(off_rho, off_z, rods)), "",
+            f"Static clock rate dtau/dt at rho = {off_rho} km, z = {off_z} km from star 1's centre; {setup}", source),
+        "two_body.example_gamma_off_axis": entry(weyl_gamma_numeric(off_rho, off_z, rods), "",
+            f"gamma at rho = {off_rho} km, z = {off_z} km from star 1's centre; {setup}", source),
+    }
+
+
+def astropy_constants_label():
+    return "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
+
+
 # ===== Assemble =====
 
 def entry(value, unit, description, source):
@@ -272,6 +403,8 @@ def build_reference_values():
         label = str(redshift).replace(".", "p")
         values[f"cosmology.comoving_distance_z{label}_gly"] = entry(comoving_distance_gly(redshift), "Gly", f"Comoving distance to z = {redshift}", planck)
         values[f"cosmology.lookback_time_z{label}_gyr"] = entry(Planck18.lookback_time(redshift).to_value(u.Gyr), "Gyr", f"Lookback time to z = {redshift}", planck)
+    # --- Two static bodies (Weyl / Israel–Khan), for two-body-problem.html ---
+    values.update(two_body_reference_values())
     return values
 
 

@@ -14,6 +14,8 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 - `gravitational-redshift.html` (added 2026-11-16): working prototype. Radial light from A to B around a 12 km
   star or, above Buchdahl's limit (~3.6 M☉), a black hole. Views: warped cube grid and Flamm's paraboloid. All 16 physics self-tests pass.
   The owner asked to see this first version before more controls are added.
+- `two-body-problem.html` (added 2026-11-20): working prototype. Two 12 km stars on a line, exact static Weyl /
+  Israel–Khan solution. Light A → B along the line, clocks along the path, reference frames. All 21 physics self-tests pass.
 - `index.html`: a landing page that links to each diagram.
 - Planned next: the observable-universe sphere (centre = now, edge = recombination).
 
@@ -23,6 +25,7 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 |---|---|
 | `index.html` | Landing page |
 | `galaxy-map.html` | CfA2 galaxy map (physics core + three.js view) |
+| `two-body-problem.html` | Two static stars (Weyl / Israel–Khan double Schwarzschild): light between them, clocks, observer frames |
 | `gravitational-redshift.html` | Schwarzschild gravitational redshift: warped grid, Flamm's paraboloid, animated wave |
 | `data/cfa2-galaxies.js` | CfA2 galaxy data, generated; don't edit by hand |
 | `data/2mrs-galaxies.js` | 2MRS galaxy data (journal/VizieR copy), CfA2 and 6dFGS duplicates removed; built by `data/build_2mrs.py` (run last) |
@@ -118,6 +121,34 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   This is one stated choice among several (see pitfalls.md); the alternatives are Gullstrand–Painlevé flow lines
   or drawing in proper distance.
 - Wave length on screen is exaggerated by about 1.3 × 10¹⁰ (stated on the page); everything else is true scale.
+
+## Decisions made: two body problem page
+
+- Physics (owner's choice, 2026-11-20, from four options: weak-field sum, Weyl/Israel–Khan, Majumdar–Papapetrou,
+  numerical relativity): the **exact static Weyl / Israel–Khan double Schwarzschild solution**. U = U₁ + U₂ exactly
+  (rod potentials); γ has a closed form, checked against a numerical integration of its field equations. The bodies
+  are held apart by a strut (conical singularity on the axis between them, γ = γ₀ there). The page draws it, gives its
+  force next to Newton's, and says plainly that nothing real holds the stars still.
+- Owner's goals for the page: (1) light reddens climbing out of star 1's well and blues falling into star 2's;
+  (2) proper clocks along the path from A to B; (3) observers at different spots see time and redshift differently.
+  Built for these: the "Along the beam" plot (clock rate and wavelength are one curve), a labelled row of clocks
+  above the path, the reddest point (maximum of U on the axis), "Who measures what" table, O presets.
+- Each star's outside is a Schwarzschild rod of its mass (exact for one star alone and for two black holes; tidal
+  deformation of stars left out). Surface = where the star's own isolated Schwarzschild radius ½(R⁺+R⁻)+m equals 12 km.
+  Masses 0.2–3.5 M☉ (below Buchdahl for one star). No black holes yet: in Weyl coordinates a horizon is a line segment.
+- Distance control is the **ruler gap** between the facing surfaces along the axis (includes e^γ₀); the Weyl centre
+  distance d is solved by bisection. A and B are fractions of that gap.
+- Drawing is in Weyl coordinates (scene x = Weyl z, origin halfway between the rod centres; rho = distance from the
+  x axis). A 12 km star appears as a spheroid with semi-axes R − m (along) and sqrt(R(R − 2m)) (across); heavier stars
+  look smaller. Labels give the true radius.
+- Views: "Grid with ruler bands" (straight Weyl-coordinate lines, 20 km apart, with alternating bands every 5 km of true
+  length, counted from the grid's middle planes; replaces the one-star page's warped ruler-coordinate grid, which has no
+  unique two-body version) and "Clock-rate landscape" (plane through both stars sunk by 100 km × (1 − dτ/dt): a graph,
+  not an embedding; Flamm's paraboloid has no exact two-body version). In an observer frame the landscape shows O's level.
+- Light runs only along the axis (straight by symmetry): c dt = e^(γ₀−2U) dz, ruler dℓ = e^(γ₀−U) dz. Wave sampled evenly in
+  L = ∫e^(γ₀−2U)dz. Same wave exaggeration and colour method as the one-star page.
+- Not carried over from the one-star page (possible next steps): measuring sticks, radar distances, sky/apparent-size
+  readouts, grid anchors, the Flamm line, black holes, light off the axis.
 
 ## Known issues and open questions
 

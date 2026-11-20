@@ -58,9 +58,20 @@ The project's own code is MIT licensed (see `LICENSE`); everything listed here k
   `gravitational-redshift.html`. (The 1916 original isn't indexed online; the translation's DOI was verified.)
 - **H. A. Buchdahl** (1959), "General Relativistic Fluid Spheres", Phys. Rev. 116, 1027, doi:10.1103/PhysRev.116.1027.
   The R > 9/8 r_s limit where `gravitational-redshift.html` switches from a star to a black hole.
+- **H. Weyl** (1917), "Zur Gravitationstheorie", Ann. Phys. 54, 117, doi:10.1002/andp.19173591804
+  (English translation in Gen. Relativ. Gravit. 44, 779 (2012)). Static axisymmetric (Weyl) metrics, `two-body-problem.html`.
+- **R. Bach & H. Weyl** (1922), "Neue Lösungen der Einsteinschen Gravitationsgleichungen", Math. Z. 13
+  (EuDML 167694), with Weyl's addendum "Das statische Zweikörperproblem". The first static two-body solution.
+  (Page ranges differ between catalogues; no DOI was found.)
+- **W. Israel & K. A. Khan** (1964), "Collinear particles and Bondi dipoles in general relativity", Nuovo Cimento 33, 331,
+  doi:10.1007/BF02750196. The double Schwarzschild solution used in `two-body-problem.html`.
+- **P. S. Letelier & S. R. Oliveira** (1998), "Superposition of Weyl solutions: the equilibrium forces",
+  Class. Quantum Grav. 15, 421, arXiv:gr-qc/9710122. The strut and its force.
+- **J. B. Griffiths & J. Podolský** (2009), *Exact Space-Times in Einstein's General Relativity*, Cambridge University Press,
+  ch. 10 (static axially symmetric space-times).
 - **C. Wyman, P.-P. Sloan & P. Shirley** (2013), "Simple Analytic Approximations to the CIE XYZ Color Matching
   Functions", Journal of Computer Graphics Techniques 2(2), https://jcgt.org/published/0002/02/01/.
-  Turns wavelengths into on-screen colours in `gravitational-redshift.html`.
+  Turns wavelengths into on-screen colours in `gravitational-redshift.html` and `two-body-problem.html`.
 - Physical constants: CODATA 2018 and IAU 2015 nominal values, via Astropy.
 
 ## Software used in the pages

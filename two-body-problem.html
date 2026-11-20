@@ -1,0 +1,2203 @@
+<!DOCTYPE html>
+<!--
+  two-body-problem.html — light passing between two stars, in an exact static two-body spacetime.
+
+  Two neutron-star-sized stars sit on a line, held apart at a distance you choose. A light wave travels
+  along that line from point A to point B. Its colour at each point is the wavelength a static observer
+  there would measure: it reddens as it climbs out of one star's gravity well and blues again as it falls
+  into the other's. Clocks everywhere show their own proper time, and you can compare them with the clock
+  of an observer far away, of an observer O you place, or of the camera.
+
+  Physics: the Weyl / Israel–Khan "double Schwarzschild" solution. It is an exact vacuum solution of
+  Einstein's equations, but the two bodies stay at rest only because a strut (a conical singularity on
+  the line between them) holds them apart. The page says so and shows the force the strut needs.
+
+  All physics lives in the PHYSICS CORE block and is checked by self-tests
+  (open with ?selftest, or run .claude/skills/spacetime-physics/scripts/check_physics.mjs).
+
+  Open by double-clicking. Needs internet only for three.js and KaTeX from the CDN.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two Body Problem</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<style>
+  :root {
+    --background: #05070d;
+    --panel: rgba(14, 18, 30, 0.92);
+    --panel-border: rgba(140, 160, 210, 0.25);
+    --text: #e6e9f2;
+    --muted: #9aa3b8;
+    --accent: #8ab4ff;
+    --warning: #ffcf7a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--background); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #scene { position: fixed; inset: 0; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 10px; padding: 12px 14px; backdrop-filter: blur(6px); }
+  #controls { top: 12px; left: 12px; width: 310px; max-height: calc(100% - 70px); overflow-y: auto; }
+  #readout { top: 12px; right: 12px; width: 320px; max-height: calc(100% - 70px); overflow-y: auto; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 6px; }
+  .subtitle { color: var(--muted); margin: 0 0 6px; font-size: 12.5px; }
+  label { display: block; margin: 6px 0; }
+  label.check { display: flex; gap: 6px; align-items: center; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .segmented button, button.small { background: #1b2236; color: var(--text); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 5px 8px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .segmented button.active { background: #2f4a80; border-color: var(--accent); }
+  input[type=range] { width: 100%; }
+  .value { float: right; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 12px; margin: 4px 0; }
+  .warning { color: var(--warning); }
+  #legend-bar { height: 10px; border-radius: 4px; margin-top: 4px; }
+  .legend-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  #readout dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0 0; }
+  #readout dt { color: var(--muted); }
+  #readout dd { margin: 0; font-variant-numeric: tabular-nums; }
+  #observers-table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  #observers-table th { color: var(--muted); font-weight: normal; text-align: left; padding: 2px 4px 2px 0; }
+  #observers-table td { padding: 2px 4px 2px 0; }
+  #path-plot { width: 100%; height: 150px; display: block; margin-top: 4px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px;
+    vertical-align: -1px; border: 1px solid rgba(255, 255, 255, 0.3); }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--accent); }
+  #physics-notes { font-size: 12.5px; }
+  #physics-notes p { margin: 6px 0; }
+  .tex { overflow-x: auto; overflow-y: hidden; }
+  .label { color: var(--text); font-size: 12px; background: rgba(5, 7, 13, 0.6); padding: 1px 5px;
+    border-radius: 4px; pointer-events: none; white-space: nowrap; }
+  .label.faint { color: var(--muted); font-size: 11px; background: none; }
+  footer { position: fixed; bottom: 6px; left: 0; right: 0; text-align: center; font-size: 11.5px; color: var(--muted);
+    pointer-events: none; }
+  footer a { color: var(--muted); pointer-events: auto; }
+  #panel-toggle { display: none; }
+  #camera-hud { bottom: 40px; left: 50%; transform: translateX(-50%); padding: 6px 12px; font-size: 12.5px;
+    font-variant-numeric: tabular-nums; text-align: center; width: max-content; max-width: calc(100% - 16px); }
+  #camera-hud[hidden] { display: none; }
+  .selftest-panel { position: fixed; bottom: 30px; right: 12px; max-width: min(760px, calc(100% - 24px)); max-height: 45%;
+    overflow: auto; margin: 0; font-size: 11.5px; background: #0d1220; border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 10px; z-index: 5; }
+  @media (max-width: 760px) {
+    #controls { top: auto; bottom: 82px; left: 8px; right: 8px; width: auto; max-height: 45%; }
+    footer { bottom: 0; padding: 4px 8px 6px; background: rgba(5, 7, 13, 0.85); }
+    .footer-extra { display: none; }
+    #controls.collapsed > :not(#panel-toggle):not(h1) { display: none; }
+    #panel-toggle { display: inline-block; float: right; }
+    #readout { top: 8px; left: 8px; right: 8px; width: auto; font-size: 12.5px; max-height: 32%; }
+  }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<section id="controls" class="panel">
+  <button id="panel-toggle" class="small">Hide</button>
+  <h1>Two Body Problem</h1>
+  <p class="subtitle">Light travels from A to B between two stars. Its colour is the wavelength a <i>static observer at
+    that spot</i> would measure: it reddens while climbing out of one star's gravity, then blues again while falling toward
+    the other. Exact static solution of Einstein's equations (Weyl / Israel–Khan); the stars are held apart by a strut.</p>
+
+  <h2>The two stars</h2>
+  <label>Star 1 (left) mass <span class="value" id="mass1-value"></span>
+    <input type="range" id="mass1-slider" min="0.2" max="3.5" step="0.01"></label>
+  <label>Star 2 (right) mass <span class="value" id="mass2-value"></span>
+    <input type="range" id="mass2-slider" min="0.2" max="3.5" step="0.01"></label>
+  <label>Gap between their surfaces <span class="value" id="gap-value"></span>
+    <input type="range" id="gap-slider" min="5" max="300" step="0.5"></label>
+  <p class="note" id="body-note"></p>
+
+  <h2>Light beam (along the line through both stars)</h2>
+  <label>A, where light is emitted <span class="value" id="emitter-value"></span>
+    <input type="range" id="emitter-slider" min="0" max="1000" step="1"></label>
+  <label>B, where light is received <span class="value" id="receiver-value"></span>
+    <input type="range" id="receiver-slider" min="0" max="1000" step="1"></label>
+  <label>Wavelength emitted at A <span class="value" id="wavelength-value"></span>
+    <input type="range" id="wavelength-slider" min="380" max="700" step="1"></label>
+  <div class="row">
+    <button class="small" id="restart-button">Emit again</button>
+    <button class="small" id="pause-button">Pause</button>
+    <button class="small" id="swap-button">Swap A and B</button>
+  </div>
+
+  <h2>Speed of light (playback)</h2>
+  <label>Light speed on screen, far from the stars <span class="value" id="speed-value"></span>
+    <input type="range" id="speed-slider" min="0" max="1000" step="1"></label>
+  <p class="note" id="speed-note"></p>
+
+  <h2>How space is drawn</h2>
+  <div class="segmented row" id="view-mode">
+    <button data-view="grid" class="active">Grid with ruler bands</button>
+    <button data-view="landscape">Clock-rate landscape</button>
+  </div>
+  <label class="check grid-only"><input type="checkbox" id="bands-checkbox"> Ruler bands (every 5 km of true length)</label>
+  <label class="check grid-only"><input type="checkbox" id="section-checkbox"> Section cut: hide the near half of the grid (z &gt; 0)</label>
+  <p class="note" id="view-note"></p>
+  <label>Lines fully visible where z ≥ <span class="value" id="brightness-value"></span>
+    <input type="range" id="brightness-slider" min="0" max="1000" step="1"></label>
+  <p class="note">Colour is the redshift z that light from each spot has on reaching a distant observer. Lines are invisible where
+    z ≤ 0.01 (nearly flat space) and fully visible above the slider's value. The brightness is a visual choice.</p>
+  <div id="legend-bar"></div>
+  <div class="legend-labels"><span>≤ 0.01</span><span>0.03</span><span>0.1</span><span>0.3</span><span>1</span><span>≥ 3</span></div>
+
+  <h2>Reference frame</h2>
+  <div class="segmented row" id="frame-mode">
+    <button data-frame="infinity" class="active">Far away (∞)</button>
+    <button data-frame="observer">Observer O</button>
+    <button data-frame="camera">The camera</button>
+  </div>
+  <div id="observer-controls" style="display:none">
+    <p class="note" style="margin-bottom:2px">Put O…</p>
+    <div class="segmented row" id="observer-presets">
+      <button data-preset="star1">beside star 1</button>
+      <button data-preset="reddest">at the reddest point</button>
+      <button data-preset="star2">beside star 2</button>
+      <button data-preset="side">off to the side</button>
+    </div>
+    <label>O along the line (x) <span class="value" id="observer-x-value"></span>
+      <input type="range" id="observer-x-slider" step="0.5"></label>
+    <label>O's distance from the line <span class="value" id="observer-rho-value"></span>
+      <input type="range" id="observer-rho-slider" min="0" max="200" step="0.5"></label>
+  </div>
+  <p class="note" id="frame-note"></p>
+
+  <h2>Clocks</h2>
+  <label class="check"><input type="checkbox" id="clocks-checkbox" checked> Show clocks</label>
+  <div class="row" style="align-items:center; flex-wrap:nowrap; gap:10px">
+    <svg width="36" height="36" viewBox="-18 -18 36 36" aria-label="Reference clock" style="flex:none">
+      <circle r="16" fill="#0b0f1a" stroke="#2f5bff" stroke-width="2.5"></circle>
+      <line x1="0" y1="-11" x2="0" y2="-14" stroke="#9aa3b8" stroke-width="2"></line>
+      <line id="far-clock-hand" x1="0" y1="0" x2="0" y2="-12" stroke="#fff" stroke-width="2.4" stroke-linecap="round"></line>
+    </svg>
+    <p class="note" style="margin:0" id="reference-clock-note"></p>
+  </div>
+
+  <details>
+    <summary>Physics notes</summary>
+    <div id="physics-notes">
+      <p><b>Why a new metric.</b> The Schwarzschild metric describes one body. In general relativity two bodies can't simply sit
+        still side by side: they fall together (in a few milliseconds here) or orbit, and a real orbiting pair needs numerical
+        relativity on a supercomputer, with no fixed "redshift from A to B" to show. This page uses the exact <i>static</i>
+        two-body solution instead, and pays for it with a strut (below).</p>
+
+      <p><b>Model.</b> The Weyl / Israel–Khan "double Schwarzschild" vacuum solution, in Weyl's coordinates
+        (ρ = distance from the line through both stars, z = position along it, φ = angle around it):</p>
+      <div class="tex" data-tex="ds^2=-e^{2U}c^2dt^2+e^{-2U}\left[e^{2\gamma}\left(d\rho^2+dz^2\right)+\rho^2d\varphi^2\right]"></div>
+      <p>U obeys the ordinary flat-space Laplace equation, so the two stars' U simply add, exactly. Each star is a
+        Schwarzschild "rod" on the axis, of length 2m (m = GM/c²), centred at z<sub>i</sub>:</p>
+      <div class="tex" data-tex="U=\sum_i\tfrac12\ln\frac{R_i^++R_i^--2m_i}{R_i^++R_i^-+2m_i},\qquad R_i^\pm=\sqrt{\rho^2+(z-z_i\mp m_i)^2}"></div>
+      <p>With one star alone this is exactly Schwarzschild, with areal radius
+        <span class="tex" data-tex="r=\tfrac12(R^++R^-)+m"></span>. The second function γ follows from U by a line integral;
+        for rods it has a closed form (pairs of rod ends a, b):</p>
+      <div class="tex" data-tex="\gamma=\sum_{i,j}\tfrac14\ln\frac{E_{a_ib_j}E_{b_ia_j}}{E_{a_ia_j}E_{b_ib_j}},\qquad E_{kl}=R_kR_l+(z-k)(z-l)+\rho^2"></div>
+      <p>The self-tests check it against a numerical integration of γ's field equations.</p>
+
+      <p><b>The strut.</b> On the axis between the stars γ has a constant value γ<sub>0</sub> ≠ 0, a conical singularity:
+        a thin line where a small circle around the axis has more than 2π times its radius. It acts like a rod pushing the stars
+        apart, with force</p>
+      <div class="tex" data-tex="e^{\gamma_0}=\frac{d^2-(m_1+m_2)^2}{d^2-(m_1-m_2)^2},\qquad F=\tfrac14\left(e^{-\gamma_0}-1\right)\frac{c^4}{G}=\frac{m_1m_2}{d^2-(m_1+m_2)^2}\,\frac{c^4}{G}"></div>
+      <p>(d = Weyl distance between the rod centres). Far apart, F becomes Newton's G M₁M₂/d². No real material could be this
+        strut: it is the price of a static picture. Off the axis it has no effect on anything shown, and on the axis it changes no
+        clock rate or redshift (those depend on U only). It does enter the ruler distance and the light time along the axis
+        through the factor e<sup>γ<sub>0</sub></sup>, which is shown and is small (under 1% for these stars unless they
+        nearly touch).</p>
+
+      <p><b>Clocks and redshift.</b> The spacetime is static, so every static observer has a well-defined clock rate compared
+        with one far away, and light between any two static observers shifts by their ratio, whatever path it takes:</p>
+      <div class="tex" data-tex="\frac{d\tau}{dt}=e^{U},\qquad 1+z_{A\to B}=\frac{\lambda_B}{\lambda_A}=e^{U_B-U_A}"></div>
+      <p>Since U = U₁ + U₂, the clock rate is the <i>product</i> of the two stars' factors (not their sum, as in the weak-field
+        approximation). Between the stars U has a highest point: the <b>reddest point</b>. Light from star 1's surface reddens
+        until it gets there and blues afterwards, and a static clock there runs fastest of all clocks on the line.
+        A static observer there feels no pull either way. The colour of the beam and the clock-rate curve in the panel are the same
+        curve: the wavelength measured at each spot is λ<sub>A</sub>·e<sup>U−U<sub>A</sub></sup>.</p>
+
+      <p><b>The wave.</b> On the axis, light obeys
+        <span class="tex" data-tex="c\,dt=e^{\gamma_0-2U}dz"></span>, and a ruler measures
+        <span class="tex" data-tex="d\ell=e^{\gamma_0-U}dz"></span>. The wave keeps its phase along
+        <span class="tex" data-tex="t-L(z)/c"></span> with <span class="tex" data-tex="L=\int e^{\gamma_0-2U}dz"></span>.
+        Light time A → B is L/c on the distant observer's clock. By symmetry, light on the axis travels straight along it.</p>
+
+      <p><b>The stars.</b> Each star's outside is taken to be the field of a Schwarzschild rod of its mass. That is exact for one
+        star alone (Birkhoff's theorem) and for two black holes (Israel–Khan). For two stars it leaves out their tidal
+        squeezing of each other. Each star's surface is drawn where its own Schwarzschild radius
+        <span class="tex" data-tex="\tfrac12(R_i^++R_i^-)+m_i"></span> equals R = 12 km, which keeps its equator's circumference
+        at 2π × 12 km. Masses stop at 3.5 M☉, below Buchdahl's limit (R &gt; 9/8 r<sub>s</sub>, about 3.6 M☉), which is a
+        result for a single star. Black holes are not included in this version: in Weyl's coordinates a horizon is drawn as a
+        line segment.</p>
+
+      <p><b>Reference frames.</b> Each frame belongs to a static observer: far away, O, or at the camera. Compared with that
+        observer's clock, a static clock elsewhere runs at <span class="tex" data-tex="e^{U-U_O}"></span>, and A's light reaches
+        the observer with <span class="tex" data-tex="1+z=e^{U_O-U_A}"></span>. Playback follows the observer's clock.
+        Lengths don't change between these frames: static observers share the same slices of space.</p>
+
+      <p class="warning"><b>Visual choices (not physics)</b></p>
+      <p>• <b>Positions</b> are drawn in Weyl's coordinates (ρ, z), the coordinates the solution is written in. Far from the
+        stars they become ordinary distances. Near a star they are squeezed: a 12 km star is drawn as a slightly elongated body
+        about 10 km across. The readouts always give true ruler distances.</p>
+      <p>• <b>Grid with ruler bands.</b> The grid lines are straight lines of Weyl's coordinates. A 3D grid can't show curved
+        space without distorting something, so instead of bending the lines the page marks true length on them: each line is
+        painted in alternating bright and dim bands, each 5 km long by rulers, counted from the grid's middle planes. Where bands
+        crowd, there is more true distance than the drawing shows. The grid is drawn at true scale.</p>
+      <p>• <b>Clock-rate landscape.</b> A graph, not an embedding: the plane through both stars, sunk by
+        <span id="depth-scale-note"></span> × (1 − dτ/dt). The depth shows how slowly clocks run, compared with a clock far away,
+        which is what makes the redshift. (Flamm's paraboloid has no exact two-body version: the curved plane through both stars
+        can't be built as a simple surface in flat 3D.) Inside each star the exterior solution doesn't apply; the star is drawn
+        as an orange plateau at its surface value.</p>
+      <p>• <b>Wave size:</b> the wave is drawn <span id="exaggeration-note"></span> times longer than real light. Ratios between
+        wavelengths are true.</p>
+      <p>• <b>Speed of light slider:</b> only slows the playback. Real light crosses the picture in under a millisecond.</p>
+      <p>• <b>Colours</b> come from the CIE 1931 colour-matching functions (fit by Wyman, Sloan &amp; Shirley 2013), converted
+        to sRGB and desaturated. Infrared and ultraviolet are drawn grey; the readout always shows the true wavelength.</p>
+
+      <p><b>Sources.</b> H. Weyl (1917), "Zur Gravitationstheorie", Ann. Phys. 54, 117,
+        <a href="https://doi.org/10.1002/andp.19173591804">doi:10.1002/andp.19173591804</a>.
+        R. Bach &amp; H. Weyl (1922), "Neue Lösungen der Einsteinschen Gravitationsgleichungen", Math. Z. 13
+        (<a href="https://eudml.org/doc/167694">EuDML</a>), including Weyl's "Das statische Zweikörperproblem".
+        W. Israel &amp; K. A. Khan (1964), "Collinear particles and Bondi dipoles in general relativity", Nuovo Cimento 33, 331,
+        <a href="https://doi.org/10.1007/BF02750196">doi:10.1007/BF02750196</a>.
+        P. S. Letelier &amp; S. R. Oliveira (1998), "Superposition of Weyl solutions: the equilibrium forces",
+        Class. Quantum Grav. 15, 421, <a href="https://arxiv.org/abs/gr-qc/9710122">arXiv:gr-qc/9710122</a>.
+        J. B. Griffiths &amp; J. Podolský, <i>Exact Space-Times in Einstein's General Relativity</i> (2009), ch. 10.
+        H. A. Buchdahl (1959), Phys. Rev. 116, 1027, <a href="https://doi.org/10.1103/PhysRev.116.1027">doi:10.1103/PhysRev.116.1027</a>.
+        C. Wyman, P.-P. Sloan &amp; P. Shirley (2013), <a href="https://jcgt.org/published/0002/02/01/">J. Computer Graphics
+        Techniques 2(2)</a>. Constants: IAU 2015 nominal GM☉, CODATA 2018 G, exact SI c.
+        Checks: Astropy and SciPy reference values (see <code>physics/reference-values.md</code>).</p>
+    </div>
+  </details>
+</section>
+
+<section id="readout" class="panel">
+  <h2 style="margin-top:0">Along the beam</h2>
+  <canvas id="path-plot" aria-label="Clock rate and wavelength along the line between the stars"></canvas>
+  <p class="note" id="path-plot-note"></p>
+  <h2>Measured values</h2>
+  <dl>
+    <dt>Frame</dt><dd id="readout-frame"></dd>
+    <dt>Emitted at A</dt><dd id="readout-lambda-a"></dd>
+    <dt>Received at B</dt><dd id="readout-lambda-b"></dd>
+    <dt>Redshift A → B</dt><dd id="readout-z-ab"></dd>
+    <dt>Reddest point</dt><dd id="readout-reddest"></dd>
+    <dt>Clock rate at A</dt><dd id="readout-clock-a"></dd>
+    <dt>Clock rate at B</dt><dd id="readout-clock-b"></dd>
+    <dt>Light time A → B</dt><dd id="readout-time"></dd>
+    <dt>Ruler distance A → B</dt><dd id="readout-distance"></dd>
+    <dt>Wave front</dt><dd id="readout-front"></dd>
+    <dt>Stars</dt><dd id="readout-stars"></dd>
+    <dt>Strut</dt><dd id="readout-strut"></dd>
+  </dl>
+  <h2>Who measures what</h2>
+  <table id="observers-table">
+    <thead><tr><th>Static observer</th><th>Clock</th><th>A's light</th></tr></thead>
+    <tbody id="observers-body"></tbody>
+  </table>
+  <p class="note">Clock rates are compared with the reference frame's clock. "A's light" is the wavelength each observer
+    measures for light from A, by whatever path it arrives; it is the same in every frame.</p>
+</section>
+
+<div id="camera-hud" class="panel" hidden></div>
+
+<footer>
+  Open source under the <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/LICENSE">MIT License</a>.
+  <span class="footer-extra">Physics: Weyl (1917), Bach &amp; Weyl (1922), Israel &amp; Khan (1964). Colours: CIE 1931 fit by Wyman, Sloan &amp; Shirley (2013).
+  Built with three.js, KaTeX and Astropy.</span>
+  <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/CREDITS.md">Full credits</a>.
+</footer>
+
+<script>
+// ===== PHYSICS CORE START =====
+// Physics notes: Weyl / Israel–Khan double Schwarzschild solution (static, axisymmetric vacuum; two Schwarzschild
+// rods on the axis, held apart by a strut = conical singularity on the axis between them). Static observers;
+// times on the clock of a static observer at infinity. Positions are Weyl coordinates (rho, z); lengths may be in any
+// one unit (the page uses km), with each rod given by its centre and half-length m = GM/c^2.
+// Sources: Weyl (1917); Bach & Weyl (1922); Israel & Khan (1964); Letelier & Oliveira (1998);
+// Griffiths & Podolský (2009) ch. 10; Buchdahl (1959). Constants: IAU 2015 GM_sun, CODATA 2018 G, exact SI c.
+
+const PhysicsConstants = {
+  speedOfLight: 299792458,            // m/s, exact (SI definition)
+  gravitationalConstant: 6.67430e-11, // m^3 kg^-1 s^-2, CODATA 2018
+  solarGM: 1.3271244e20,              // m^3/s^2, IAU 2015 nominal
+  buchdahlRatio: 9 / 8,               // any static star has R > (9/8) r_s (Buchdahl 1959)
+};
+
+const PhysicsCore = {
+  /** Schwarzschild radius r_s = 2GM/c^2, in metres, from GM in m^3/s^2. */
+  schwarzschildRadius(gravitationalParameter) {
+    return 2 * gravitationalParameter / PhysicsConstants.speedOfLight ** 2;
+  },
+
+  /** The rod half-length m = GM/c^2 (half the Schwarzschild radius), in km, for a mass in solar masses. */
+  geometricMassKm(massInSolarMasses) {
+    return PhysicsConstants.solarGM * massInSolarMasses / PhysicsConstants.speedOfLight ** 2 / 1000;
+  },
+
+  /** Distances R+ and R− from (rho, z) to the two ends of a rod {centre, halfLength}. */
+  rodEndDistances(rho, z, rod) {
+    return {
+      upper: Math.hypot(rho, z - rod.centre - rod.halfLength),
+      lower: Math.hypot(rho, z - rod.centre + rod.halfLength),
+    };
+  },
+
+  /**
+   * Weyl potential of one Schwarzschild rod: U = ½ ln[(R+ + R− − 2m)/(R+ + R− + 2m)].
+   * Written with log1p so a distant point (U ~ −1e-6) keeps its digits.
+   */
+  rodPotential(rho, z, rod) {
+    if (rod.halfLength === 0) return 0;
+    const { upper, lower } = PhysicsCore.rodEndDistances(rho, z, rod);
+    return 0.5 * Math.log1p(-4 * rod.halfLength / (upper + lower + 2 * rod.halfLength));
+  },
+
+  /** Total Weyl potential U at (rho, z). The rods' potentials add exactly (U obeys flat-space Laplace's equation). */
+  weylPotential(rho, z, rods) {
+    let sum = 0;
+    for (const rod of rods) sum += PhysicsCore.rodPotential(rho, z, rod);
+    return sum;
+  },
+
+  /** dτ/dt = e^U: how fast a static clock at (rho, z) runs compared with a clock at infinity. */
+  clockRate(rho, z, rods) {
+    return Math.exp(PhysicsCore.weylPotential(rho, z, rods));
+  },
+
+  /** e^(U − U_O): a static clock at `point` compared with a static observer at `observerPoint` (null = infinity). */
+  relativeClockRate(point, observerPoint, rods) {
+    const potential = PhysicsCore.weylPotential(point.rho, point.z, rods);
+    const observerPotential = observerPoint ? PhysicsCore.weylPotential(observerPoint.rho, observerPoint.z, rods) : 0;
+    return Math.exp(potential - observerPotential);
+  },
+
+  /** Redshift z of light from a static emitter to a static receiver: 1 + z = e^(U_receiver − U_emitter). Negative = blueshift. */
+  redshiftBetween(emitterPoint, receiverPoint, rods) {
+    return Math.expm1(PhysicsCore.weylPotential(receiverPoint.rho, receiverPoint.z, rods)
+      - PhysicsCore.weylPotential(emitterPoint.rho, emitterPoint.z, rods));
+  },
+
+  /** Redshift z of light from a static emitter at (rho, z), received far away: 1 + z = e^(−U). */
+  redshiftToInfinity(rho, z, rods) {
+    return Math.expm1(-PhysicsCore.weylPotential(rho, z, rods));
+  },
+
+  /** A rod's own Schwarzschild (areal) radius at (rho, z), as if it were alone: r = ½(R+ + R−) + m. */
+  isolatedStarRadius(rho, z, rod) {
+    const { upper, lower } = PhysicsCore.rodEndDistances(rho, z, rod);
+    return 0.5 * (upper + lower) + rod.halfLength;
+  },
+
+  /**
+   * Weyl coordinates of the point where a rod's own Schwarzschild radius is r and its polar angle θ
+   * (θ = 0 points along +z): rho = sqrt(r(r − 2m)) sin θ, z = centre + (r − m) cos θ.
+   */
+  surfacePoint(rod, radius, polarAngle) {
+    return {
+      rho: Math.sqrt(radius * (radius - 2 * rod.halfLength)) * Math.sin(polarAngle),
+      z: rod.centre + (radius - rod.halfLength) * Math.cos(polarAngle),
+    };
+  },
+
+  /**
+   * E_kl = R_k R_l + (z − k)(z − l) + rho², for two points k, l on the axis. When (z − k)(z − l) < 0 the first two
+   * terms nearly cancel close to the axis, so that case uses the equal form rho²(rho² + (z−k)² + (z−l)²)/(R_k R_l − (z−k)(z−l)).
+   */
+  axisPairTerm(rho, z, k, l) {
+    const distanceK = Math.hypot(rho, z - k);
+    const distanceL = Math.hypot(rho, z - l);
+    const product = (z - k) * (z - l);
+    if (product >= 0) return distanceK * distanceL + product + rho * rho;
+    return rho * rho * (rho * rho + (z - k) ** 2 + (z - l) ** 2) / (distanceK * distanceL - product) + rho * rho;
+  },
+
+  /**
+   * The metric function γ at (rho, z), closed form for Schwarzschild rods (Israel & Khan 1964):
+   * γ = Σ_i Σ_j ¼ ln[E(a_i,b_j) E(b_i,a_j) / (E(a_i,a_j) E(b_i,b_j))], rod i running from a_i to b_i.
+   * γ = 0 on the axis outside both rods and far away. On the axis itself it uses axisGamma.
+   */
+  weylGamma(rho, z, rods) {
+    if (rho < 1e-9) return PhysicsCore.axisGamma(z, rods);
+    let gamma = 0;
+    for (const first of rods) {
+      const firstLower = first.centre - first.halfLength;
+      const firstUpper = first.centre + first.halfLength;
+      for (const second of rods) {
+        const secondLower = second.centre - second.halfLength;
+        const secondUpper = second.centre + second.halfLength;
+        gamma += 0.25 * Math.log(
+          PhysicsCore.axisPairTerm(rho, z, firstLower, secondUpper) * PhysicsCore.axisPairTerm(rho, z, firstUpper, secondLower)
+          / (PhysicsCore.axisPairTerm(rho, z, firstLower, secondLower) * PhysicsCore.axisPairTerm(rho, z, firstUpper, secondUpper)));
+      }
+    }
+    return gamma;
+  },
+
+  /**
+   * γ₀ on the axis between two rods (the strut): e^γ₀ = (d² − (m1+m2)²) / (d² − (m1−m2)²),
+   * d = distance between the rod centres. Negative: a strut pushing the bodies apart.
+   * Written as γ₀ = ln(1 − 4 m1 m2 / (d² − (m1 − m2)²)) with log1p, so far-apart bodies (γ₀ ~ 1e-11) keep their digits.
+   */
+  strutGamma(rods) {
+    const [first, second] = rods;
+    const distance = Math.abs(second.centre - first.centre);
+    return Math.log1p(-4 * first.halfLength * second.halfLength
+      / (distance ** 2 - (first.halfLength - second.halfLength) ** 2));
+  },
+
+  /** γ on the axis: γ₀ between the two rods, 0 outside them. */
+  axisGamma(z, rods) {
+    const [first, second] = [...rods].sort((a, b) => a.centre - b.centre);
+    const isBetween = z > first.centre + first.halfLength && z < second.centre - second.halfLength;
+    return isBetween ? PhysicsCore.strutGamma(rods) : 0;
+  },
+
+  /**
+   * The force the strut must supply, from its conical excess: F = ¼(e^(−γ₀) − 1) c⁴/G, in newtons
+   * (for rods given in km). It equals m1 m2 / (d² − (m1+m2)²) · c⁴/G (Letelier & Oliveira 1998).
+   */
+  strutForceNewtons(rods) {
+    const forceUnit = PhysicsConstants.speedOfLight ** 4 / PhysicsConstants.gravitationalConstant;
+    return 0.25 * Math.expm1(-PhysicsCore.strutGamma(rods)) * forceUnit;
+  },
+
+  /** Newton's G M1 M2 / d², in newtons, from GM1 and GM2 (m^3/s^2) and d (m). For comparison only. */
+  newtonForceNewtons(gravitationalParameter1, gravitationalParameter2, distanceMetres) {
+    return gravitationalParameter1 * gravitationalParameter2 / (PhysicsConstants.gravitationalConstant * distanceMetres ** 2);
+  },
+
+  /**
+   * Cumulative ruler distance ∫e^(γ−U)dz and light length ∫e^(γ−2U)dz (c × distant-observer time) along the axis
+   * from zStart to zEnd, by Simpson's rule on each of `intervals` pieces. Returns arrays sampled at the piece ends,
+   * plus U there. Both ends must lie outside the rods.
+   */
+  axisProfile(zStart, zEnd, rods, intervals = 1000) {
+    const z = new Float64Array(intervals + 1);
+    const ruler = new Float64Array(intervals + 1);
+    const light = new Float64Array(intervals + 1);
+    const potential = new Float64Array(intervals + 1);
+    const rulerIntegrand = (zz) => Math.exp(PhysicsCore.axisGamma(zz, rods) - PhysicsCore.weylPotential(0, zz, rods));
+    const lightIntegrand = (zz) => Math.exp(PhysicsCore.axisGamma(zz, rods) - 2 * PhysicsCore.weylPotential(0, zz, rods));
+    const step = (zEnd - zStart) / intervals;
+    z[0] = zStart;
+    potential[0] = PhysicsCore.weylPotential(0, zStart, rods);
+    for (let index = 1; index <= intervals; index++) {
+      const left = zStart + (index - 1) * step;
+      const right = zStart + index * step;
+      const middle = 0.5 * (left + right);
+      z[index] = right;
+      potential[index] = PhysicsCore.weylPotential(0, right, rods);
+      ruler[index] = ruler[index - 1] + step / 6 * (rulerIntegrand(left) + 4 * rulerIntegrand(middle) + rulerIntegrand(right));
+      light[index] = light[index - 1] + step / 6 * (lightIntegrand(left) + 4 * lightIntegrand(middle) + lightIntegrand(right));
+    }
+    return { z, ruler, light, potential };
+  },
+
+  /** Ruler distance along the axis from z1 to z2 (signed). */
+  rulerDistanceAlongAxis(z1, z2, rods, intervals = 1000) {
+    const profile = PhysicsCore.axisProfile(z1, z2, rods, intervals);
+    return profile.ruler[intervals];
+  },
+
+  /** Light length along the axis from z1 to z2: c × the distant observer's light-travel time (signed). */
+  lightLengthAlongAxis(z1, z2, rods, intervals = 1000) {
+    const profile = PhysicsCore.axisProfile(z1, z2, rods, intervals);
+    return profile.light[intervals];
+  },
+
+  /**
+   * Two equal-radius stars of half-lengths m1 (left, centre −d/2) and m2 (right, centre +d/2).
+   * Returns the rods and the facing surface points on the axis, where each star's own radius equals R.
+   */
+  starPair(halfLength1, halfLength2, centreDistance, starRadius) {
+    const rods = [
+      { centre: -centreDistance / 2, halfLength: halfLength1 },
+      { centre: centreDistance / 2, halfLength: halfLength2 },
+    ];
+    return {
+      rods,
+      leftSurfaceZ: rods[0].centre + (starRadius - halfLength1),
+      rightSurfaceZ: rods[1].centre - (starRadius - halfLength2),
+    };
+  },
+
+  /** Ruler distance along the axis between the two stars' facing surfaces, for a given centre distance. */
+  rulerGap(halfLength1, halfLength2, centreDistance, starRadius, intervals = 1000) {
+    const pair = PhysicsCore.starPair(halfLength1, halfLength2, centreDistance, starRadius);
+    return PhysicsCore.rulerDistanceAlongAxis(pair.leftSurfaceZ, pair.rightSurfaceZ, pair.rods, intervals);
+  },
+
+  /** The Weyl centre distance d whose facing surfaces are a given ruler gap apart (bisection; the gap grows with d). */
+  centreDistanceForGap(gap, halfLength1, halfLength2, starRadius, intervals = 1000) {
+    const touching = (starRadius - halfLength1) + (starRadius - halfLength2);
+    let low = touching;
+    let high = touching + gap + 1;
+    while (PhysicsCore.rulerGap(halfLength1, halfLength2, high, starRadius, intervals) < gap) high += gap + 1;
+    for (let step = 0; step < 60; step++) {
+      const middle = 0.5 * (low + high);
+      if (PhysicsCore.rulerGap(halfLength1, halfLength2, middle, starRadius, intervals) < gap) low = middle; else high = middle;
+    }
+    return 0.5 * (low + high);
+  },
+
+  /** The highest point of U on the axis between z1 and z2 (golden-section search): the reddest point. */
+  reddestAxisPoint(z1, z2, rods) {
+    const ratio = (Math.sqrt(5) - 1) / 2;
+    let low = Math.min(z1, z2);
+    let high = Math.max(z1, z2);
+    for (let step = 0; step < 200 && high - low > 1e-12 * (1 + Math.abs(high)); step++) {
+      const left = high - ratio * (high - low);
+      const right = low + ratio * (high - low);
+      if (PhysicsCore.weylPotential(0, left, rods) < PhysicsCore.weylPotential(0, right, rods)) low = left; else high = right;
+    }
+    return 0.5 * (low + high);
+  },
+
+  /**
+   * True length per unit of Weyl-coordinate length, for a step whose unit direction has components
+   * along z, along rho (outward) and around the axis (rho dφ): sqrt(e^(2(γ−U))(dz² + dρ²) + e^(−2U)(ρdφ)²).
+   */
+  lineStretch(rho, z, alongZ, alongRho, around, rods) {
+    const potential = PhysicsCore.weylPotential(rho, z, rods);
+    const gamma = PhysicsCore.weylGamma(rho, z, rods);
+    return Math.sqrt(Math.exp(2 * (gamma - potential)) * (alongZ ** 2 + alongRho ** 2) + Math.exp(-2 * potential) * around ** 2);
+  },
+
+  /** Buchdahl's limit: a static star of radius R is possible only if R > (9/8) r_s. */
+  isStaticStarPossible(starRadius, schwarzschildRadius) {
+    return starRadius > PhysicsConstants.buchdahlRatio * schwarzschildRadius;
+  },
+};
+
+// The default pair used by the tests (and by reference_values.py): 1.75 + 1.2 M☉, R = 12 km, Weyl centre distance 100 km.
+const testPair = () => PhysicsCore.starPair(PhysicsCore.geometricMassKm(1.75), PhysicsCore.geometricMassKm(1.2), 100, 12);
+const singleRod = (halfLength) => [{ centre: 0, halfLength }, { centre: 1e9, halfLength: 0 }];
+
+// Each test: actual() computes with PhysicsCore; expected is a literal from physics/reference-values.json
+// (refKey), an exact limit, or a value fixed by construction. Tolerances are relative.
+const PhysicsSelfTests = [
+  {
+    name: "Schwarzschild radius of the Sun (m)",
+    actual: () => PhysicsCore.schwarzschildRadius(PhysicsConstants.solarGM),
+    expected: 2953.2500761002498,
+    relativeTolerance: 1e-7,
+    refKey: "sun.schwarzschild_radius_m",
+    source: "Astropy constants (IAU 2015 nominal GM_sun)",
+  },
+  {
+    name: "One rod alone is Schwarzschild: redshift from r = 3 r_s on the equator",
+    actual: () => { const point = PhysicsCore.surfacePoint(singleRod(0.5)[0], 3, Math.PI / 2); return PhysicsCore.redshiftToInfinity(point.rho, point.z, singleRod(0.5)); },
+    expected: 0.22474487139158894,
+    relativeTolerance: 1e-12,
+    refKey: "schwarzschild.redshift_at_3rs",
+    source: "Schwarzschild formula (reference script); Weyl rod with r_s = 1",
+  },
+  {
+    name: "One rod alone is Schwarzschild: redshift from r = 3 r_s on the axis",
+    actual: () => PhysicsCore.redshiftToInfinity(0, 2.5, singleRod(0.5)),
+    expected: 0.22474487139158894,
+    relativeTolerance: 1e-12,
+    refKey: "schwarzschild.redshift_at_3rs",
+    source: "Schwarzschild formula (reference script); on the axis r = z + m",
+  },
+  {
+    name: "One rod alone: surface redshift of a 1.4 M☉, 12 km neutron star",
+    actual: () => { const rods = singleRod(PhysicsCore.geometricMassKm(1.4)); const point = PhysicsCore.surfacePoint(rods[0], 12, 1.1); return PhysicsCore.redshiftToInfinity(point.rho, point.z, rods); },
+    expected: 0.23517598323403766,
+    relativeTolerance: 1e-7,
+    refKey: "neutron_star_example.surface_redshift",
+    source: "Astropy constants (reference script)",
+  },
+  {
+    name: "Isolated-star radius of a surface point round trip (r = 12 km, θ = 0.7)",
+    actual: () => { const rod = { centre: 3, halfLength: 2.2 }; const point = PhysicsCore.surfacePoint(rod, 12, 0.7); return PhysicsCore.isolatedStarRadius(point.rho, point.z, rod); },
+    expected: 12,
+    relativeTolerance: 1e-12,
+    source: "Fixed by construction (inverse function)",
+  },
+  {
+    name: "Redshift from star 1's facing surface to star 2's (default pair, d = 100 km)",
+    actual: () => { const pair = testPair(); return PhysicsCore.redshiftBetween({ rho: 0, z: pair.leftSurfaceZ }, { rho: 0, z: pair.rightSurfaceZ }, pair.rods); },
+    expected: 0.10232310575834773,
+    relativeTolerance: 1e-8,
+    refKey: "two_body.example_redshift_surface1_to_surface2",
+    source: "Rod potentials integrated numerically (SciPy quad) in reference_values.py",
+  },
+  {
+    name: "Redshift from star 1's facing surface to infinity (default pair)",
+    actual: () => { const pair = testPair(); return PhysicsCore.redshiftToInfinity(0, pair.leftSurfaceZ, pair.rods); },
+    expected: 0.35150962199771213,
+    relativeTolerance: 1e-8,
+    refKey: "two_body.example_redshift_surface1_to_infinity",
+    source: "Rod potentials integrated numerically (SciPy quad) in reference_values.py",
+  },
+  {
+    name: "Strut: γ₀ on the axis between the stars, closed form (default pair)",
+    actual: () => PhysicsCore.strutGamma(testPair().rods),
+    expected: -0.0018333544429750307,
+    relativeTolerance: 1e-5,
+    refKey: "two_body.example_strut_gamma",
+    source: "γ field equations integrated numerically in reference_values.py",
+  },
+  {
+    name: "Strut: general γ formula just off the axis matches γ₀ (rho = 1e-6 km)",
+    actual: () => { const pair = testPair(); return PhysicsCore.weylGamma(1e-6, 0.5 * (pair.leftSurfaceZ + pair.rightSurfaceZ), pair.rods); },
+    expected: -0.0018333544429750307,
+    relativeTolerance: 1e-5,
+    refKey: "two_body.example_strut_gamma",
+    source: "γ field equations integrated numerically in reference_values.py",
+  },
+  {
+    name: "γ off the axis (rho = 15 km, 40 km from star 1's centre)",
+    actual: () => { const pair = testPair(); return PhysicsCore.weylGamma(15, pair.rods[0].centre + 40, pair.rods); },
+    expected: -0.001921889885618486,
+    relativeTolerance: 1e-5,
+    refKey: "two_body.example_gamma_off_axis",
+    source: "γ field equations integrated numerically in reference_values.py",
+  },
+  {
+    name: "Strut force (N, default pair)",
+    actual: () => PhysicsCore.strutForceNewtons(testPair().rods),
+    expected: 5.552156520295285e+40,
+    relativeTolerance: 1e-5,
+    refKey: "two_body.example_strut_force_newtons",
+    source: "Numerical γ₀ and Astropy c⁴/G in reference_values.py",
+  },
+  {
+    name: "Far apart, the strut force becomes Newton's G M1 M2 / d² (d = 10⁶ km)",
+    actual: () => PhysicsCore.strutForceNewtons(PhysicsCore.starPair(PhysicsCore.geometricMassKm(1.75), PhysicsCore.geometricMassKm(1.2), 1e6, 12).rods),
+    expected: 5.541621238868879e+32,
+    relativeTolerance: 1e-6,
+    refKey: "two_body.newton_force_at_1e6km_newtons",
+    source: "Newton's law with Astropy constants (reference script)",
+  },
+  {
+    name: "Ruler distance between the facing surfaces along the axis (km)",
+    actual: () => PhysicsCore.rulerGap(PhysicsCore.geometricMassKm(1.75), PhysicsCore.geometricMassKm(1.2), 100, 12),
+    expected: 90.62448142064342,
+    relativeTolerance: 1e-7,
+    refKey: "two_body.example_ruler_gap_km",
+    source: "SciPy quad of e^(γ₀−U) in reference_values.py",
+  },
+  {
+    name: "Light time between the facing surfaces, distant clock (µs)",
+    actual: () => { const pair = testPair(); return PhysicsCore.lightLengthAlongAxis(pair.leftSurfaceZ, pair.rightSurfaceZ, pair.rods) / (PhysicsConstants.speedOfLight / 1000) * 1e6; },
+    expected: 342.23797603832793,
+    relativeTolerance: 1e-7,
+    refKey: "two_body.example_light_time_gap_us",
+    source: "SciPy quad of e^(γ₀−2U) in reference_values.py",
+  },
+  {
+    name: "Reddest point between the stars: distance from star 1's centre (Weyl km)",
+    actual: () => { const pair = testPair(); return PhysicsCore.reddestAxisPoint(pair.leftSurfaceZ, pair.rightSurfaceZ, pair.rods) - pair.rods[0].centre; },
+    expected: 54.71093107527388,
+    relativeTolerance: 1e-6,
+    refKey: "two_body.example_reddest_point_offset_km",
+    source: "SciPy minimize_scalar of −U in reference_values.py",
+  },
+  {
+    name: "Redshift to infinity from the reddest point",
+    actual: () => { const pair = testPair(); return PhysicsCore.redshiftToInfinity(0, PhysicsCore.reddestAxisPoint(pair.leftSurfaceZ, pair.rightSurfaceZ, pair.rods), pair.rods); },
+    expected: 0.0902556964055073,
+    relativeTolerance: 1e-8,
+    refKey: "two_body.example_reddest_point_redshift_to_infinity",
+    source: "SciPy minimize_scalar in reference_values.py",
+  },
+  {
+    name: "Static clock rate off the axis (rho = 15 km, 40 km from star 1's centre)",
+    actual: () => { const pair = testPair(); return PhysicsCore.clockRate(15, pair.rods[0].centre + 40, pair.rods); },
+    expected: 0.9146560827629527,
+    relativeTolerance: 1e-9,
+    refKey: "two_body.example_clock_rate_off_axis",
+    source: "Rod potentials integrated numerically in reference_values.py",
+  },
+  {
+    name: "Centre distance for the reference ruler gap is 100 km (inverse function)",
+    actual: () => PhysicsCore.centreDistanceForGap(90.62448142064342, PhysicsCore.geometricMassKm(1.75), PhysicsCore.geometricMassKm(1.2), 12),
+    expected: 100,
+    relativeTolerance: 1e-7,
+    source: "Inverse of the two_body.example_ruler_gap_km reference value",
+  },
+  {
+    name: "Redshift there and back cancels: (1 + z_AB)(1 + z_BA) = 1",
+    actual: () => { const pair = testPair(); const a = { rho: 3, z: -20 }; const b = { rho: 30, z: 41 };
+      return (1 + PhysicsCore.redshiftBetween(a, b, pair.rods)) * (1 + PhysicsCore.redshiftBetween(b, a, pair.rods)); },
+    expected: 1,
+    relativeTolerance: 1e-14,
+    source: "Fixed by construction",
+  },
+  {
+    name: "Weak-field limit z ≈ m/r = r_s/(2r) far from one rod (r = 10⁶ m)",
+    actual: () => PhysicsCore.redshiftToInfinity(1e6, 0, singleRod(1)),
+    expected: 1e-6,
+    relativeTolerance: 2e-6,
+    source: "Weak-field expansion (equations.md §1)",
+  },
+  {
+    name: "Buchdahl: a 3.5 M☉, 12 km star can be static",
+    actual: () => Number(PhysicsCore.isStaticStarPossible(12, 2 * PhysicsCore.geometricMassKm(3.5))),
+    expected: 1,
+    relativeTolerance: 0,
+    source: "Buchdahl (1959): R > 9/8 r_s; r_s(3.5 M☉) ≈ 10.34 km",
+  },
+];
+// ===== PHYSICS CORE END =====
+</script>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+
+// ===== Settings =====
+//
+// Scene coordinates: x runs along the line through both stars (Weyl z, origin halfway between the star centres),
+// y is up, and the distance from the x axis is Weyl's rho. Units are km.
+
+const STAR_RADIUS_KM = 12;                  // both stars: neutron-star sized
+const GRID_SPACING_KM = 20;            // like the one-star page's finest level
+const GRID_SIDE_REACH_KM = 100;             // grid reaches this far beyond the stars, and this far from the axis
+const BAND_LENGTH_KM = 5;                   // ruler bands on the grid lines
+const BAND_DIM = 0.3;                       // brightness of the dim bands
+const LINE_Z_INVISIBLE = 0.01;              // lines invisible where the redshift to infinity is ≤ this
+const FULL_BRIGHTNESS_Z_MIN = 0.02;         // range of the full-brightness slider (log scale)
+const FULL_BRIGHTNESS_Z_MAX = 2;
+const DEPTH_SCALE_KM = 100;                 // landscape: depth = this × (1 − dτ/dt)
+const LANDSCAPE_STEP_KM = 1;
+
+const BEAM_POINTS = 1400;
+const PROFILE_INTERVALS = 2000;
+const PLANE_OFFSET_KM = 0.4;                // grid view: beam drawn this far toward +z, off the axis line
+const WAVE_KM_PER_NM = 6 / 450;             // drawn wave length per nanometre of real wavelength
+const WAVE_EXAGGERATION = (WAVE_KM_PER_NM * 1e3) / 1e-9;
+const WAVE_AMPLITUDE_KM = 1.2;
+const SPEED_OF_LIGHT_KM_S = PhysicsConstants.speedOfLight / 1000;
+const SCREEN_SPEED_MIN_KM_S = 0.5;
+const SCREEN_SPEED_MAX_KM_S = 50;
+const CLOCK_PERIOD_SECONDS = 100e-6;        // a far-away clock turns once per 100 µs of distant-observer time
+const CLOCK_SIZE_KM = 2.6;
+const PATH_CLOCK_COUNT = 7;                 // labelled clocks along the line between the stars
+const PATH_CLOCK_LIFT_KM = 9;
+
+// The state the page opens in. The controls are set from it on load.
+const viewState = {
+  star1Mass: 1.75,
+  star2Mass: 1.2,
+  gapKm: 80,                 // ruler distance along the line between the facing surfaces
+  emitterFraction: 0,        // A and B as fractions of the gap, from star 1's surface
+  receiverFraction: 1,
+  emittedWavelengthNm: 400,
+  screenLightSpeedKmS: 15,
+  view: "grid",
+  paused: false,
+  travelledLightKm: 0,       // c × (distant-observer time since emission began), in light length L
+  coordinateTimeSeconds: 0,  // distant-observer time t that drives the clocks
+  showClocks: true,
+  showBands: true,
+  sectionCut: true,
+  frame: "infinity",         // "infinity", "observer" (O) or "camera"
+  observerX: 0,
+  observerRho: 40,
+  fullBrightnessRedshift: 2,
+};
+
+let spacetime = null;
+
+/** Everything about the two stars that the drawing needs, in km. */
+function describeSpacetime() {
+  const halfLength1 = PhysicsCore.geometricMassKm(viewState.star1Mass);
+  const halfLength2 = PhysicsCore.geometricMassKm(viewState.star2Mass);
+  const centreDistance = PhysicsCore.centreDistanceForGap(viewState.gapKm, halfLength1, halfLength2, STAR_RADIUS_KM, 400);
+  const pair = PhysicsCore.starPair(halfLength1, halfLength2, centreDistance, STAR_RADIUS_KM);
+  const profile = PhysicsCore.axisProfile(pair.leftSurfaceZ, pair.rightSurfaceZ, pair.rods, PROFILE_INTERVALS);
+  const reddestZ = PhysicsCore.reddestAxisPoint(pair.leftSurfaceZ, pair.rightSurfaceZ, pair.rods);
+  return {
+    ...pair,
+    centreDistance,
+    profile,
+    gapRulerKm: profile.ruler[PROFILE_INTERVALS],
+    reddestZ,
+    strutGamma: PhysicsCore.strutGamma(pair.rods),
+    masses: [viewState.star1Mass, viewState.star2Mass],
+  };
+}
+
+// ===== Positions along the line (interpolating the axis profile) =====
+
+/** Linear interpolation in a monotonic table: the value of `outputs` where `inputs` equals `value`. */
+function interpolate(inputs, outputs, value) {
+  const last = inputs.length - 1;
+  if (value <= inputs[0]) return outputs[0];
+  if (value >= inputs[last]) return outputs[last];
+  let low = 0;
+  let high = last;
+  while (high - low > 1) {
+    const middle = (low + high) >> 1;
+    if (inputs[middle] <= value) low = middle; else high = middle;
+  }
+  const fraction = (value - inputs[low]) / (inputs[high] - inputs[low]);
+  return outputs[low] + fraction * (outputs[high] - outputs[low]);
+}
+
+/** Weyl z of the point at a ruler distance from star 1's facing surface. */
+const axisZAtRuler = (rulerKm) => interpolate(spacetime.profile.ruler, spacetime.profile.z, rulerKm);
+const rulerAtAxisZ = (z) => interpolate(spacetime.profile.z, spacetime.profile.ruler, z);
+const lightAtAxisZ = (z) => interpolate(spacetime.profile.z, spacetime.profile.light, z);
+const axisZAtLight = (light) => interpolate(spacetime.profile.light, spacetime.profile.z, light);
+
+const emitterZ = () => axisZAtRuler(viewState.emitterFraction * spacetime.gapRulerKm);
+const receiverZ = () => axisZAtRuler(viewState.receiverFraction * spacetime.gapRulerKm);
+const potentialAt = (rho, z) => PhysicsCore.weylPotential(rho, z, spacetime.rods);
+
+/** Index of the star whose interior contains (rho, z), or −1. */
+function starContaining(rho, z) {
+  for (let index = 0; index < 2; index++) {
+    if (PhysicsCore.isolatedStarRadius(rho, z, spacetime.rods[index]) < STAR_RADIUS_KM) return index;
+  }
+  return -1;
+}
+
+/** Semi-axes of a star as drawn in Weyl coordinates: along the line (R − m) and across it (sqrt(R(R − 2m))). */
+function starSemiAxes(index) {
+  const halfLength = spacetime.rods[index].halfLength;
+  return { along: STAR_RADIUS_KM - halfLength, across: Math.sqrt(STAR_RADIUS_KM * (STAR_RADIUS_KM - 2 * halfLength)) };
+}
+
+/** Moves a point inside a star out along the ray from its centre to just outside the surface (Weyl coordinates). */
+function pushOutsideStars(point) {
+  const index = starContaining(point.rho, point.z);
+  if (index < 0) return point;
+  const { along, across } = starSemiAxes(index);
+  const centre = spacetime.rods[index].centre;
+  let offsetZ = point.z - centre;
+  let offsetRho = point.rho;
+  if (Math.hypot(offsetZ, offsetRho) < 1e-6) offsetRho = 1;
+  const scale = 1.02 / Math.hypot(offsetZ / along, offsetRho / across);
+  return { rho: offsetRho * scale, z: centre + offsetZ * scale };
+}
+
+// ===== Colour of light (CIE 1931 fit by Wyman, Sloan & Shirley 2013) =====
+
+function piecewiseGaussian(wavelength, mean, widthBelow, widthAbove) {
+  const scaled = (wavelength - mean) / (wavelength < mean ? widthBelow : widthAbove);
+  return Math.exp(-0.5 * scaled * scaled);
+}
+
+/** CIE 1931 2° colour-matching functions x̄, ȳ, z̄ (multi-lobe fit, JCGT 2013). */
+function cieColorMatching(wavelengthNm) {
+  const x = 1.056 * piecewiseGaussian(wavelengthNm, 599.8, 37.9, 31.0)
+    + 0.362 * piecewiseGaussian(wavelengthNm, 442.0, 16.0, 26.7)
+    - 0.065 * piecewiseGaussian(wavelengthNm, 501.1, 20.4, 26.2);
+  const y = 0.821 * piecewiseGaussian(wavelengthNm, 568.8, 46.9, 40.5)
+    + 0.286 * piecewiseGaussian(wavelengthNm, 530.9, 16.3, 31.1);
+  const z = 1.217 * piecewiseGaussian(wavelengthNm, 437.0, 11.8, 36.0)
+    + 0.681 * piecewiseGaussian(wavelengthNm, 459.0, 26.0, 13.8);
+  return { x, y, z };
+}
+
+/**
+ * Linear-sRGB colour of monochromatic light. Pure spectral colours lie outside the sRGB gamut,
+ * so negative parts are filled in with white (desaturation) and the brightest channel is scaled to 1.
+ * Invisible wavelengths come back grey with visible = false.
+ */
+function wavelengthToLinearRgb(wavelengthNm) {
+  if (!(wavelengthNm >= 380 && wavelengthNm <= 780)) return { r: 0.22, g: 0.22, b: 0.24, visible: false };
+  const { x, y, z } = cieColorMatching(wavelengthNm);
+  let red = 3.2406 * x - 1.5372 * y - 0.4986 * z;
+  let green = -0.9689 * x + 1.8758 * y + 0.0415 * z;
+  let blue = 0.0557 * x - 0.2040 * y + 1.0570 * z;
+  const lowest = Math.min(red, green, blue);
+  if (lowest < 0) { red -= lowest; green -= lowest; blue -= lowest; }
+  const highest = Math.max(red, green, blue);
+  // Fade toward the ends of the visible range, where the eye barely responds.
+  const edgeFade = wavelengthNm < 420 ? 0.3 + 0.7 * (wavelengthNm - 380) / 40
+    : wavelengthNm > 700 ? 0.3 + 0.7 * (780 - wavelengthNm) / 80 : 1;
+  return { r: red / highest * edgeFade, g: green / highest * edgeFade, b: blue / highest * edgeFade, visible: true };
+}
+
+function linearToCss({ r, g, b }) {
+  const encode = (channel) => Math.round(255 * (channel <= 0.0031308 ? 12.92 * channel : 1.055 * channel ** (1 / 2.4) - 0.055));
+  return `rgb(${encode(r)}, ${encode(g)}, ${encode(b)})`;
+}
+
+function describeBand(wavelengthNm) {
+  if (wavelengthNm < 380) return "ultraviolet, invisible";
+  if (wavelengthNm > 780) return "infrared, invisible";
+  return "visible";
+}
+
+// ===== Grid colour: redshift to infinity, log scale =====
+
+const REDSHIFT_COLOR_STOPS = ["#2f5bff", "#1fb6e0", "#3ccf6e", "#e8d44a", "#ff8a2a", "#ff3b3b"]
+  .map((hex) => new THREE.Color(hex));
+const REDSHIFT_LOG_MIN = -2;    // z = 0.01
+const REDSHIFT_LOG_MAX = 0.5;   // z ≈ 3.2
+
+function redshiftColor(redshift, target) {
+  const logValue = redshift > 0 ? Math.log10(redshift) : REDSHIFT_LOG_MIN;
+  const position = Math.min(Math.max((logValue - REDSHIFT_LOG_MIN) / (REDSHIFT_LOG_MAX - REDSHIFT_LOG_MIN), 0), 1)
+    * (REDSHIFT_COLOR_STOPS.length - 1);
+  const index = Math.min(Math.floor(position), REDSHIFT_COLOR_STOPS.length - 2);
+  return target.copy(REDSHIFT_COLOR_STOPS[index]).lerp(REDSHIFT_COLOR_STOPS[index + 1], position - index);
+}
+
+const smoothStep = (value) => { const t = Math.min(Math.max(value, 0), 1); return t * t * (3 - 2 * t); };
+
+/** Line brightness 0…1 from the redshift to infinity (visual choice): 0 at z ≤ 0.01, 1 at the slider's z, log scale between. */
+function lineBrightness(redshift) {
+  const logInvisible = Math.log10(LINE_Z_INVISIBLE);
+  return smoothStep((Math.log10(Math.max(redshift, 1e-12)) - logInvisible)
+    / (Math.log10(viewState.fullBrightnessRedshift) - logInvisible));
+}
+
+// ===== Scene setup =====
+
+const container = document.getElementById("scene");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+container.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.domElement.style.position = "fixed";
+labelRenderer.domElement.style.inset = "0";
+labelRenderer.domElement.style.pointerEvents = "none";
+document.body.appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05070d);
+const camera = new THREE.PerspectiveCamera(45, 1, 1, 5000);   // near = 1 km keeps depth precise at ~300 km
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+const lineMaterials = [];   // LineMaterial needs the canvas size, kept current in resize()
+function makeLineMaterial(options) {
+  const material = new LineMaterial({ transparent: true, ...options });
+  lineMaterials.push(material);
+  return material;
+}
+
+function makeLabel(text, className = "label") {
+  const element = document.createElement("div");
+  element.className = className;
+  element.textContent = text;
+  return new CSS2DObject(element);
+}
+
+/** Removes every child of a group and frees its geometry (and any labels inside it). */
+function clearGroup(group, keepGeometries = []) {
+  for (const child of [...group.children]) {
+    child.traverse((object) => { if (object.isCSS2DObject) object.removeFromParent(); });
+    group.remove(child);
+    if (child.geometry && !keepGeometries.includes(child.geometry)) child.geometry.dispose();
+  }
+}
+
+const gridGroup = new THREE.Group();
+const landscapeGroup = new THREE.Group();
+scene.add(gridGroup, landscapeGroup);
+
+// ===== The two stars (grid view) =====
+//
+// Drawn in Weyl coordinates, where a star of radius 12 km is a spheroid with semi-axes R − m along the line
+// and sqrt(R(R − 2m)) across it.
+
+function makeGlowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  const context = canvas.getContext("2d");
+  const gradient = context.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gradient.addColorStop(0, "rgba(255,255,255,0.9)");
+  gradient.addColorStop(0.35, "rgba(255,255,255,0.25)");
+  gradient.addColorStop(1, "rgba(255,255,255,0)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(canvas);
+}
+const glowTexture = makeGlowTexture();
+
+const starObjects = [0, 1].map((index) => {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture, color: 0xffc070,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const label = makeLabel("", "label faint");
+  gridGroup.add(mesh, glow, label);
+  return { mesh, glow, label, index };
+});
+
+function updateStars() {
+  for (const star of starObjects) {
+    const { along, across } = starSemiAxes(star.index);
+    const centre = spacetime.rods[star.index].centre;
+    star.mesh.scale.set(along, across, across);
+    star.mesh.position.set(centre, 0, 0);
+    star.glow.position.set(centre, 0, 0);
+    star.glow.scale.setScalar(across * 4);
+    star.label.position.set(centre, across + 5, 0);
+    // Heavier stars are squeezed more by Weyl's coordinates, so the label says the true radius.
+    star.label.element.textContent = `star ${star.index + 1}, ${spacetime.masses[star.index].toFixed(2)} M☉, R = ${STAR_RADIUS_KM} km`;
+  }
+}
+
+// ===== Grid with ruler bands =====
+//
+// Straight lines of Weyl's coordinates, coloured by the redshift to infinity and faded where space is
+// nearly flat. Each line is painted in alternating bright and dim bands, each BAND_LENGTH_KM of true (ruler)
+// length, counted outward from the grid's middle plane across that line. Bands crowd where there is more
+// true distance than the drawing shows.
+
+const gridMaterial = makeLineMaterial({ vertexColors: true, linewidth: 1.4, opacity: 1, transparent: false });
+let gridLines = null;
+
+/** The x range the grid and landscape cover. */
+function sceneHalfLength() {
+  return spacetime.centreDistance / 2 + STAR_RADIUS_KM + GRID_SIDE_REACH_KM;
+}
+
+/**
+ * Traces one straight grid line from its anchor point (parameter 0) to `end` (positive or negative), adding coloured
+ * segments. pointAt(t) gives the scene point; the band count starts at 0 at the anchor.
+ */
+function traceGridHalfLine(pointAt, direction, end, positions, colors) {
+  const color = new THREE.Color();
+  const sign = Math.sign(end);
+  let travelled = 0;            // drawn (Weyl) distance from the anchor
+  let trueLength = 0;           // ruler distance from the anchor
+  let previous = null;
+  while (sign * travelled < Math.abs(end) + 1e-9) {
+    const point = pointAt(travelled);
+    const rho = Math.hypot(point.y, point.z);
+    const inside = starContaining(rho, point.x) >= 0;
+    const distanceToStars = Math.min(...spacetime.rods.map((rod) => Math.hypot(point.x - rod.centre, rho)));
+    const step = Math.min(Math.max(0.06 * distanceToStars, 0.3), 1.25);
+    let current = null;
+    if (!inside) {
+      const redshift = PhysicsCore.redshiftToInfinity(rho, point.x, spacetime.rods);
+      const brightness = lineBrightness(redshift);
+      const isDimBand = viewState.showBands && Math.floor(trueLength / BAND_LENGTH_KM) % 2 === 1;
+      redshiftColor(redshift, color).multiplyScalar(brightness * (isDimBand ? BAND_DIM : 1));
+      current = { point, color: [color.r, color.g, color.b], brightness };
+    }
+    if (previous && current && Math.max(previous.brightness, current.brightness) > 0.01) {
+      positions.push(previous.point.x, previous.point.y, previous.point.z, current.point.x, current.point.y, current.point.z);
+      colors.push(...previous.color, ...current.color);
+    }
+    previous = current;
+    if (inside) { travelled += sign * step; continue; }
+    // Advance, and add the true length of this step (direction components: along z, along rho, around the axis).
+    const nextTravelled = travelled + sign * Math.min(step, Math.abs(end) - Math.abs(travelled) || step);
+    const middle = pointAt(0.5 * (travelled + nextTravelled));
+    const middleRho = Math.hypot(middle.y, middle.z);
+    const alongRho = middleRho > 1e-9 ? (middle.y * direction.y + middle.z * direction.z) / middleRho : Math.hypot(direction.y, direction.z);
+    const around = middleRho > 1e-9 ? (middle.y * direction.z - middle.z * direction.y) / middleRho : 0;
+    trueLength += Math.abs(nextTravelled - travelled)
+      * PhysicsCore.lineStretch(middleRho, middle.x, direction.x, alongRho, around, spacetime.rods);
+    if (nextTravelled === travelled) break;
+    travelled = nextTravelled;
+  }
+}
+
+function buildGrid() {
+  const positions = [];
+  const colors = [];
+  const halfLength = sceneHalfLength();
+  const reach = GRID_SIDE_REACH_KM;
+  const xCount = Math.floor(halfLength / GRID_SPACING_KM);
+  const sideCount = Math.floor(reach / GRID_SPACING_KM);
+  const axes = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
+  // Lines along x (parallel to the line through the stars), at each (y, z).
+  for (let j = -sideCount; j <= sideCount; j++) {
+    for (let k = -sideCount; k <= sideCount; k++) {
+      if (viewState.sectionCut && k > 0) continue;
+      if (j === 0 && k === 0) continue;   // the axis itself holds the beam and the strut
+      const pointAt = (t) => ({ x: t, y: j * GRID_SPACING_KM, z: k * GRID_SPACING_KM });
+      traceGridHalfLine(pointAt, axes[0], halfLength, positions, colors);
+      traceGridHalfLine(pointAt, axes[0], -halfLength, positions, colors);
+    }
+  }
+  // Lines along y and along z, at each x.
+  for (let i = -xCount; i <= xCount; i++) {
+    const x = i * GRID_SPACING_KM;
+    for (let other = -sideCount; other <= sideCount; other++) {
+      const otherValue = other * GRID_SPACING_KM;
+      if (!(viewState.sectionCut && other > 0)) {
+        const alongY = (t) => ({ x, y: t, z: otherValue });
+        traceGridHalfLine(alongY, axes[1], reach, positions, colors);
+        traceGridHalfLine(alongY, axes[1], -reach, positions, colors);
+      }
+      const alongZ = (t) => ({ x, y: otherValue, z: t });
+      if (!viewState.sectionCut) traceGridHalfLine(alongZ, axes[2], reach, positions, colors);
+      traceGridHalfLine(alongZ, axes[2], -reach, positions, colors);
+    }
+  }
+  if (gridLines) { gridGroup.remove(gridLines); gridLines.geometry.dispose(); }
+  const geometry = new LineSegmentsGeometry();
+  geometry.setPositions(positions);
+  geometry.setColors(colors);
+  gridLines = new LineSegments2(geometry, gridMaterial);
+  gridGroup.add(gridLines);
+}
+
+// ===== Strut (both views) =====
+
+const strutMaterial = makeLineMaterial({ color: 0x9aa3b8, linewidth: 2, dashed: true, dashSize: 1.5, gapSize: 1.2, opacity: 0.8 });
+let strutLine = null;
+const strutLabel = makeLabel("strut: a conical singularity on the line holds the stars apart", "label faint");
+scene.add(strutLabel);
+
+function buildStrut() {
+  if (strutLine) { scene.remove(strutLine); strutLine.geometry.dispose(); }
+  const points = [];
+  const pieces = 60;
+  for (let piece = 0; piece <= pieces; piece++) {
+    const z = spacetime.leftSurfaceZ + (spacetime.rightSurfaceZ - spacetime.leftSurfaceZ) * piece / pieces;
+    points.push(...axisDrawPoint(z, -PLANE_OFFSET_KM, 0.15).toArray());
+  }
+  const geometry = new LineGeometry();
+  geometry.setPositions(points);
+  strutLine = new Line2(geometry, strutMaterial);
+  strutLine.computeLineDistances();
+  scene.add(strutLine);
+  const middle = 0.5 * (spacetime.leftSurfaceZ + spacetime.rightSurfaceZ);
+  // Below the line and toward the viewer, clear of the beam and the clock row above it.
+  strutLabel.position.copy(axisDrawPoint(middle, -PLANE_OFFSET_KM, 0)).add(new THREE.Vector3(0, -6, 6));
+}
+
+// ===== Clock-rate landscape =====
+//
+// The plane through both stars (x along the line, z across it; rho = |z|), sunk by DEPTH_SCALE_KM × (1 − dτ/dt).
+// A graph of the clock rate, not an embedding of space. Inside a star the surface value is used (a plateau).
+
+const landscapeSurfaceMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.22,
+  side: THREE.DoubleSide, depthWrite: false });
+const landscapeLineMaterial = makeLineMaterial({ vertexColors: true, linewidth: 1.3, opacity: 0.95 });
+const landscapeNoteLabel = makeLabel("", "label faint");
+const landscapeStarLabels = [0, 1].map(() => makeLabel("", "label faint"));
+landscapeGroup.add(landscapeNoteLabel, ...landscapeStarLabels);
+let landscapeObjects = [];
+const STAR_INTERIOR_COLOR = new THREE.Color(0xffb060);
+
+/** Weyl potential used for the landscape at (x, rho): the star's surface value inside a star. */
+function landscapePotential(x, rho) {
+  const index = starContaining(rho, x);
+  if (index < 0) return potentialAt(rho, x);
+  const { along, across } = starSemiAxes(index);
+  const centre = spacetime.rods[index].centre;
+  let offsetZ = x - centre;
+  let offsetRho = rho;
+  if (Math.hypot(offsetZ, offsetRho) < 1e-9) offsetRho = 1;
+  const scale = 1 / Math.hypot(offsetZ / along, offsetRho / across);
+  return potentialAt(offsetRho * scale, centre + offsetZ * scale);
+}
+
+/** Height of the landscape at (x, rho): −DEPTH_SCALE_KM × (1 − e^U). */
+function landscapeHeight(x, rho) {
+  return -DEPTH_SCALE_KM * -Math.expm1(landscapePotential(x, rho));
+}
+
+function buildLandscape() {
+  for (const object of landscapeObjects) { landscapeGroup.remove(object); object.geometry.dispose(); }
+  landscapeObjects = [];
+  const halfLength = sceneHalfLength();
+  const reach = GRID_SIDE_REACH_KM;
+  const columns = Math.round(2 * halfLength / LANDSCAPE_STEP_KM);
+  const rows = Math.round(2 * reach / LANDSCAPE_STEP_KM);
+  const positions = new Float32Array((columns + 1) * (rows + 1) * 3);
+  const colors = new Float32Array((columns + 1) * (rows + 1) * 3);
+  const brightnessAt = new Float32Array((columns + 1) * (rows + 1));
+  const color = new THREE.Color();
+  for (let row = 0; row <= rows; row++) {
+    const z = -reach + 2 * reach * row / rows;
+    for (let column = 0; column <= columns; column++) {
+      const x = -halfLength + 2 * halfLength * column / columns;
+      const rho = Math.abs(z);
+      const index = row * (columns + 1) + column;
+      const potential = landscapePotential(x, rho);
+      positions.set([x, -DEPTH_SCALE_KM * -Math.expm1(potential), z], index * 3);
+      if (starContaining(rho, x) >= 0) {
+        color.copy(STAR_INTERIOR_COLOR);
+        brightnessAt[index] = 1;
+      } else {
+        const redshift = Math.expm1(-potential);
+        brightnessAt[index] = lineBrightness(redshift);
+        redshiftColor(redshift, color).multiplyScalar(brightnessAt[index]);
+      }
+      colors.set([color.r, color.g, color.b], index * 3);
+    }
+  }
+  const indices = [];
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      const corner = row * (columns + 1) + column;
+      indices.push(corner, corner + 1, corner + columns + 1, corner + 1, corner + columns + 2, corner + columns + 1);
+    }
+  }
+  const surfaceGeometry = new THREE.BufferGeometry();
+  surfaceGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  surfaceGeometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  surfaceGeometry.setIndex(indices);
+  landscapeObjects.push(new THREE.Mesh(surfaceGeometry, landscapeSurfaceMaterial));
+
+  // Wire lines every 10 km along x and along z, slightly above the surface.
+  const linePositions = [];
+  const lineColors = [];
+  const addLine = (indexAt, count) => {
+    for (let step = 0; step < count; step++) {
+      const first = indexAt(step);
+      const second = indexAt(step + 1);
+      if (Math.max(brightnessAt[first], brightnessAt[second]) < 0.01) continue;
+      for (const index of [first, second]) {
+        linePositions.push(positions[index * 3], positions[index * 3 + 1] + 0.08, positions[index * 3 + 2]);
+        lineColors.push(colors[index * 3], colors[index * 3 + 1], colors[index * 3 + 2]);
+      }
+    }
+  };
+  const every = Math.round(10 / LANDSCAPE_STEP_KM);   // wire lines every 10 km
+  for (let row = 0; row <= rows; row += every) addLine((column) => row * (columns + 1) + column, columns);
+  for (let column = 0; column <= columns; column += every) addLine((row) => row * (columns + 1) + column, rows);
+  const lineGeometry = new LineSegmentsGeometry();
+  lineGeometry.setPositions(linePositions);
+  lineGeometry.setColors(lineColors);
+  landscapeObjects.push(new LineSegments2(lineGeometry, landscapeLineMaterial));
+  landscapeGroup.add(...landscapeObjects);
+
+  landscapeNoteLabel.element.textContent = `clock-rate landscape: depth = ${DEPTH_SCALE_KM} km × (1 − clock rate); a graph, not a picture of space`;
+  landscapeNoteLabel.position.set(0, 8, -reach);
+  landscapeStarLabels.forEach((label, index) => {
+    const centre = spacetime.rods[index].centre;
+    label.element.textContent = `star ${index + 1} (interior not modelled)`;
+    label.position.set(centre, landscapeHeight(centre, 0) - 4, 0);
+  });
+  buildObserverLevel();
+}
+
+// O's level in the landscape: clocks below it run slower than O's, clocks above it faster.
+const observerLevelMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.07,
+  side: THREE.DoubleSide, depthWrite: false });
+const observerLevelEdgeMaterial = makeLineMaterial({ color: 0xffffff, linewidth: 1, opacity: 0.35 });
+const observerLevel = new THREE.Group();
+const observerLevelLabel = makeLabel("", "label faint");
+landscapeGroup.add(observerLevel, observerLevelLabel);
+
+function buildObserverLevel() {
+  clearGroup(observerLevel);
+  const point = observerPoint();
+  observerLevel.visible = point !== null;
+  observerLevelLabel.visible = point !== null && viewState.view === "landscape";
+  if (!point) return;
+  const height = landscapeHeight(point.z, point.rho);
+  const halfLength = sceneHalfLength();
+  const reach = GRID_SIDE_REACH_KM;
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(2 * halfLength, 2 * reach).rotateX(-Math.PI / 2), observerLevelMaterial);
+  plane.position.y = height;
+  const edgeGeometry = new LineSegmentsGeometry();
+  const corners = [[-halfLength, -reach], [halfLength, -reach], [halfLength, reach], [-halfLength, reach]];
+  const edges = [];
+  corners.forEach(([x, z], index) => {
+    const [nextX, nextZ] = corners[(index + 1) % 4];
+    edges.push(x, height, z, nextX, height, nextZ);
+  });
+  edgeGeometry.setPositions(edges);
+  observerLevel.add(plane, new LineSegments2(edgeGeometry, observerLevelEdgeMaterial));
+  observerLevelLabel.element.textContent = `${observerName()}'s clock rate: clocks below this level run slower than ${observerName()}'s, above it faster`;
+  observerLevelLabel.position.set(0, height + 2, -reach * 0.7);
+}
+
+// ===== Drawing points on the line =====
+
+/**
+ * Where a point on the axis (Weyl z) is drawn, in the current view. In the grid view it is moved `sideways` km
+ * toward +z (so the beam doesn't sit on the strut); on the landscape it rides `lift` km above the surface.
+ */
+function axisDrawPoint(z, sideways = PLANE_OFFSET_KM, lift = 0.3) {
+  if (viewState.view === "landscape") return new THREE.Vector3(z, landscapeHeight(z, 0) + lift, 0);
+  return new THREE.Vector3(z, 0, sideways);
+}
+
+/** Where a static observer at Weyl (rho, z) is drawn: in the y = 0 plane on the −z side (the side the section cut keeps). */
+function offAxisDrawPoint(point, lift = 1.3) {
+  if (viewState.view === "landscape") return new THREE.Vector3(point.z, landscapeHeight(point.z, point.rho) + lift, -point.rho);
+  return new THREE.Vector3(point.z, 0, -point.rho);
+}
+
+// ===== Light beam =====
+
+const beamGeometry = new LineGeometry();
+beamGeometry.setPositions(new Float32Array(BEAM_POINTS * 3));
+beamGeometry.setColors(new Float32Array(BEAM_POINTS * 3));
+const beamLine = new Line2(beamGeometry, makeLineMaterial({ vertexColors: true, linewidth: 3, opacity: 1 }));
+beamLine.frustumCulled = false;
+const frontMarker = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const emitterMarker = new THREE.Mesh(new THREE.SphereGeometry(1.1, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const receiverMarker = new THREE.Mesh(new THREE.SphereGeometry(1.1, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const reddestMarker = new THREE.Mesh(new THREE.OctahedronGeometry(1.1), new THREE.MeshBasicMaterial({ color: 0xff6a4a }));
+const emitterLabel = makeLabel("A");
+const receiverLabel = makeLabel("B");
+const reddestLabel = makeLabel("reddest point", "label faint");
+emitterMarker.add(emitterLabel);
+receiverMarker.add(receiverLabel);
+reddestMarker.add(reddestLabel);
+emitterLabel.position.set(0, -2.6, 0);
+receiverLabel.position.set(0, -2.6, 0);
+reddestLabel.position.set(0, -2.8, 0);
+scene.add(beamLine, frontMarker, emitterMarker, receiverMarker, reddestMarker);
+
+const beam = {
+  axisZ: new Float64Array(BEAM_POINTS),          // Weyl z of each sample
+  lightOffsets: new Float64Array(BEAM_POINTS),   // |L(sample) − L(A)|: light length travelled to get there
+  basePositions: new Float32Array(BEAM_POINTS * 3),
+  points: new Float32Array(BEAM_POINTS * 3),
+  wiggleDirection: new THREE.Vector3(),
+  drawnWavelengthAtInfinityKm: 1,
+  wavelengthAtInfinityNm: 0,
+  lastDrawnIndex: -1,
+};
+
+/** Wavelength a static observer at (rho, z) measures for A's light: λ_A e^(U − U_A). */
+function localWavelengthNm(rho, z) {
+  return beam.wavelengthAtInfinityNm * Math.exp(potentialAt(rho, z));
+}
+
+/** Samples the beam evenly in light length L (so every crest gets the same number of samples) and colours it. */
+function rebuildBeam() {
+  const startZ = emitterZ();
+  const endZ = receiverZ();
+  const startLight = lightAtAxisZ(startZ);
+  const endLight = lightAtAxisZ(endZ);
+  beam.wavelengthAtInfinityNm = viewState.emittedWavelengthNm * Math.exp(-potentialAt(0, startZ));
+  beam.drawnWavelengthAtInfinityKm = beam.wavelengthAtInfinityNm * WAVE_KM_PER_NM;
+  const colors = new Float32Array(BEAM_POINTS * 3);
+  for (let index = 0; index < BEAM_POINTS; index++) {
+    const fraction = index / (BEAM_POINTS - 1);
+    const light = startLight + (endLight - startLight) * fraction;
+    const z = index === 0 ? startZ : index === BEAM_POINTS - 1 ? endZ : axisZAtLight(light);
+    beam.axisZ[index] = z;
+    beam.lightOffsets[index] = Math.abs(light - startLight);
+    axisDrawPoint(z).toArray(beam.basePositions, index * 3);
+    const rgb = wavelengthToLinearRgb(localWavelengthNm(0, z));
+    colors.set([rgb.r, rgb.g, rgb.b], index * 3);
+  }
+  beamGeometry.setColors(colors);
+  if (viewState.view === "grid") beam.wiggleDirection.set(0, 1, 0); else beam.wiggleDirection.set(0, 0, 1);
+
+  emitterMarker.position.fromArray(beam.basePositions, 0);
+  receiverMarker.position.fromArray(beam.basePositions, (BEAM_POINTS - 1) * 3);
+  const emittedRgb = wavelengthToLinearRgb(viewState.emittedWavelengthNm);
+  const receivedRgb = wavelengthToLinearRgb(localWavelengthNm(0, endZ));
+  emitterMarker.material.color.setRGB(emittedRgb.r, emittedRgb.g, emittedRgb.b);
+  receiverMarker.material.color.setRGB(receivedRgb.r, receivedRgb.g, receivedRgb.b);
+  reddestMarker.position.copy(axisDrawPoint(spacetime.reddestZ, -PLANE_OFFSET_KM, 1.5));
+  buildClocks();
+}
+
+/** Moves the wave along by the reference clock and redraws the part emitted so far. */
+function advanceBeam(elapsedRealSeconds) {
+  if (!viewState.paused) {
+    // Playback follows the reference observer's clock: per second of its time, t advances by 1/(dτ/dt).
+    const playbackRate = viewState.screenLightSpeedKmS / observerClockRate();
+    viewState.travelledLightKm += elapsedRealSeconds * playbackRate;
+    viewState.coordinateTimeSeconds += elapsedRealSeconds * playbackRate / SPEED_OF_LIGHT_KM_S;
+  }
+  const travelled = viewState.travelledLightKm;
+  const wavenumber = (2 * Math.PI) / beam.drawnWavelengthAtInfinityKm;
+  let lastDrawnIndex = -1;
+  for (let index = 0; index < BEAM_POINTS; index++) {
+    if (beam.lightOffsets[index] > travelled) break;
+    // The phase is constant along t ∓ L(z)/c; both directions give this form.
+    const displacement = WAVE_AMPLITUDE_KM * Math.sin(wavenumber * (travelled - beam.lightOffsets[index]));
+    for (let axis = 0; axis < 3; axis++) {
+      beam.points[index * 3 + axis] = beam.basePositions[index * 3 + axis] + displacement * beam.wiggleDirection.getComponent(axis);
+    }
+    lastDrawnIndex = index;
+  }
+  beam.lastDrawnIndex = lastDrawnIndex;
+  const segmentArray = beamGeometry.attributes.instanceStart.data.array;
+  const segmentCount = Math.max(lastDrawnIndex, 0);
+  for (let segment = 0; segment < segmentCount; segment++) {
+    segmentArray.set(beam.points.subarray(segment * 3, segment * 3 + 6), segment * 6);
+  }
+  beamGeometry.attributes.instanceStart.data.needsUpdate = true;
+  beamGeometry.instanceCount = segmentCount;
+
+  frontMarker.visible = lastDrawnIndex >= 0 && viewState.emitterFraction !== viewState.receiverFraction;
+  if (frontMarker.visible) {
+    frontMarker.position.fromArray(beam.basePositions, lastDrawnIndex * 3);
+    const rgb = wavelengthToLinearRgb(localWavelengthNm(0, beam.axisZ[lastDrawnIndex]));
+    frontMarker.material.color.setRGB(rgb.r, rgb.g, rgb.b);
+  }
+}
+
+// ===== Reference frame =====
+//
+// Whose clock everything is compared with: a static observer far away, a static observer O placed with the
+// sliders or presets, or a static observer where the camera is. Lengths are the same in every one of these frames.
+
+const observerMarker = new THREE.Mesh(new THREE.SphereGeometry(1.3, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const observerLabel = makeLabel("O · observer");
+observerLabel.position.set(0, 2.4, 0);
+observerMarker.add(observerLabel);
+scene.add(observerMarker);
+
+/** The camera's place in Weyl coordinates (on the landscape: the point of the plane below it), kept outside the stars. */
+function cameraPoint() {
+  const position = camera.position;
+  const rho = viewState.view === "grid" ? Math.hypot(position.y, position.z) : Math.abs(position.z);
+  return pushOutsideStars({ rho, z: position.x });
+}
+
+/** The reference observer's Weyl position, or null for the far-away frame. */
+function observerPoint() {
+  if (viewState.frame === "infinity") return null;
+  if (viewState.frame === "camera") return cameraPoint();
+  return pushOutsideStars({ rho: viewState.observerRho, z: viewState.observerX });
+}
+
+/** dτ/dt of the reference observer (1 far away). */
+function observerClockRate() {
+  const point = observerPoint();
+  return point ? PhysicsCore.clockRate(point.rho, point.z, spacetime.rods) : 1;
+}
+
+function observerName() {
+  if (viewState.frame === "infinity") return "a far clock";
+  return viewState.frame === "observer" ? "O" : "the camera";
+}
+
+function placeObserverMarker() {
+  observerMarker.visible = viewState.frame === "observer";
+  observerLabel.visible = observerMarker.visible;   // CSS2D labels ignore their parent's visibility
+  if (observerMarker.visible) observerMarker.position.copy(offAxisDrawPoint(observerPoint()));
+}
+
+// Clock rims in an observer's frame: warm for clocks slower than the observer's, cool for faster ones.
+const SLOWER_CLOCK_COLORS = ["#e6e9f2", "#ffb347", "#ff3b3b"].map((hex) => new THREE.Color(hex));
+const FASTER_CLOCK_COLORS = ["#e6e9f2", "#6fd0ff", "#2f5bff"].map((hex) => new THREE.Color(hex));
+
+function relativeRateColor(rate, target) {
+  const stops = rate <= 1 ? SLOWER_CLOCK_COLORS : FASTER_CLOCK_COLORS;
+  const extreme = rate <= 1 ? 0.6 : 1.6;   // full colour at 0.6× or 1.6× the observer's rate
+  const position = Math.min(Math.max(Math.log(rate) / Math.log(extreme), 0), 1) * (stops.length - 1);
+  const index = Math.min(Math.floor(position), stops.length - 2);
+  return target.copy(stops[index]).lerp(stops[index + 1], position - index);
+}
+
+function describeFrame() {
+  document.getElementById("observer-controls").style.display = viewState.frame === "observer" ? "" : "none";
+  const element = document.getElementById("frame-note");
+  if (viewState.frame === "infinity") {
+    element.textContent = "Clocks and redshifts are compared with a clock far from both stars, and playback follows that far clock.";
+    return;
+  }
+  const point = observerPoint();
+  const where = `${formatKm(point.rho)} from the line, at x = ${formatKm(point.z)}`;
+  const who = viewState.frame === "observer" ? "a static observer O" : "a static observer where the camera is";
+  element.textContent = `Everything is compared with ${who}, ${where}, whose own clock runs at ${formatRatePercent(observerClockRate())}`
+    + " of a far clock. Its clock reads 100%. Clocks deeper in the wells run slow (warm rims); clocks higher up run fast (cool"
+    + " rims). Playback follows its clock. Lengths don't change between frames."
+    + (viewState.frame === "camera" ? " Fly the camera around to move the observer." : "");
+}
+
+/** Preset spots for O (Weyl coordinates). */
+function observerPreset(name) {
+  if (name === "star1") return { z: spacetime.rods[0].centre, rho: starSemiAxes(0).across + 3 };
+  if (name === "star2") return { z: spacetime.rods[1].centre, rho: starSemiAxes(1).across + 3 };
+  if (name === "reddest") return { z: spacetime.reddestZ, rho: 0 };
+  return { z: 0, rho: 150 };
+}
+
+// ===== Proper-time clocks =====
+//
+// Each clock belongs to a static observer and shows its own proper time τ; it turns at dτ/dt = e^U compared with
+// a far clock. Rate labels are relative to the reference frame's clock.
+
+const clockFaceGeometry = new THREE.CircleGeometry(1, 40);
+const clockRimGeometry = new THREE.RingGeometry(0.84, 1, 40);
+const clockHandGeometry = new THREE.PlaneGeometry(0.13, 0.78).translate(0, 0.39, 0);
+const clockTickGeometry = new THREE.PlaneGeometry(0.1, 0.2).translate(0, 0.72, 0);
+// Drawn after everything else without depth testing, in an explicit back-to-front order (see updateClocks):
+// with depth testing their layers flickered against each other and the grid lines.
+const CLOCK_MATERIAL_OPTIONS = { depthTest: false, depthWrite: false, transparent: true };
+const clockFaceMaterial = new THREE.MeshBasicMaterial({ color: 0x0b0f1a, opacity: 0.9, ...CLOCK_MATERIAL_OPTIONS });
+const clockHandMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, ...CLOCK_MATERIAL_OPTIONS });
+const clockTickMaterial = new THREE.MeshBasicMaterial({ color: 0x9aa3b8, ...CLOCK_MATERIAL_OPTIONS });
+const clockLinkMaterial = makeLineMaterial({ color: 0xc9d2e8, linewidth: 1, opacity: 0.3 });
+const clockGroup = new THREE.Group();
+scene.add(clockGroup);
+let clocks = [];
+
+/** One clock face, drawn at `position`, for a static observer at Weyl point {rho, z}. */
+function makeClock(weylPoint, position, sizeKm, showRateLabel) {
+  const group = new THREE.Group();
+  const rimMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, ...CLOCK_MATERIAL_OPTIONS });
+  const face = new THREE.Mesh(clockFaceGeometry, clockFaceMaterial);
+  const rim = new THREE.Mesh(clockRimGeometry, rimMaterial);
+  const tick = new THREE.Mesh(clockTickGeometry, clockTickMaterial);
+  const hand = new THREE.Mesh(clockHandGeometry, clockHandMaterial);
+  const parts = [face, rim, tick, hand];   // back to front
+  group.add(...parts);
+  group.position.copy(position);
+  group.scale.setScalar(sizeKm);
+  let label = null;
+  if (showRateLabel) {
+    label = makeLabel("", "label faint");
+    label.position.set(0, -1.7, 0);
+    group.add(label);
+  }
+  clockGroup.add(group);
+  return { group, hand, parts, weylPoint, rate: PhysicsCore.clockRate(weylPoint.rho, weylPoint.z, spacetime.rods),
+    label, rimMaterial, distance: 0 };
+}
+
+/** Clock sites in the plane through both stars, every 20 km, on the side the section cut keeps. */
+function planeClockSites() {
+  const sites = [];
+  const step = GRID_SPACING_KM;
+  const xCount = Math.floor(sceneHalfLength() / step) - 1;
+  for (let i = -xCount; i <= xCount; i++) {
+    for (let k = 1; k <= 4; k++) {
+      const weylPoint = { rho: k * step, z: i * step };
+      const nearStar = spacetime.rods.some((rod, index) =>
+        PhysicsCore.isolatedStarRadius(weylPoint.rho, weylPoint.z, rod) < STAR_RADIUS_KM + 2 * CLOCK_SIZE_KM);
+      if (!nearStar) sites.push(weylPoint);
+    }
+  }
+  return sites;
+}
+
+function buildClocks() {
+  for (const clock of clocks) {
+    if (clock.label) clock.label.removeFromParent();
+    clockGroup.remove(clock.group);
+    clock.rimMaterial.dispose();
+  }
+  clearGroup(clockGroup);
+  const lift = viewState.view === "landscape" ? CLOCK_SIZE_KM + 0.5 : 0;
+  clocks = planeClockSites().map((point) => makeClock(point, offAxisDrawPoint(point, lift), CLOCK_SIZE_KM, false));
+
+  // A labelled row along the line between the stars, evenly spaced in ruler distance, lifted above the beam.
+  const linkPositions = [];
+  const up = new THREE.Vector3(0, PATH_CLOCK_LIFT_KM, 0);
+  for (let index = 0; index < PATH_CLOCK_COUNT; index++) {
+    const z = axisZAtRuler(spacetime.gapRulerKm * (index + 0.5) / PATH_CLOCK_COUNT);
+    const base = axisDrawPoint(z, 0, 0);
+    clocks.push(makeClock({ rho: 0, z }, base.clone().add(up), CLOCK_SIZE_KM, true));
+    linkPositions.push(...base.toArray(), ...base.clone().add(up).addScaledVector(up, -CLOCK_SIZE_KM / PATH_CLOCK_LIFT_KM).toArray());
+  }
+  const linkGeometry = new LineSegmentsGeometry();
+  linkGeometry.setPositions(linkPositions);
+  clockGroup.add(new LineSegments2(linkGeometry, clockLinkMaterial));
+
+  // Larger clocks below A and B (the row is above), and above O.
+  const below = new THREE.Vector3(0, -(CLOCK_SIZE_KM * 1.5 + 6), 0);
+  clocks.push(makeClock({ rho: 0, z: emitterZ() }, emitterMarker.position.clone().add(below), CLOCK_SIZE_KM * 1.5, true));
+  clocks.push(makeClock({ rho: 0, z: receiverZ() }, receiverMarker.position.clone().add(below), CLOCK_SIZE_KM * 1.5, true));
+  if (viewState.frame === "observer") {
+    placeObserverMarker();
+    clocks.push(makeClock(observerPoint(), observerMarker.position.clone().add(new THREE.Vector3(0, CLOCK_SIZE_KM * 1.5 + 3, 0)),
+      CLOCK_SIZE_KM * 1.5, true));
+  }
+  applyClockVisibility();
+  refreshClockRates();
+}
+
+function applyClockVisibility() {
+  clockGroup.visible = viewState.showClocks;
+  for (const clock of clocks) if (clock.label) clock.label.visible = viewState.showClocks;   // CSS2D ignores parents
+}
+
+/** Rate labels and rim colours relative to the reference clock (far frame: rims in the redshift colours). */
+function refreshClockRates() {
+  const reference = observerPoint();
+  for (const clock of clocks) {
+    const relativeRate = PhysicsCore.relativeClockRate(clock.weylPoint, reference, spacetime.rods);
+    if (clock.label) clock.label.element.textContent = formatRatePercent(relativeRate);
+    if (!reference) redshiftColor(1 / clock.rate - 1, clock.rimMaterial.color);
+    else relativeRateColor(relativeRate, clock.rimMaterial.color);
+  }
+  const name = observerName();
+  document.getElementById("reference-clock-note").textContent = `This is ${reference ? `${name}'s clock` : "a clock far from both stars"}. `
+    + "It turns once per 100 µs of its own time, slowed down like the light. Each clock in the picture shows its own proper time τ; "
+    + `the labels give its rate as a percentage of ${name}'s. The row above the beam shows the clocks along the light's path.`;
+}
+
+/** True when a star sits between the camera and this point (grid view only). */
+function isHiddenBehindStar(point) {
+  if (viewState.view !== "grid") return false;
+  const toPoint = point.clone().sub(camera.position);
+  for (let index = 0; index < 2; index++) {
+    const centre = new THREE.Vector3(spacetime.rods[index].centre, 0, 0);
+    const along = Math.min(Math.max(centre.clone().sub(camera.position).dot(toPoint) / toPoint.lengthSq(), 0), 1);
+    if (along >= 0.999) continue;
+    const closest = camera.position.clone().addScaledVector(toPoint, along);
+    if (closest.distanceTo(centre) < starSemiAxes(index).across * 0.95) return true;
+  }
+  return false;
+}
+
+/** Turns every hand to its own proper time, and draws the clocks back to front. */
+function updateClocks() {
+  const turnsAtInfinity = viewState.coordinateTimeSeconds / CLOCK_PERIOD_SECONDS;
+  for (const clock of clocks) {
+    clock.group.quaternion.copy(camera.quaternion);   // face the viewer
+    clock.hand.rotation.z = -2 * Math.PI * ((clock.rate * turnsAtInfinity) % 1);
+    clock.distance = clock.group.position.distanceToSquared(camera.position);
+    clock.group.visible = !isHiddenBehindStar(clock.group.position);
+    if (clock.label) clock.label.visible = viewState.showClocks && clock.group.visible;
+  }
+  const backToFront = [...clocks].sort((first, second) => second.distance - first.distance);
+  backToFront.forEach((clock, rank) => {
+    clock.parts.forEach((part, layer) => { part.renderOrder = 1000 + rank * clock.parts.length + layer; });
+  });
+  farClockHand.setAttribute("transform", `rotate(${(360 * ((turnsAtInfinity * observerClockRate()) % 1)).toFixed(2)})`);
+}
+
+// ===== Formatting =====
+
+function formatRedshift(redshift) {
+  const magnitude = Math.abs(redshift);
+  const text = magnitude !== 0 && magnitude < 1e-3 ? redshift.toExponential(3) : redshift.toFixed(4);
+  return redshift < 0 ? `${text} (blueshift)` : text;
+}
+
+function formatWavelength(wavelengthNm) {
+  const swatch = `<span class="swatch" style="background:${linearToCss(wavelengthToLinearRgb(wavelengthNm))}"></span>`;
+  return `${swatch}${wavelengthNm.toFixed(1)} nm <span class="note">(${describeBand(wavelengthNm)})</span>`;
+}
+
+function formatWavelengthShort(wavelengthNm) {
+  const swatch = `<span class="swatch" style="background:${linearToCss(wavelengthToLinearRgb(wavelengthNm))}"></span>`;
+  return `${swatch}${wavelengthNm.toFixed(1)} nm`;
+}
+
+const formatKm = (value) => `${value.toFixed(2)} km`;
+/** A clock rate as a percentage of the reference clock's, e.g. 0.9827 → "98.3%". */
+const formatRatePercent = (rate) => `${(100 * rate).toFixed(1)}%`;
+const formatForce = (newtons) => { const [mantissa, exponent] = newtons.toExponential(2).split("e+"); return `${mantissa} × 10<sup>${exponent}</sup> N`; };
+
+/** Where a point on the line is, in words: ruler distance from star 1's facing surface. */
+const describeAxisPlace = (z) => `${formatKm(rulerAtAxisZ(z))} from star 1`;
+
+// ===== Readout =====
+
+function updateReadout() {
+  const rods = spacetime.rods;
+  const startZ = emitterZ();
+  const endZ = receiverZ();
+  const pointA = { rho: 0, z: startZ };
+  const pointB = { rho: 0, z: endZ };
+  const reference = observerPoint();
+  const versus = reference ? ` of ${observerName()}'s` : " of a far clock";
+  const redshiftAB = PhysicsCore.redshiftBetween(pointA, pointB, rods);
+
+  document.getElementById("readout-frame").textContent = reference
+    ? `static observer (${observerName()}), ${formatKm(reference.rho)} from the line` : "far away (∞)";
+  document.getElementById("readout-lambda-a").innerHTML = formatWavelength(viewState.emittedWavelengthNm);
+  document.getElementById("readout-lambda-b").innerHTML = formatWavelength(viewState.emittedWavelengthNm * (1 + redshiftAB));
+  document.getElementById("readout-z-ab").textContent = formatRedshift(redshiftAB);
+  const reddestPoint = { rho: 0, z: spacetime.reddestZ };
+  document.getElementById("readout-reddest").innerHTML = `${describeAxisPlace(spacetime.reddestZ)}: `
+    + `${formatWavelengthShort(localWavelengthNm(0, spacetime.reddestZ))}, clock ${formatRatePercent(PhysicsCore.relativeClockRate(reddestPoint, reference, rods))}${versus}`;
+  document.getElementById("readout-clock-a").textContent =
+    `${formatRatePercent(PhysicsCore.relativeClockRate(pointA, reference, rods))}${versus}, ${describeAxisPlace(startZ)}`;
+  document.getElementById("readout-clock-b").textContent =
+    `${formatRatePercent(PhysicsCore.relativeClockRate(pointB, reference, rods))}${versus}, ${describeAxisPlace(endZ)}`;
+
+  const lightSeconds = Math.abs(lightAtAxisZ(endZ) - lightAtAxisZ(startZ)) / SPEED_OF_LIGHT_KM_S;
+  const rulerDistance = Math.abs(rulerAtAxisZ(endZ) - rulerAtAxisZ(startZ));
+  document.getElementById("readout-time").textContent = reference
+    ? `${(lightSeconds * observerClockRate() * 1e6).toFixed(2)} µs on ${observerName()}'s clock (far clock: ${(lightSeconds * 1e6).toFixed(2)} µs)`
+    : `${(lightSeconds * 1e6).toFixed(2)} µs (flat space: ${(rulerDistance / SPEED_OF_LIGHT_KM_S * 1e6).toFixed(2)} µs for the same ruler distance)`;
+  document.getElementById("readout-distance").textContent = `${formatKm(rulerDistance)} (drawn ${formatKm(Math.abs(endZ - startZ))})`;
+
+  const surfaceRedshift = (index) => PhysicsCore.redshiftToInfinity(0, index === 0 ? spacetime.leftSurfaceZ : spacetime.rightSurfaceZ, rods);
+  document.getElementById("readout-stars").innerHTML = [0, 1].map((index) =>
+    `${index + 1}: ${spacetime.masses[index].toFixed(2)} M☉, r<sub>s</sub> = ${formatKm(2 * rods[index].halfLength)}, `
+    + `facing surface z<sub>∞</sub> = ${surfaceRedshift(index).toFixed(4)}`).join("<br>")
+    + `<br><span class="note">Gap ${formatKm(spacetime.gapRulerKm)} by rulers; ${formatKm(spacetime.rightSurfaceZ - spacetime.leftSurfaceZ)} in Weyl's z.</span>`;
+
+  const strutForce = PhysicsCore.strutForceNewtons(rods);
+  const centreDistanceMetres = spacetime.centreDistance * 1000;
+  const newtonForce = PhysicsCore.newtonForceNewtons(PhysicsConstants.solarGM * spacetime.masses[0],
+    PhysicsConstants.solarGM * spacetime.masses[1], centreDistanceMetres);
+  document.getElementById("readout-strut").innerHTML = `pushes with ${formatForce(strutForce)}`
+    + ` <span class="note">(Newton, G M₁M₂/d² at the Weyl centre distance ${formatKm(spacetime.centreDistance)}: ${formatForce(newtonForce)};`
+    + ` e<sup>γ₀</sup> = ${Math.exp(spacetime.strutGamma).toFixed(5)})</span>`;
+
+  updateObserversTable();
+}
+
+/** The "who measures what" table: each static observer's clock rate (vs the frame) and the wavelength of A's light there. */
+function updateObserversTable() {
+  const reference = observerPoint();
+  const rows = [
+    ["Far away", null],
+    ["Star 1's facing surface", { rho: 0, z: spacetime.leftSurfaceZ }],
+    ["A", { rho: 0, z: emitterZ() }],
+    ["Reddest point", { rho: 0, z: spacetime.reddestZ }],
+    ["B", { rho: 0, z: receiverZ() }],
+    ["Star 2's facing surface", { rho: 0, z: spacetime.rightSurfaceZ }],
+  ];
+  if (viewState.frame === "observer") rows.push(["O", reference]);
+  if (viewState.frame === "camera") rows.push(["The camera", reference]);
+  const html = rows.map(([name, point]) => {
+    const rate = point ? PhysicsCore.relativeClockRate(point, reference, spacetime.rods)
+      : (reference ? 1 / PhysicsCore.clockRate(reference.rho, reference.z, spacetime.rods) : 1);
+    const wavelength = point ? localWavelengthNm(point.rho, point.z) : beam.wavelengthAtInfinityNm;
+    return `<tr><td>${name}</td><td>${formatRatePercent(rate)}</td><td>${formatWavelengthShort(wavelength)}</td></tr>`;
+  }).join("");
+  document.getElementById("observers-body").innerHTML = html;
+}
+
+function updateFrontReadout() {
+  const element = document.getElementById("readout-front");
+  if (beam.lastDrawnIndex < 0) { element.textContent = "not emitted yet"; return; }
+  const index = beam.lastDrawnIndex;
+  const z = beam.axisZ[index];
+  const arrived = index === BEAM_POINTS - 1;
+  const goingRight = receiverZ() > emitterZ();
+  const slope = (potentialAt(0, z + 0.01) - potentialAt(0, z - 0.01)) * (goingRight ? 1 : -1);
+  const trend = arrived ? "arrived at B" : slope > 0 ? "climbing: reddening" : "falling: getting bluer";
+  element.innerHTML = `${describeAxisPlace(z)}, ${formatWavelengthShort(localWavelengthNm(0, z))}<br><span class="note">${trend}</span>`;
+}
+
+// ===== Plot along the beam =====
+//
+// The clock rate of static observers on the line between the stars (compared with the frame's clock), against
+// ruler distance from star 1. The wavelength of the light at each point is proportional to the same curve,
+// so one curve carries both scales: % on the left, nm on the right. Drawn in the light's own colours.
+
+const plotCanvas = document.getElementById("path-plot");
+
+function drawPathPlot() {
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+  const width = plotCanvas.clientWidth;
+  const height = plotCanvas.clientHeight;
+  if (width === 0) return;
+  if (plotCanvas.width !== Math.round(width * pixelRatio)) {
+    plotCanvas.width = Math.round(width * pixelRatio);
+    plotCanvas.height = Math.round(height * pixelRatio);
+  }
+  const context = plotCanvas.getContext("2d");
+  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  context.clearRect(0, 0, width, height);
+  const margin = { left: 44, right: 50, top: 8, bottom: 22 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+
+  const reference = observerPoint();
+  const referencePotential = reference ? potentialAt(reference.rho, reference.z) : 0;
+  const { profile, gapRulerKm } = spacetime;
+  const samples = 200;
+  const values = [];
+  for (let sample = 0; sample <= samples; sample++) {
+    const ruler = gapRulerKm * sample / samples;
+    const z = axisZAtRuler(ruler);
+    values.push({ ruler, z, rate: Math.exp(interpolate(profile.z, profile.potential, z) - referencePotential) });
+  }
+  let low = Math.min(...values.map((value) => value.rate));
+  let high = Math.max(...values.map((value) => value.rate));
+  if (reference) { low = Math.min(low, 1); high = Math.max(high, 1); }
+  const padding = 0.06 * (high - low || 0.01);
+  low -= padding;
+  high += padding;
+  const toX = (ruler) => margin.left + plotWidth * ruler / gapRulerKm;
+  const toY = (rate) => margin.top + plotHeight * (1 - (rate - low) / (high - low));
+  // λ at a point = (wavelength at infinity) × e^U = (wavelength at infinity) × e^(U_O) × rate.
+  const nanometresPerRate = beam.wavelengthAtInfinityNm * Math.exp(referencePotential);
+
+  // Axes and labels.
+  context.strokeStyle = "rgba(154,163,184,0.5)";
+  context.lineWidth = 1;
+  context.strokeRect(margin.left, margin.top, plotWidth, plotHeight);
+  context.fillStyle = "#9aa3b8";
+  context.font = "10.5px system-ui, sans-serif";
+  context.textAlign = "right";
+  for (const rate of [low + padding, (low + high) / 2, high - padding]) {
+    context.fillText(formatRatePercent(rate), margin.left - 4, toY(rate) + 3.5);
+  }
+  context.textAlign = "left";
+  for (const rate of [low + padding, (low + high) / 2, high - padding]) {
+    context.fillText(`${(rate * nanometresPerRate).toFixed(0)} nm`, margin.left + plotWidth + 4, toY(rate) + 3.5);
+  }
+  context.textAlign = "center";
+  context.fillText("star 1", margin.left, height - 6);
+  context.fillText("star 2", margin.left + plotWidth, height - 6);
+  context.fillText(`ruler distance (${gapRulerKm.toFixed(0)} km)`, margin.left + plotWidth / 2, height - 6);
+
+  // The reference observer's own rate (100%).
+  if (reference) {
+    context.setLineDash([4, 3]);
+    context.strokeStyle = "rgba(255,255,255,0.45)";
+    context.beginPath();
+    context.moveTo(margin.left, toY(1));
+    context.lineTo(margin.left + plotWidth, toY(1));
+    context.stroke();
+    context.setLineDash([]);
+  }
+
+  // The curve, coloured by the light's local wavelength.
+  context.lineWidth = 2.5;
+  for (let sample = 0; sample < samples; sample++) {
+    const first = values[sample];
+    const second = values[sample + 1];
+    context.strokeStyle = linearToCss(wavelengthToLinearRgb(first.rate * nanometresPerRate));
+    context.beginPath();
+    context.moveTo(toX(first.ruler), toY(first.rate));
+    context.lineTo(toX(second.ruler), toY(second.rate));
+    context.stroke();
+  }
+
+  // Markers: A, B, the reddest point and the wave front.
+  const marker = (z, text, color, below) => {
+    const ruler = rulerAtAxisZ(z);
+    const rate = Math.exp(interpolate(profile.z, profile.potential, z) - referencePotential);
+    context.fillStyle = color;
+    context.beginPath();
+    context.arc(toX(ruler), toY(rate), 3.5, 0, 2 * Math.PI);
+    context.fill();
+    if (text) {
+      context.fillStyle = "#e6e9f2";
+      context.textAlign = "center";
+      context.fillText(text, toX(ruler), toY(rate) + (below ? 14 : -7));
+    }
+  };
+  marker(spacetime.reddestZ, "reddest", "#ff6a4a", false);
+  marker(emitterZ(), "A", "#ffffff", true);
+  marker(receiverZ(), "B", "#ffffff", true);
+  if (beam.lastDrawnIndex >= 0 && beam.lastDrawnIndex < BEAM_POINTS - 1) marker(beam.axisZ[beam.lastDrawnIndex], "", "#ffffff", false);
+
+  document.getElementById("path-plot-note").textContent = `Clock rate of static observers along the line (left, % of ${observerName()}'s)`
+    + " and the wavelength they measure for the light (right). It is one curve: redshift is the ratio of clock rates.";
+}
+
+// ===== Camera readout (camera frame) =====
+
+function updateCameraReadout() {
+  const element = document.getElementById("camera-hud");
+  element.hidden = viewState.frame !== "camera";
+  if (element.hidden) return;
+  const point = cameraPoint();
+  const rate = PhysicsCore.clockRate(point.rho, point.z, spacetime.rods);
+  element.innerHTML = `Camera ${formatKm(point.rho)} from the line, x = ${formatKm(point.z)} · clock ${formatRatePercent(rate)} of a far clock`
+    + ` · A's light arrives as ${formatWavelengthShort(localWavelengthNm(point.rho, point.z))}`;
+}
+
+// ===== Controls =====
+
+const farClockHand = document.getElementById("far-clock-hand");
+const mass1Slider = document.getElementById("mass1-slider");
+const mass2Slider = document.getElementById("mass2-slider");
+const gapSlider = document.getElementById("gap-slider");
+const emitterSlider = document.getElementById("emitter-slider");
+const receiverSlider = document.getElementById("receiver-slider");
+const wavelengthSlider = document.getElementById("wavelength-slider");
+const speedSlider = document.getElementById("speed-slider");
+const brightnessSlider = document.getElementById("brightness-slider");
+const observerXSlider = document.getElementById("observer-x-slider");
+const observerRhoSlider = document.getElementById("observer-rho-slider");
+
+/** Log-scale sliders: position 0…1000 maps onto [minimum, maximum]. */
+const logSliderValue = (position, minimum, maximum) => minimum * (maximum / minimum) ** (position / 1000);
+const logSliderPosition = (value, minimum, maximum) => 1000 * Math.log(value / minimum) / Math.log(maximum / minimum);
+
+function showSliderValues() {
+  document.getElementById("mass1-value").textContent = `${viewState.star1Mass.toFixed(2)} M☉`;
+  document.getElementById("mass2-value").textContent = `${viewState.star2Mass.toFixed(2)} M☉`;
+  document.getElementById("gap-value").textContent = `${viewState.gapKm.toFixed(1)} km`;
+  document.getElementById("emitter-value").textContent = `${formatKm(viewState.emitterFraction * spacetime.gapRulerKm)} from star 1`;
+  document.getElementById("receiver-value").textContent = `${formatKm(viewState.receiverFraction * spacetime.gapRulerKm)} from star 1`;
+  document.getElementById("wavelength-value").textContent = `${viewState.emittedWavelengthNm} nm`;
+  const fullZ = viewState.fullBrightnessRedshift;
+  document.getElementById("brightness-value").textContent = fullZ < 0.1 ? fullZ.toFixed(3) : fullZ.toFixed(2);
+  const speed = viewState.screenLightSpeedKmS;
+  document.getElementById("speed-value").textContent = `${speed < 10 ? speed.toFixed(1) : speed.toFixed(0)} km/s`;
+  document.getElementById("speed-note").textContent =
+    `Playback only: real light (${SPEED_OF_LIGHT_KM_S.toLocaleString("en-US")} km/s) is shown ${Math.round(SPEED_OF_LIGHT_KM_S / speed).toLocaleString("en-US")}× slower.`;
+  document.getElementById("observer-x-value").textContent = `x = ${formatKm(viewState.observerX)}`;
+  document.getElementById("observer-rho-value").textContent = formatKm(viewState.observerRho);
+}
+
+function describeBodyNote() {
+  document.getElementById("body-note").textContent = `Both stars have radius ${STAR_RADIUS_KM} km (neutron-star size). `
+    + "The gap is measured by rulers laid along the line between their facing surfaces. Nothing real holds them still: "
+    + "released, they would fall together within milliseconds.";
+}
+
+function describeView() {
+  document.querySelectorAll(".grid-only").forEach((element) => { element.style.display = viewState.view === "grid" ? "" : "none"; });
+  document.getElementById("view-note").textContent = viewState.view === "grid"
+    ? "Straight lines of Weyl's coordinates, true scale. Each line is painted in bands 5 km long by rulers: where bands crowd "
+      + "(near the stars, and along the line between them) there is more true distance than the drawing shows."
+    : `The plane through both stars, sunk by ${DEPTH_SCALE_KM} km × (1 − clock rate). The light climbs out of one well and falls `
+      + "into the other. This is a graph of the clock rate, not a picture of curved space.";
+}
+
+function updateObserverSliders() {
+  const halfLength = sceneHalfLength();
+  observerXSlider.min = -halfLength;
+  observerXSlider.max = halfLength;
+  viewState.observerX = Math.min(Math.max(viewState.observerX, -halfLength), halfLength);
+  observerXSlider.value = viewState.observerX;
+  observerRhoSlider.value = viewState.observerRho;
+}
+
+/** Rebuilds everything that depends on the masses or the gap. */
+function onStarsChanged() {
+  spacetime = describeSpacetime();
+  updateStars();
+  updateObserverSliders();
+  buildGrid();
+  buildLandscape();
+  buildStrut();
+  describeBodyNote();
+  onBeamChanged();
+  describeFrame();
+}
+
+function onBeamChanged() {
+  showSliderValues();
+  rebuildBeam();
+  updateReadout();
+  drawPathPlot();
+}
+
+function onFrameChanged() {
+  placeObserverMarker();
+  buildObserverLevel();
+  buildClocks();
+  describeFrame();
+  showSliderValues();
+  updateReadout();
+  drawPathPlot();
+}
+
+mass1Slider.addEventListener("input", () => { viewState.star1Mass = Number(mass1Slider.value); onStarsChanged(); });
+mass2Slider.addEventListener("input", () => { viewState.star2Mass = Number(mass2Slider.value); onStarsChanged(); });
+gapSlider.addEventListener("input", () => { viewState.gapKm = Number(gapSlider.value); onStarsChanged(); });
+emitterSlider.addEventListener("input", () => { viewState.emitterFraction = Number(emitterSlider.value) / 1000; viewState.travelledLightKm = 0; onBeamChanged(); });
+receiverSlider.addEventListener("input", () => { viewState.receiverFraction = Number(receiverSlider.value) / 1000; viewState.travelledLightKm = 0; onBeamChanged(); });
+wavelengthSlider.addEventListener("input", () => { viewState.emittedWavelengthNm = Number(wavelengthSlider.value); onBeamChanged(); });
+speedSlider.addEventListener("input", () => {
+  viewState.screenLightSpeedKmS = logSliderValue(Number(speedSlider.value), SCREEN_SPEED_MIN_KM_S, SCREEN_SPEED_MAX_KM_S);
+  showSliderValues();
+});
+brightnessSlider.addEventListener("input", () => {
+  viewState.fullBrightnessRedshift = logSliderValue(Number(brightnessSlider.value), FULL_BRIGHTNESS_Z_MIN, FULL_BRIGHTNESS_Z_MAX);
+  showSliderValues();
+  buildGrid();
+  buildLandscape();
+});
+
+document.getElementById("restart-button").addEventListener("click", () => { viewState.travelledLightKm = 0; });
+document.getElementById("pause-button").addEventListener("click", (event) => {
+  viewState.paused = !viewState.paused;
+  event.target.textContent = viewState.paused ? "Play" : "Pause";
+});
+document.getElementById("swap-button").addEventListener("click", () => {
+  [viewState.emitterFraction, viewState.receiverFraction] = [viewState.receiverFraction, viewState.emitterFraction];
+  emitterSlider.value = viewState.emitterFraction * 1000;
+  receiverSlider.value = viewState.receiverFraction * 1000;
+  viewState.travelledLightKm = 0;
+  onBeamChanged();
+});
+
+document.getElementById("view-mode").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-view]");
+  if (button) setView(button.dataset.view);
+});
+
+document.getElementById("frame-mode").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-frame]");
+  if (!button) return;
+  viewState.frame = button.dataset.frame;
+  document.querySelectorAll("#frame-mode button").forEach((element) => element.classList.toggle("active", element === button));
+  onFrameChanged();
+});
+
+document.getElementById("observer-presets").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-preset]");
+  if (!button) return;
+  const point = observerPreset(button.dataset.preset);
+  viewState.observerX = point.z;
+  viewState.observerRho = point.rho;
+  updateObserverSliders();
+  onFrameChanged();
+});
+observerXSlider.addEventListener("input", () => { viewState.observerX = Number(observerXSlider.value); onFrameChanged(); });
+observerRhoSlider.addEventListener("input", () => { viewState.observerRho = Number(observerRhoSlider.value); onFrameChanged(); });
+
+document.getElementById("clocks-checkbox").addEventListener("change", (event) => {
+  viewState.showClocks = event.target.checked;
+  applyClockVisibility();
+});
+document.getElementById("bands-checkbox").addEventListener("change", (event) => {
+  viewState.showBands = event.target.checked;
+  buildGrid();
+});
+document.getElementById("section-checkbox").addEventListener("change", (event) => {
+  viewState.sectionCut = event.target.checked;
+  buildGrid();
+});
+
+/** CSS2D labels ignore a hidden parent group, so each label's visibility is set here. */
+function applyLabelVisibility() {
+  for (const star of starObjects) star.label.visible = viewState.view === "grid";
+  landscapeNoteLabel.visible = viewState.view === "landscape";
+  for (const label of landscapeStarLabels) label.visible = viewState.view === "landscape";
+  observerLevelLabel.visible = viewState.view === "landscape" && observerPoint() !== null;
+}
+
+function setView(view) {
+  viewState.view = view;
+  document.querySelectorAll("#view-mode button").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+  gridGroup.visible = view === "grid";
+  landscapeGroup.visible = view === "landscape";
+  describeView();
+  applyLabelVisibility();
+  buildStrut();
+  rebuildBeam();
+  placeObserverMarker();
+  if (view === "grid") { camera.position.set(30, 95, 215); controls.target.set(0, 0, 0); }
+  else { camera.position.set(20, 120, 190); controls.target.set(0, -15, 0); }
+  // On a tall, narrow (phone) screen, step back so both stars fit side by side.
+  if (camera.aspect < 1) camera.position.sub(controls.target).multiplyScalar(0.8 / camera.aspect).add(controls.target);
+  controls.update();
+}
+
+document.getElementById("panel-toggle").addEventListener("click", (event) => {
+  const panel = document.getElementById("controls");
+  panel.classList.toggle("collapsed");
+  event.target.textContent = panel.classList.contains("collapsed") ? "Show" : "Hide";
+});
+
+function drawLegend() {
+  const stops = REDSHIFT_COLOR_STOPS.map((color, index) =>
+    `#${color.getHexString()} ${(100 * index / (REDSHIFT_COLOR_STOPS.length - 1)).toFixed(0)}%`);
+  document.getElementById("legend-bar").style.background = `linear-gradient(to right, ${stops.join(", ")})`;
+}
+
+// ===== Equations (KaTeX) =====
+
+function renderEquations() {
+  if (!window.katex) return;
+  document.querySelectorAll("[data-tex]").forEach((element) => {
+    katex.render(element.dataset.tex, element, { throwOnError: false, displayMode: element.tagName === "DIV" });
+  });
+}
+if (window.katex) renderEquations(); else window.addEventListener("load", renderEquations);
+
+// ===== Self-test panel (open the page with ?selftest) =====
+
+function runPhysicsSelfTests() {
+  return PhysicsSelfTests.map((test) => {
+    const actualValue = test.actual();
+    const relativeError = test.expected === 0 ? Math.abs(actualValue)
+      : Math.abs(actualValue - test.expected) / Math.abs(test.expected);
+    return { ...test, actualValue, relativeError, passed: relativeError <= test.relativeTolerance };
+  });
+}
+
+function showSelfTestPanel() {
+  const results = runPhysicsSelfTests();
+  const passedCount = results.filter((result) => result.passed).length;
+  const panel = document.createElement("pre");
+  panel.className = "selftest-panel";
+  panel.textContent = `Physics self-tests: ${passedCount}/${results.length} passed\n\n` + results
+    .map((r) => `${r.passed ? "PASS" : "FAIL"}  ${r.name}: ${r.actualValue.toPrecision(9)} vs ${r.expected} (rel. err ${r.relativeError.toExponential(2)})`)
+    .join("\n");
+  document.body.appendChild(panel);
+}
+
+// ===== Resize and animation loop =====
+
+function resize() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  renderer.setSize(width, height);
+  labelRenderer.setSize(width, height);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  for (const material of lineMaterials) material.resolution.set(width, height);
+  if (spacetime) drawPathPlot();
+}
+window.addEventListener("resize", resize);
+
+let previousFrameTime = performance.now();
+let frameCounter = 0;
+let lastCameraPoint = null;
+function animate(now) {
+  requestAnimationFrame(animate);
+  const elapsedSeconds = Math.min((now - previousFrameTime) / 1000, 0.1);
+  previousFrameTime = now;
+  advanceBeam(elapsedSeconds);
+  if (frameCounter++ % 6 === 0) {
+    updateFrontReadout();
+    updateCameraReadout();
+    if (viewState.frame === "camera") {   // the observer moves with the camera
+      const point = cameraPoint();
+      const moved = !lastCameraPoint || Math.hypot(point.rho - lastCameraPoint.rho, point.z - lastCameraPoint.z) > 0.5;
+      if (moved) {
+        lastCameraPoint = point;
+        refreshClockRates();
+        buildObserverLevel();
+        updateReadout();
+        describeFrame();
+      }
+    }
+    drawPathPlot();
+  }
+  updateClocks();
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+
+// ===== Start =====
+
+/** Sets every checkbox and button group to match viewState, so the defaults above are the only place to change them. */
+function syncControlsToState() {
+  const checkboxes = {
+    "bands-checkbox": viewState.showBands,
+    "section-checkbox": viewState.sectionCut,
+    "clocks-checkbox": viewState.showClocks,
+  };
+  for (const [id, checked] of Object.entries(checkboxes)) document.getElementById(id).checked = checked;
+  document.querySelectorAll("#frame-mode button").forEach((button) => button.classList.toggle("active", button.dataset.frame === viewState.frame));
+  mass1Slider.value = viewState.star1Mass;
+  mass2Slider.value = viewState.star2Mass;
+  gapSlider.value = viewState.gapKm;
+  emitterSlider.value = viewState.emitterFraction * 1000;
+  receiverSlider.value = viewState.receiverFraction * 1000;
+  wavelengthSlider.value = viewState.emittedWavelengthNm;
+  speedSlider.value = logSliderPosition(viewState.screenLightSpeedKmS, SCREEN_SPEED_MIN_KM_S, SCREEN_SPEED_MAX_KM_S);
+  brightnessSlider.value = logSliderPosition(viewState.fullBrightnessRedshift, FULL_BRIGHTNESS_Z_MIN, FULL_BRIGHTNESS_Z_MAX);
+}
+
+const [exaggerationMantissa, exaggerationExponent] = WAVE_EXAGGERATION.toExponential(1).split("e+");
+document.getElementById("exaggeration-note").innerHTML = `about ${exaggerationMantissa} × 10<sup>${exaggerationExponent}</sup>`;
+document.getElementById("depth-scale-note").textContent = `${DEPTH_SCALE_KM} km`;
+syncControlsToState();
+drawLegend();
+resize();
+onStarsChanged();
+setView("grid");
+onFrameChanged();
+if (window.innerWidth <= 760) document.getElementById("panel-toggle").click();
+if (new URLSearchParams(location.search).has("selftest")) showSelfTestPanel();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
