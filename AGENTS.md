@@ -16,8 +16,8 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   The owner asked to see this first version before more controls are added.
 - `two-body-problem.html` (added 2026-11-20): working prototype. Two 12 km stars on a line, exact static Weyl /
   Israel–Khan solution. Light A → B along the line, clocks along the path, reference frames. Three views, including a
-  numerically computed true-length surface (two-star Flamm); the grid can be anchored at points on the line.
-  All 29 physics self-tests pass.
+  rigorous true-length surface (two-star Flamm); the default grid is Flamm-style (the one-star page's grid built from
+  that surface) with five anchors. All 32 physics self-tests pass (the checker takes ~10 s: it solves two surfaces).
 - `index.html`: a landing page that links to each diagram.
 - Planned next: the observable-universe sphere (centre = now, edge = recombination).
 
@@ -143,7 +143,7 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 - Drawing is in Weyl coordinates (scene x = Weyl z, origin halfway between the rod centres; rho = distance from the
   x axis). A 12 km star appears as a spheroid with semi-axes R − m (along) and sqrt(R(R − 2m)) (across); heavier stars
   look smaller. Labels give the true radius.
-- Anchored grid (owner's request, 2026-11-20; now the default grid style): the one-star page's anchor options,
+- Anchored (geodesic) grid (owner's request, 2026-11-20; one of three grid styles): the one-star page's anchor options,
   generalised. Anchor = a point on the line (star 1's facing surface, the reddest point, star 2's facing surface, O's
   spot on the line, or far out = the grid's left end). Grid points keep their flat direction from the anchor and are
   placed at their flat distance in ruler length along spatial geodesics (Riemann normal coordinates). Geodesics from an
@@ -158,17 +158,29 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   length, counted from the grid's middle planes; replaces the one-star page's warped ruler-coordinate grid, which has no
   unique two-body version) and "Clock-rate landscape" (plane through both stars sunk by 100 km × (1 − dτ/dt): a graph,
   not an embedding; Flamm's paraboloid has no exact two-body version). In an observer frame the landscape shows O's level.
-- True-length surface (owner's request, 2026-11-20): the plane through both stars embedded isometrically in flat 3D,
-  the two-star version of Flamm's paraboloid. No closed form, so `PhysicsCore.buildSliceMesh` + `relaxEmbedding`:
-  a graded mesh over the half-plane rho ≥ 0 (nodes next to a star snapped onto its surface; each cell has 4 sides and
-  both diagonals), target edge lengths ∫e^(γ−U) (Simpson), L-BFGS from the stars' own Flamm shapes combined, axis nodes
-  held in the mirror plane, other half mirrored. A weak smoothness term (staged 1e-1 → 1e-2 → 1e-3, 300 steps each)
-  picks the smoothest of the equally true shapes; without it the free outer edge buckled into ~1 km zigzags in long thin
-  cells. Runs 25 steps per animation frame (so it pauses in a hidden tab), stops at 1e-4 RMS or 4000 steps; the view
-  note shows the live RMS and worst edge error (about 0.01% RMS, worst ~0.2%). Self-tests: Flamm's exact surface fits
-  the slice metric (2.5e-5 RMS); one star relaxed keeps Flamm's rise 2 r_s → 10 r_s (within 0.2%: the smoothness
-  term's pull); two stars relax below 0.1% RMS. Curvature of the slice is negative everywhere (checked for the default
-  pair), like Flamm's. Shape isn't unique (saddle surfaces bend without stretching): stated on the page.
+- True-length surface (rebuilt 2026-11-20, replacing the first relaxed version): the plane through both stars embedded
+  in flat 3D with true edge lengths. Lengths fix the curvature (static vacuum: R_ij = ∇_i∇_j N / N, plane curvature
+  K = −∇N·∇ln c / N) but not the bending in the extra direction, which is genuinely free (a hyperbolic problem; edge
+  pinning alone left 1–9 km of freedom). Two stated conventions pin it: far edge (1000 km) = total-mass Flamm
+  paraboloid; along the whole line, cos(tilt) = clock rate vs the fastest clock on that piece (far clock beyond the
+  stars, reddest point's clock between them) — the owner's proper-time idea; both are exact Flamm for one star.
+  `PhysicsCore.buildSurfaceMesh` (prolate spheroidal mesh, foci at the star centres, cell 0.06), `solveSurface`
+  (generator: Levenberg–Marquardt, banded Cholesky, 25 steps, ~5 s; the page runs a 30 ms slice per frame).
+  Accuracy: matches an independent Python/SciPy rebuild to < 1 m (self-tests); convergence study gives ±0.3–0.5 km
+  near the stars seen from above (mesh size 0.48 km, far edge 1000 vs 2000 km 0.34 km). Things tried and rejected
+  (numbers in the session history): free edge + smoothing (ripples, km drift), pinning a point (L1 = reddest point),
+  height = function of the potential (impossible: needs each star's own mass near it and the total far away; 2–3%
+  length errors), "always tilt toward faster clocks" (the true geometry violates it on ~10% of edges).
+- Flamm-style grid (owner's request, 2026-11-20; now the default grid): the one-star page's construction on the true-
+  length surface. Drawing coordinates = the surface seen from above, turned about the line; each grid point slides
+  along its downhill line until its true distance from the anchor equals its drawn distance (exactly ρ = r_a + ℓ(r_a, r)
+  for one star; self-tests). Anchors: far (z∞ = 0.01 level, capped 900 km), each star's surface, the reddest point's
+  level, O's level, the camera's level (redone when the camera moves 5%). `rasterizeSurface` (1 km, with a smooth slope
+  field), `flammGridPoint`, map on a 2 km raster filled a few rows per frame (~1 s). Stars are drawn as their rims
+  turned about the line; beam, strut, clocks in the same coordinates. Known: a crease where downhill lines part between
+  the stars (the plane through the reddest point), a few unmapped points at the reddest point's flat saddle, and
+  lumpy-looking star outlines (rim polygon). While the surface is computing, the straight ruler-band grid stands in.
+- Other grid styles kept: straightest paths (geodesics) from a point on the line, and straight with ruler bands.
 - Light runs only along the axis (straight by symmetry): c dt = e^(γ₀−2U) dz, ruler dℓ = e^(γ₀−U) dz. Wave sampled evenly in
   L = ∫e^(γ₀−2U)dz. Same wave exaggeration and colour method as the one-star page.
 - Not carried over from the one-star page (possible next steps): measuring sticks, radar distances, sky/apparent-size

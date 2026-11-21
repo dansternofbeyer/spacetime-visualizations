@@ -69,8 +69,8 @@ The project's own code is MIT licensed (see `LICENSE`); everything listed here k
   Class. Quantum Grav. 15, 421, arXiv:gr-qc/9710122. The strut and its force.
 - **J. B. Griffiths & J. Podolský** (2009), *Exact Space-Times in Einstein's General Relativity*, Cambridge University Press,
   ch. 10 (static axially symmetric space-times).
-- **J. Nocedal & S. J. Wright** (2006), *Numerical Optimization*, 2nd ed., Springer, ch. 7. The L-BFGS method that
-  relaxes the true-length surface in `two-body-problem.html`.
+- **J. Nocedal & S. J. Wright** (2006), *Numerical Optimization*, 2nd ed., Springer: ch. 10 (Levenberg–Marquardt), which
+  solves the true-length surface in `two-body-problem.html`.
 - **C. Wyman, P.-P. Sloan & P. Shirley** (2013), "Simple Analytic Approximations to the CIE XYZ Color Matching
   Functions", Journal of Computer Graphics Techniques 2(2), https://jcgt.org/published/0002/02/01/.
   Turns wavelengths into on-screen colours in `gravitational-redshift.html` and `two-body-problem.html`.

@@ -139,8 +139,17 @@
   </div>
   <p class="note grid-only" style="margin-bottom:2px">Grid lines…</p>
   <div class="segmented row grid-only" id="grid-style">
-    <button data-style="anchored">laid out from an anchor</button>
+    <button data-style="flamm">Flamm-style (from the true-length surface)</button>
+    <button data-style="anchored">straightest paths from a point</button>
     <button data-style="bands">straight, with ruler bands</button>
+  </div>
+  <p class="note flamm-only" style="margin-bottom:2px">Grid matches flat space…</p>
+  <div class="segmented row flamm-only" id="flamm-anchor-mode">
+    <button data-anchor="far">far away</button>
+    <button data-anchor="surfaces">at the stars' surfaces</button>
+    <button data-anchor="reddest">at the reddest point's level</button>
+    <button data-anchor="observer">at O's level</button>
+    <button data-anchor="camera">at the camera's level</button>
   </div>
   <p class="note anchored-only" style="margin-bottom:2px">Grid matches flat space…</p>
   <div class="segmented row anchored-only" id="anchor-mode">
@@ -280,15 +289,31 @@
         as an orange plateau at its surface value.</p>
       <p>• <b>True-length surface.</b> The plane through both stars at one moment, bent in flat 3D so that every distance along
         it is the true ruler distance, <span class="tex" data-tex="d\ell=e^{\gamma-U}\sqrt{d\rho^2+dz^2}"></span>: the two-star
-        version of Flamm's paraboloid. Flamm could write his down because one star looks the same in every direction; two stars
-        don't, so this one is computed. A mesh of about 4,000 points over the plane is relaxed until each edge has its true length,
-        starting from the two stars' own Flamm shapes combined (L-BFGS minimisation, Nocedal &amp; Wright 2006). The note under
-        <i>How space is drawn</i> shows how close the edge lengths got (typically 0.01% RMS). With one star alone the same method
-        gives back Flamm's paraboloid (self-tests). Three honest limits: the height means nothing physical; the shape isn't unique,
-        because a saddle-shaped surface (this one curves like a saddle everywhere, like Flamm's) can bend a little without changing
-        any length, so the page shows the one nearest the combined Flamm shapes; and the stars' insides aren't modelled, so each is
-        closed with a flat orange lid. The strut lies along the line in this plane but doesn't show: its excess angle goes around
-        the line, out of the plane.</p>
+        version of Flamm's paraboloid. The lengths fix how this plane curves (for a static spacetime, Einstein's equations tie
+        the curvature to the clock rate N = dτ/dt: <span class="tex" data-tex="R_{ij}=\nabla_i\nabla_jN/N"></span>, so the plane's
+        curvature is <span class="tex" data-tex="K=-\nabla N\cdot\nabla\ln c\,/\,N"></span>, with c the radius of the circle
+        around the line; for one star this is Flamm's −r<sub>s</sub>/2r³). But lengths don't fix how the plane bends in the
+        made-up vertical direction, and with two stars many shapes fit them almost equally well. Two stated conventions pin it
+        down: <b>far away</b> (1000 km out) the surface is the Flamm paraboloid of the total mass, as the pair looks from a
+        distance; and <b>along the line through both stars</b> it tilts so that
+        <span class="tex" data-tex="\cos(\text{tilt})=d\tau/dt"></span>, the clock rate compared with the fastest clock on that
+        piece of line (a far clock beyond the stars, the reddest point's clock between them). For one star both are exactly
+        Flamm's paraboloid, whose tilt obeys cos(tilt) = √(1 − r<sub>s</sub>/r). The surface is computed on a mesh of about
+        3,500 points in prolate spheroidal coordinates (the star centres as foci), by Levenberg–Marquardt with an exact banded
+        solve (Nocedal &amp; Wright 2006). The self-tests check it against an independent Python solve (agreement within
+        0.1 km) and, with one star, against Flamm's paraboloid. A convergence study (mesh size, far-edge distance, solver steps)
+        puts its shape seen from above at about ±0.5 km near the stars. The height means nothing physical, and each star's
+        inside isn't modelled (a flat orange lid).</p>
+      <p>• <b>Flamm-style grid</b> (the default grid). The one-star page's grid, built from the true-length surface. Seen from
+        above, Flamm's paraboloid puts each point at its areal radius r; the one-star grid then slides each grid point along
+        the straight-out (downhill) line until its true distance from the anchor equals its drawn distance,
+        <span class="tex" data-tex="\rho = r_a + \ell(r_a, r)"></span>. Here the same steps use the two-star surface: look straight
+        down for the drawing coordinates, follow the surface's downhill lines, and turn the result about the line to fill 3D.
+        The stars, the beam and the clocks are drawn in the same coordinates. Anchors: far away (where light reaches infinity
+        with z = 0.01), each star's own surface, the reddest point's height, O's height, or the camera's height. With one star
+        this reproduces the one-star page's grid (self-tests). Where downhill lines part toward one star or the other (the
+        plane through the reddest point), the grid has a crease, and very close to the reddest point some lines run into its
+        flat saddle and are left out.</p>
       <p>• <b>Wave size:</b> the wave is drawn <span id="exaggeration-note"></span> times longer than real light. Ratios between
         wavelengths are true.</p>
       <p>• <b>Speed of light slider:</b> only slows the playback. Real light crosses the picture in under a millisecond.</p>
@@ -367,12 +392,10 @@ const PhysicsConstants = {
   buchdahlRatio: 9 / 8,               // any static star has R > (9/8) r_s (Buchdahl 1959)
 };
 
-// Weight of the smoothness term in the true-length surface's relaxation (see embeddingMismatch), by stage: strong at
-// first, so the surface finds its overall shape without the free outer edge buckling into zigzags, then weaker each
-// EMBEDDING_STAGE_STEPS steps. The last weight stays at 1e-3: lower ones let the free outer edge ripple again (a few
-// hundred metres) for no real gain, and it changes the edge lengths' error by less than 0.01%.
-const EMBEDDING_SMOOTHNESS_STAGES = [1e-1, 1e-2, 1e-3];
-const EMBEDDING_STAGE_STEPS = 300;
+// True-length surface: weight of the line rule against the edge lengths (both are least-squares terms), and the number of
+// Levenberg–Marquardt steps (25 bring it within 0.03 km of the fully converged shape; checked against SciPy).
+const SURFACE_LINK_WEIGHT = 10;
+const SURFACE_SOLVER_STEPS = 25;
 
 const PhysicsCore = {
   /** Schwarzschild radius r_s = 2GM/c^2, in metres, from GM in m^3/s^2. */
@@ -614,60 +637,62 @@ const PhysicsCore = {
     return Math.sqrt(Math.exp(2 * (gamma - potential)) * (alongZ ** 2 + alongRho ** 2) + Math.exp(-2 * potential) * around ** 2);
   },
 
-  // ----- True-length surface: numerical embedding of the plane through both stars -----
-  //
-  // The plane through both stars at one moment (φ = 0 and π) has the 2D metric dℓ² = e^(2(γ−U))(dρ² + dz²).
-  // With one star this is Flamm's paraboloid. With two there is no formula, so a mesh over the plane is relaxed in
-  // flat 3D until every edge has its true (ruler) length. Only the half ρ ≥ 0 is solved; its axis nodes are held in the
-  // mirror plane (Y = 0), and the other half is its mirror image.
-
   /** e^(γ − U): true length per unit of Weyl-coordinate length within the plane through the axis. */
   sliceMetricFactor(rho, z, rods) {
     return Math.exp(PhysicsCore.weylGamma(rho, z, rods) - PhysicsCore.weylPotential(rho, z, rods));
   },
+  // ----- True-length surface (rigorous version): the plane through both stars, embedded in flat 3D -----
+  //
+  // The plane's lengths fix its curvature but not how it bends in the extra drawing direction, so two conventions
+  // pin that down: (1) far away the pair looks like one star of the total mass, so the far edge (1000 km out) is the
+  // total mass's Flamm paraboloid; (2) along the whole line through both stars the surface tilts so that
+  // cos(tilt) = the clock rate, compared with the fastest clock on that piece of line (a far clock beyond the stars,
+  // the reddest point's clock between them). For one star both give exactly Flamm's paraboloid. The mesh uses prolate
+  // spheroidal coordinates with the star centres as foci (z = z_c + a cosh μ cos ν, ρ = a sinh μ sin ν): its cells
+  // stay square from the stars out to the far edge. Solved by Levenberg–Marquardt with an exact banded Cholesky solve.
 
-  /** Coordinates from start to end, each step stepAt(current) long (the last step is merged if it would be tiny). */
-  gradedCoordinates(start, end, stepAt) {
-    const values = [start];
-    while (values[values.length - 1] < end - 1e-9) values.push(Math.min(values[values.length - 1] + stepAt(values[values.length - 1]), end));
-    if (values.length > 2 && values[values.length - 1] - values[values.length - 2] < 0.4 * stepAt(values[values.length - 2])) {
-      values.splice(values.length - 2, 1);
-    }
-    return values;
+  /** One rod's own Flamm map at Weyl (ρ, z): [X, Y, W] = (centre + r cos θ, r sin θ, 2 sqrt(r_s (r − r_s))). */
+  rodFlammMap(rod, rho, z) {
+    const { upper, lower } = PhysicsCore.rodEndDistances(rho, z, rod);
+    const radius = 0.5 * (upper + lower) + rod.halfLength;
+    const cosine = Math.min(Math.max((lower - upper) / (2 * rod.halfLength), -1), 1);
+    return [rod.centre + radius * cosine, radius * Math.sqrt(1 - cosine * cosine),
+      2 * Math.sqrt(2 * rod.halfLength * Math.max(radius - 2 * rod.halfLength, 0))];
   },
 
   /**
-   * A mesh over the half-plane rho ≥ 0, zMin ≤ z ≤ zMax, rho ≤ rhoMax, outside the stars (surface: each star's own
-   * Schwarzschild radius = starRadius). Spacing is `fine` at the stars and grows by `growth` per unit distance up to
-   * `coarse`. Nodes next to a star are moved onto its surface. Each grid cell gets its four sides and both diagonals,
-   * and each edge's target length is its true length, ∫e^(γ−U) along it (Simpson's rule).
+   * The surface's mesh over the half-plane ρ ≥ 0 (prolate spheroidal grid, `cell` apart in μ and ν, out to
+   * outerRadius), with true edge lengths, the pinned far edge, the line rule's links and the unknowns' ordering.
    */
-  buildSliceMesh(rods, starRadius, zMin, zMax, rhoMax, spacing) {
-    const stars = rods.filter((rod) => rod.halfLength > 0);
-    const beyondSurface = (distance) => Math.max(distance - starRadius, 0);
-    const zStep = (z) => Math.min(spacing.coarse,
-      spacing.fine + spacing.growth * beyondSurface(Math.min(...stars.map((star) => Math.abs(z - star.centre)))));
-    const rhoStep = (rho) => Math.min(spacing.coarse, spacing.fine + spacing.growth * beyondSurface(rho));
-    const zs = PhysicsCore.gradedCoordinates(zMin, zMax, zStep);
-    const rhos = PhysicsCore.gradedCoordinates(0, rhoMax, rhoStep);
-    const columns = zs.length;
-    const rows = rhos.length;
+  buildSurfaceMesh(rods, starRadius, outerRadius, cell) {
+    const [left, right] = [...rods].sort((a, b) => a.centre - b.centre);   // the foci (a massless rod is allowed)
+    const focus = (right.centre - left.centre) / 2;
+    const middle = (left.centre + right.centre) / 2;
+    const muMax = Math.acosh(outerRadius / focus);
+    const muCount = Math.ceil(muMax / cell) + 1;
+    const nuCount = Math.ceil(Math.PI / cell) + 1;
+    const columns = muCount;
+    const rows = nuCount;
     const count = columns * rows;
     const nodeZ = new Float64Array(count);
     const nodeRho = new Float64Array(count);
     const alive = new Uint8Array(count);
-    const rimStar = new Int8Array(count).fill(-1);   // which star's surface a node was moved onto
+    const rimStar = new Int8Array(count).fill(-1);
+    const stars = [left, right].filter((rod) => rod.halfLength > 0);
     const starAt = (rho, z) => stars.findIndex((star) => PhysicsCore.isolatedStarRadius(rho, z, star) < starRadius);
-
     for (let row = 0; row < rows; row++) {
       for (let column = 0; column < columns; column++) {
         const node = row * columns + column;
-        nodeZ[node] = zs[column];
-        nodeRho[node] = rhos[row];
-        alive[node] = starAt(rhos[row], zs[column]) < 0 ? 1 : 0;
+        const mu = muMax * column / (muCount - 1);
+        const nu = Math.PI * row / (nuCount - 1);
+        nodeZ[node] = middle + focus * Math.cosh(mu) * Math.cos(nu);
+        nodeRho[node] = column === 0 || row === 0 || row === rows - 1 ? 0 : focus * Math.sinh(mu) * Math.sin(nu);
+        alive[node] = starAt(nodeRho[node], nodeZ[node]) < 0 ? 1 : 0;
       }
     }
-    // Move each live node that borders a star onto that star's surface, along the ray from its centre.
+    // Live nodes next to a star move onto its surface, along the ray from its centre.
+    const gridZ = Float64Array.from(nodeZ);
+    const gridRho = Float64Array.from(nodeRho);
     for (let row = 0; row < rows; row++) {
       for (let column = 0; column < columns; column++) {
         const node = row * columns + column;
@@ -676,21 +701,22 @@ const PhysicsCore = {
           const neighbourColumn = column + stepColumn;
           const neighbourRow = row + stepRow;
           if (neighbourColumn < 0 || neighbourRow < 0 || neighbourColumn >= columns || neighbourRow >= rows) continue;
-          if (alive[neighbourRow * columns + neighbourColumn]) continue;
-          const starIndex = starAt(rhos[neighbourRow], zs[neighbourColumn]);
+          const neighbour = neighbourRow * columns + neighbourColumn;
+          if (alive[neighbour]) continue;
+          const starIndex = starAt(gridRho[neighbour], gridZ[neighbour]);
           const star = stars[starIndex];
           const alongAxis = starRadius - star.halfLength;
           const acrossAxis = Math.sqrt(starRadius * (starRadius - 2 * star.halfLength));
-          const offset = zs[column] - star.centre;
-          const scale = 1 / Math.hypot(offset / alongAxis, rhos[row] / acrossAxis);
+          const offset = gridZ[node] - star.centre;
+          const scale = 1 / Math.hypot(offset / alongAxis, gridRho[node] / acrossAxis);
           nodeZ[node] = star.centre + offset * scale;
-          nodeRho[node] = rhos[row] * scale;
+          nodeRho[node] = gridRho[node] * scale;
           rimStar[node] = starIndex;
           break;
         }
       }
     }
-
+    // Edges (cell sides and both diagonals) with true lengths; triangles for drawing.
     const edges = [];
     const triangles = [];
     const edgeKeys = new Set();
@@ -703,7 +729,7 @@ const PhysicsCore = {
     for (let row = 0; row < rows - 1; row++) {
       for (let column = 0; column < columns - 1; column++) {
         const corner = row * columns + column;
-        const [a, b, c, d] = [corner, corner + 1, corner + columns + 1, corner + columns];   // around the cell
+        const [a, b, c, d] = [corner, corner + 1, corner + columns + 1, corner + columns];
         const live = [a, b, c, d].filter((node) => alive[node]);
         if (live.length === 4) {
           for (const [first, second] of [[a, b], [b, c], [c, d], [d, a], [a, c], [b, d]]) addEdge(first, second);
@@ -724,227 +750,519 @@ const PhysicsCore = {
         + 4 * PhysicsCore.sliceMetricFactor(0.5 * (nodeRho[first] + nodeRho[second]), 0.5 * (nodeZ[first] + nodeZ[second]), rods)
         + PhysicsCore.sliceMetricFactor(nodeRho[second], nodeZ[second], rods));
     }
-    // Smoothness triples: three live nodes in a row (or column), with the weights that interpolate the middle one
-    // from its neighbours, and the squared half-span. Used only to pick the smoothest of the equally true shapes.
-    const smoothness = [];
-    const addTriple = (left, middle, right, leftCoordinate, middleCoordinate, rightCoordinate) => {
-      if (!alive[left] || !alive[middle] || !alive[right]) return;
-      const span = rightCoordinate - leftCoordinate;
-      smoothness.push({ left, middle, right, leftWeight: (rightCoordinate - middleCoordinate) / span,
-        rightWeight: (middleCoordinate - leftCoordinate) / span, scale: 1 / (0.5 * span) ** 2 });
-    };
-    for (let row = 0; row < rows; row++) {
-      for (let column = 1; column < columns - 1; column++) {
-        const node = row * columns + column;
-        addTriple(node - 1, node, node + 1, zs[column - 1], zs[column], zs[column + 1]);
-      }
-    }
-    for (let row = 1; row < rows - 1; row++) {
-      for (let column = 0; column < columns; column++) {
-        const node = row * columns + column;
-        addTriple(node - columns, node, node + columns, rhos[row - 1], rhos[row], rhos[row + 1]);
-      }
-    }
-    return { zs, rhos, columns, rows, nodeZ, nodeRho, alive, rimStar, edges, targetLengths, triangles, stars, smoothness };
+    const totalMass = left.halfLength + right.halfLength;
+    const mesh = { foci: [left, right], rods, starRadius, focus, middle, muMax, muCount, nuCount, columns, rows, nodeZ, nodeRho, alive, rimStar,
+      edges: Int32Array.from(edges), targetLengths, triangles, stars,
+      total: { centre: (left.halfLength * left.centre + right.halfLength * right.centre) / totalMass, halfLength: totalMass },
+      leftSurfaceZ: left.centre + (starRadius - left.halfLength), rightSurfaceZ: right.centre - (starRadius - right.halfLength),
+      pinned: Uint8Array.from({ length: count }, (_, node) => (node % columns === columns - 1 ? 1 : 0)) };
+    mesh.links = PhysicsCore.surfaceLineRuleLinks(mesh);
+    return mesh;
   },
 
   /**
-   * Starting shape: each star's own exact Flamm embedding (horizontal position at its Schwarzschild radius r and angle θ,
-   * height w = 2 sqrt(r_s (r − r_s))), with the stars' displacements and heights added. For one star this is exactly
-   * Flamm's paraboloid. Returns positions [X, Y, W] per node.
+   * The line rule: along the line, true length dℓ = e^(γ−U) dz and cos(tilt) = e^(U − U_ref), where U_ref is the
+   * fastest clock on that piece of line (0 = a far clock beyond the stars; the reddest point between them). Returns,
+   * for each pair of neighbouring axis nodes on one piece, the drawn rise dX and height change dW between them.
    */
-  flammStartingShape(mesh) {
+  surfaceLineRuleLinks(mesh) {
+    const { rods } = mesh;
+    const twoStars = mesh.stars.length === 2;
+    const [left, right] = mesh.foci;
+    const reddest = twoStars ? PhysicsCore.reddestAxisPoint(mesh.leftSurfaceZ, mesh.rightSurfaceZ, rods) : 0;
+    const reddestPotential = twoStars ? PhysicsCore.weylPotential(0, reddest, rods) : 0;
+    const isBetween = (z) => twoStars && z > mesh.leftSurfaceZ - 1e-9 && z < mesh.rightSurfaceZ + 1e-9;
+    const nearestStarCentre = (z) => mesh.stars.reduce((best, star) => (Math.abs(z - star.centre) < Math.abs(z - best) ? star.centre : best), mesh.stars[0].centre);
+    const slopes = (z) => {
+      const potential = PhysicsCore.weylPotential(0, z, rods);
+      const trueLength = Math.exp(PhysicsCore.axisGamma(z, rods) - potential);
+      const drawnLength = trueLength * Math.exp(potential - (isBetween(z) ? reddestPotential : 0));
+      return [drawnLength, Math.sqrt(Math.max(trueLength ** 2 - drawnLength ** 2, 0))];
+    };
+    // Uphill: toward the reddest point between the stars, away from the nearer star beyond them.
+    const uphill = (z) => (isBetween(z) ? Math.sign(reddest - z) : Math.sign(z - nearestStarCentre(z)));
+    const axisNodes = [];
+    for (let node = 0; node < mesh.nodeZ.length; node++) if (mesh.alive[node] && mesh.nodeRho[node] === 0) axisNodes.push(node);
+    axisNodes.sort((first, second) => mesh.nodeZ[first] - mesh.nodeZ[second]);
+    const links = [];
+    for (let index = 0; index + 1 < axisNodes.length; index++) {
+      const first = axisNodes[index];
+      const second = axisNodes[index + 1];
+      const [z1, z2] = [mesh.nodeZ[first], mesh.nodeZ[second]];
+      if (mesh.foci.some((rod) => z1 < rod.centre && z2 > rod.centre)) continue;   // a star (or the massless focus) separates them
+      const pieces = 40;
+      const step = (z2 - z1) / pieces;
+      let rise = 0;
+      let heightChange = 0;
+      for (let piece = 0; piece < pieces; piece++) {
+        const a = z1 + piece * step;
+        const [s0, s1, s2] = [slopes(a), slopes(a + step / 2), slopes(a + step)];
+        rise += step / 6 * (s0[0] + 4 * s1[0] + s2[0]);
+        heightChange += step / 6 * (s0[1] + 4 * s1[1] + s2[1]) * uphill(a + step / 2);
+      }
+      links.push({ first, second, rise, heightChange, length: Math.max(z2 - z1, 1e-9) });
+    }
+    return links;
+  },
+
+  /**
+   * Starting shape: the far edge exactly on the total mass's Flamm paraboloid; elsewhere each star's own Flamm map
+   * added, with heights corrected so that far away they become the total mass's.
+   */
+  surfaceStartingShape(mesh) {
     const positions = new Float64Array(3 * mesh.nodeZ.length);
     for (let node = 0; node < mesh.nodeZ.length; node++) {
-      let x = mesh.nodeZ[node];
-      let y = mesh.nodeRho[node];
-      let height = 0;
+      const rho = mesh.nodeRho[node];
+      const z = mesh.nodeZ[node];
+      const total = PhysicsCore.rodFlammMap(mesh.total, rho, z);
+      if (mesh.pinned[node]) { positions.set(total, 3 * node); continue; }
+      let x = z;
+      let y = rho;
+      let height = total[2];
       for (const star of mesh.stars) {
-        const { upper, lower } = PhysicsCore.rodEndDistances(mesh.nodeRho[node], mesh.nodeZ[node], star);
-        const radius = 0.5 * (upper + lower) + star.halfLength;
-        const cosine = Math.min(Math.max((lower - upper) / (2 * star.halfLength), -1), 1);
-        x += star.centre + radius * cosine - mesh.nodeZ[node];
-        y += radius * Math.sqrt(1 - cosine * cosine) - mesh.nodeRho[node];
-        height += 2 * Math.sqrt(2 * star.halfLength * Math.max(radius - 2 * star.halfLength, 0));
+        const own = PhysicsCore.rodFlammMap(star, rho, z);
+        x += own[0] - z;
+        y += own[1] - rho;
+        height += own[2] - PhysicsCore.rodFlammMap({ centre: mesh.total.centre, halfLength: star.halfLength }, rho, z)[2];
       }
       positions.set([x, y, height], 3 * node);
     }
     return positions;
   },
 
-  /**
-   * What the relaxation minimises: the sum over edges of (drawn length / true length − 1)², plus a weak smoothness
-   * term (smoothnessWeight × squared bend along mesh rows and columns). Many shapes have the same true lengths
-   * (a saddle-shaped surface can bend without stretching); the smoothness term picks the smoothest one and stops the
-   * free outer edge from zigzagging. Fills the gradient if given. Dead nodes get no gradient; axis nodes get none across
-   * the mirror plane (Y), so they stay in it.
-   */
-  embeddingMismatch(mesh, positions, gradient, smoothnessWeight) {
-    let mismatch = 0;
-    if (gradient) gradient.fill(0);
+  /** Unknowns (free coordinates), ordered μ-column by μ-column so the normal matrix is banded; and the band width. */
+  surfaceUnknowns(mesh) {
+    const index = new Int32Array(3 * mesh.nodeZ.length).fill(-1);
+    let count = 0;
+    for (let column = 0; column < mesh.columns; column++) {
+      for (let row = 0; row < mesh.rows; row++) {
+        const node = row * mesh.columns + column;
+        if (!mesh.alive[node] || mesh.pinned[node]) continue;
+        for (let axis = 0; axis < 3; axis++) {
+          if (axis === 1 && mesh.nodeRho[node] === 0) continue;   // axis nodes stay in the mirror plane
+          index[3 * node + axis] = count++;
+        }
+      }
+    }
+    let band = 0;
+    const couple = (first, second) => {
+      for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) {
+        const i = index[3 * first + a];
+        const j = index[3 * second + b];
+        if (i >= 0 && j >= 0) band = Math.max(band, Math.abs(i - j));
+      }
+    };
+    for (let edge = 0; edge < mesh.targetLengths.length; edge++) couple(mesh.edges[2 * edge], mesh.edges[2 * edge + 1]);
+    for (const link of mesh.links) couple(link.first, link.second);
+    return { index, count, band };
+  },
+
+  /** Residuals: edges (drawn/true − 1), then the line rule's links (weighted, per unit length), rises then heights. */
+  surfaceResiduals(mesh, positions) {
+    const weight = Math.sqrt(SURFACE_LINK_WEIGHT);
+    const residuals = new Float64Array(mesh.targetLengths.length + 2 * mesh.links.length);
     for (let edge = 0; edge < mesh.targetLengths.length; edge++) {
-      const target = mesh.targetLengths[edge];
-      if (target < 1e-9) continue;
-      const first = 3 * mesh.edges[2 * edge];
-      const second = 3 * mesh.edges[2 * edge + 1];
-      const dx = positions[first] - positions[second];
-      const dy = positions[first + 1] - positions[second + 1];
-      const dw = positions[first + 2] - positions[second + 2];
-      const length = Math.hypot(dx, dy, dw) || 1e-12;
-      const error = length / target - 1;
-      mismatch += error * error;
-      if (!gradient) continue;
-      const factor = 2 * error / (target * length);
-      gradient[first] += factor * dx; gradient[first + 1] += factor * dy; gradient[first + 2] += factor * dw;
-      gradient[second] -= factor * dx; gradient[second + 1] -= factor * dy; gradient[second + 2] -= factor * dw;
+      const a = 3 * mesh.edges[2 * edge];
+      const b = 3 * mesh.edges[2 * edge + 1];
+      residuals[edge] = Math.hypot(positions[a] - positions[b], positions[a + 1] - positions[b + 1], positions[a + 2] - positions[b + 2])
+        / mesh.targetLengths[edge] - 1;
     }
-    for (const { left, middle, right, leftWeight, rightWeight, scale } of mesh.smoothness) {
-      for (let axis = 0; axis < 3; axis++) {
-        const bend = positions[3 * middle + axis] - leftWeight * positions[3 * left + axis] - rightWeight * positions[3 * right + axis];
-        mismatch += smoothnessWeight * scale * bend * bend;
-        if (!gradient) continue;
-        const factor = 2 * smoothnessWeight * scale * bend;
-        gradient[3 * middle + axis] += factor;
-        gradient[3 * left + axis] -= factor * leftWeight;
-        gradient[3 * right + axis] -= factor * rightWeight;
+    let row = mesh.targetLengths.length;
+    for (const [axis, key] of [[0, "rise"], [2, "heightChange"]]) {
+      for (const link of mesh.links) {
+        residuals[row++] = weight * (positions[3 * link.second + axis] - positions[3 * link.first + axis] - link[key]) / link.length;
       }
     }
-    if (gradient) {
-      for (let node = 0; node < mesh.nodeZ.length; node++) {
-        if (!mesh.alive[node]) gradient[3 * node] = gradient[3 * node + 1] = gradient[3 * node + 2] = 0;
-        else if (mesh.nodeRho[node] === 0) gradient[3 * node + 1] = 0;
-      }
-    }
-    return mismatch;
-  },
-
-  /** A relaxation in progress: positions from flammStartingShape, plus the L-BFGS memory. */
-  startEmbedding(mesh) {
-    const positions = PhysicsCore.flammStartingShape(mesh);
-    const gradient = new Float64Array(positions.length);
-    const smoothnessWeight = EMBEDDING_SMOOTHNESS_STAGES[0];
-    const mismatch = PhysicsCore.embeddingMismatch(mesh, positions, gradient, smoothnessWeight);
-    return { positions, gradient, mismatch, smoothnessWeight, steps: 0, history: [], finished: false };
+    return residuals;
   },
 
   /**
-   * Advances the relaxation by up to `stepCount` L-BFGS steps (Nocedal & Wright 2006, Algorithm 7.4, memory 8,
-   * backtracking line search), lowering the smoothness weight stage by stage. Marks it finished when the mismatch
-   * stops falling in the last stage.
+   * Solves for the surface, as a generator so a page can spread the work over animation frames: it yields
+   * {step, mismatch} now and then, and returns the positions. Levenberg–Marquardt (Nocedal & Wright 2006, §10.3):
+   * each step solves (JᵀJ + λ diag JᵀJ) δ = −Jᵀr exactly, by banded Cholesky factorisation.
    */
-  relaxEmbedding(mesh, state, stepCount) {
-    const size = state.positions.length;
-    const memory = 8;
-    const lastStage = EMBEDDING_SMOOTHNESS_STAGES.length - 1;
-    for (let step = 0; step < stepCount && !state.finished; step++) {
-      const stage = Math.min(Math.floor(state.steps / EMBEDDING_STAGE_STEPS), lastStage);
-      if (EMBEDDING_SMOOTHNESS_STAGES[stage] !== state.smoothnessWeight) {   // new stage: new objective, fresh memory
-        state.smoothnessWeight = EMBEDDING_SMOOTHNESS_STAGES[stage];
-        state.mismatch = PhysicsCore.embeddingMismatch(mesh, state.positions, state.gradient, state.smoothnessWeight);
-        state.history = [];
+  *solveSurface(mesh, steps = SURFACE_SOLVER_STEPS) {
+    const positions = PhysicsCore.surfaceStartingShape(mesh);
+    const { index, count, band } = PhysicsCore.surfaceUnknowns(mesh);
+    const width = band + 1;
+    const weight = Math.sqrt(SURFACE_LINK_WEIGHT);
+    let residuals = PhysicsCore.surfaceResiduals(mesh, positions);
+    let mismatch = residuals.reduce((sum, value) => sum + value * value, 0);
+    let damping = 1e-3;
+    // Jacobian rows as (unknown index, value) lists: edges touch 6 coordinates, links 2.
+    const jacobianRows = () => {
+      const rowsList = [];
+      for (let edge = 0; edge < mesh.targetLengths.length; edge++) {
+        const first = mesh.edges[2 * edge];
+        const second = mesh.edges[2 * edge + 1];
+        const delta = [0, 1, 2].map((axis) => positions[3 * first + axis] - positions[3 * second + axis]);
+        const scale = 1 / (mesh.targetLengths[edge] * (Math.hypot(...delta) || 1e-15));
+        const entries = [];
+        for (let axis = 0; axis < 3; axis++) {
+          if (index[3 * first + axis] >= 0) entries.push([index[3 * first + axis], delta[axis] * scale]);
+          if (index[3 * second + axis] >= 0) entries.push([index[3 * second + axis], -delta[axis] * scale]);
+        }
+        rowsList.push(entries);
       }
-      // Search direction: −(approximate inverse Hessian) × gradient, by the two-loop recursion.
-      const direction = Float64Array.from(state.gradient);
-      const alphas = [];
-      for (let index = state.history.length - 1; index >= 0; index--) {
-        const { change, gradientChange, inverseCurvature } = state.history[index];
-        let dot = 0;
-        for (let i = 0; i < size; i++) dot += change[i] * direction[i];
-        alphas[index] = inverseCurvature * dot;
-        for (let i = 0; i < size; i++) direction[i] -= alphas[index] * gradientChange[i];
+      for (const axis of [0, 2]) {
+        for (const link of mesh.links) {
+          const entries = [];
+          if (index[3 * link.second + axis] >= 0) entries.push([index[3 * link.second + axis], weight / link.length]);
+          if (index[3 * link.first + axis] >= 0) entries.push([index[3 * link.first + axis], -weight / link.length]);
+          rowsList.push(entries);
+        }
       }
-      if (state.history.length > 0) {
-        const { change, gradientChange } = state.history[state.history.length - 1];
-        let changeDot = 0;
-        let gradientDot = 0;
-        for (let i = 0; i < size; i++) { changeDot += change[i] * gradientChange[i]; gradientDot += gradientChange[i] ** 2; }
-        for (let i = 0; i < size; i++) direction[i] *= changeDot / gradientDot;
-      } else {
-        for (let i = 0; i < size; i++) direction[i] *= 1e-3;
+      return rowsList;
+    };
+    for (let step = 0; step < steps; step++) {
+      const rowsList = jacobianRows();
+      // Normal matrix JᵀJ (upper band, row i holds columns i … i + band) and gradient Jᵀr.
+      const normal = new Float64Array(count * width);
+      const gradient = new Float64Array(count);
+      rowsList.forEach((entries, row) => {
+        for (const [i, value] of entries) {
+          gradient[i] += value * residuals[row];
+          for (const [j, other] of entries) if (j >= i) normal[i * width + (j - i)] += value * other;
+        }
+      });
+      let accepted = false;
+      for (let attempt = 0; attempt < 12 && !accepted; attempt++) {
+        // Banded Cholesky of the damped matrix: A = Uᵀ U.
+        const factor = Float64Array.from(normal);
+        for (let i = 0; i < count; i++) factor[i * width] *= 1 + damping;
+        for (let i = 0; i < count; i++) {
+          const start = Math.max(0, i - band);
+          let sum = factor[i * width];
+          for (let k = start; k < i; k++) sum -= factor[k * width + (i - k)] ** 2;
+          const pivot = Math.sqrt(Math.max(sum, 1e-30));
+          factor[i * width] = pivot;
+          for (let d = 1; d <= band && i + d < count; d++) {
+            const j = i + d;
+            let value = factor[i * width + d];
+            for (let k = Math.max(0, j - band); k < i; k++) value -= factor[k * width + (i - k)] * factor[k * width + (j - k)];
+            factor[i * width + d] = value / pivot;
+          }
+          if (i % 400 === 399) yield { step, mismatch };
+        }
+        // Solve Uᵀ y = −g, then U δ = y.
+        const solution = Float64Array.from(gradient, (value) => -value);
+        for (let i = 0; i < count; i++) {
+          let value = solution[i];
+          for (let k = Math.max(0, i - band); k < i; k++) value -= factor[k * width + (i - k)] * solution[k];
+          solution[i] = value / factor[i * width];
+        }
+        for (let i = count - 1; i >= 0; i--) {
+          let value = solution[i];
+          for (let d = 1; d <= band && i + d < count; d++) value -= factor[i * width + d] * solution[i + d];
+          solution[i] = value / factor[i * width];
+        }
+        const trial = Float64Array.from(positions);
+        for (let coordinate = 0; coordinate < index.length; coordinate++) if (index[coordinate] >= 0) trial[coordinate] += solution[index[coordinate]];
+        const trialResiduals = PhysicsCore.surfaceResiduals(mesh, trial);
+        const trialMismatch = trialResiduals.reduce((sum, value) => sum + value * value, 0);
+        if (trialMismatch < mismatch) {
+          positions.set(trial);
+          residuals = trialResiduals;
+          mismatch = trialMismatch;
+          damping = Math.max(damping / 3, 1e-12);
+          accepted = true;
+        } else {
+          damping *= 4;
+        }
       }
-      for (let index = 0; index < state.history.length; index++) {
-        const { change, gradientChange, inverseCurvature } = state.history[index];
-        let dot = 0;
-        for (let i = 0; i < size; i++) dot += gradientChange[i] * direction[i];
-        const beta = inverseCurvature * dot;
-        for (let i = 0; i < size; i++) direction[i] += change[i] * (alphas[index] - beta);
-      }
-      let slope = 0;
-      for (let i = 0; i < size; i++) slope -= state.gradient[i] * direction[i];
-      if (slope >= 0) {   // not a descent direction: forget the history and take a small gradient step
-        state.history = [];
-        for (let i = 0; i < size; i++) direction[i] = 1e-3 * state.gradient[i];
-        slope = 0;
-        for (let i = 0; i < size; i++) slope -= state.gradient[i] * direction[i];
-      }
-      // Backtracking line search (Armijo condition).
-      const trialPositions = new Float64Array(size);
-      const trialGradient = new Float64Array(size);
-      let stepLength = 1;
-      let trialMismatch = Infinity;
-      for (let attempt = 0; attempt < 40; attempt++) {
-        for (let i = 0; i < size; i++) trialPositions[i] = state.positions[i] - stepLength * direction[i];
-        trialMismatch = PhysicsCore.embeddingMismatch(mesh, trialPositions, trialGradient, state.smoothnessWeight);
-        if (trialMismatch <= state.mismatch + 1e-4 * stepLength * slope) break;
-        stepLength *= 0.5;
-      }
-      const change = new Float64Array(size);
-      const gradientChange = new Float64Array(size);
-      let curvature = 0;
-      for (let i = 0; i < size; i++) {
-        change[i] = trialPositions[i] - state.positions[i];
-        gradientChange[i] = trialGradient[i] - state.gradient[i];
-        curvature += change[i] * gradientChange[i];
-      }
-      const improvement = state.mismatch - trialMismatch;
-      if (improvement >= 0) {
-        state.positions = trialPositions;
-        state.gradient = trialGradient;
-        state.mismatch = trialMismatch;
-      }
-      if (curvature > 1e-20) {
-        state.history.push({ change, gradientChange, inverseCurvature: 1 / curvature });
-        if (state.history.length > memory) state.history.shift();
-      }
-      state.steps++;
-      const inLastStage = state.steps >= lastStage * EMBEDDING_STAGE_STEPS;
-      if (inLastStage && improvement <= 1e-12 * state.mismatch) state.finished = true;
+      yield { step: step + 1, mismatch, positions };
+      if (!accepted) break;
     }
-    return state;
+    return positions;
   },
 
-  /** RMS and largest relative error of the drawn edge lengths against their true lengths. */
-  embeddingLengthErrors(mesh, positions) {
+  /** Runs solveSurface to the end (for tests and anything that can wait). */
+  solveSurfaceNow(mesh, steps = SURFACE_SOLVER_STEPS) {
+    const solver = PhysicsCore.solveSurface(mesh, steps);
+    let result = solver.next();
+    while (!result.done) result = solver.next();
+    return result.value;
+  },
+
+  /** RMS and largest relative error of the surface's edge lengths against the true lengths. */
+  surfaceLengthErrors(mesh, positions) {
     let sumOfSquares = 0;
     let largest = 0;
-    let count = 0;
     for (let edge = 0; edge < mesh.targetLengths.length; edge++) {
-      const target = mesh.targetLengths[edge];
-      if (target < 1e-9) continue;
-      const first = 3 * mesh.edges[2 * edge];
-      const second = 3 * mesh.edges[2 * edge + 1];
-      const length = Math.hypot(positions[first] - positions[second], positions[first + 1] - positions[second + 1],
-        positions[first + 2] - positions[second + 2]);
-      const error = Math.abs(length / target - 1);
+      const a = 3 * mesh.edges[2 * edge];
+      const b = 3 * mesh.edges[2 * edge + 1];
+      const error = Math.abs(Math.hypot(positions[a] - positions[b], positions[a + 1] - positions[b + 1], positions[a + 2] - positions[b + 2])
+        / mesh.targetLengths[edge] - 1);
       sumOfSquares += error * error;
       largest = Math.max(largest, error);
-      count++;
     }
-    return { rms: Math.sqrt(sumOfSquares / count), largest };
+    return { rms: Math.sqrt(sumOfSquares / mesh.targetLengths.length), largest };
   },
 
-  /** The embedded position [X, Y, W] of the axis point at Weyl z (interpolated between axis nodes), or null. */
-  embeddedAxisPoint(mesh, positions, z) {
+  /** Mesh coordinates (μ, ν) of a Weyl point, from its distances to the two foci. */
+  surfaceMeshCoordinates(mesh, rho, z) {
+    const toLeft = Math.hypot(z - (mesh.middle - mesh.focus), rho);
+    const toRight = Math.hypot(z - (mesh.middle + mesh.focus), rho);
+    return {
+      mu: Math.acosh(Math.max((toLeft + toRight) / (2 * mesh.focus), 1)),
+      nu: Math.acos(Math.min(Math.max((toLeft - toRight) / (2 * mesh.focus), -1), 1)),
+    };
+  },
+
+  /** The surface position [X, Y, W] at Weyl (ρ ≥ 0, z), bilinear within its mesh cell; null next to or inside a star. */
+  surfacePointAt(mesh, positions, rho, z) {
+    const { mu, nu } = PhysicsCore.surfaceMeshCoordinates(mesh, Math.abs(rho), z);
+    const columnPosition = mu / mesh.muMax * (mesh.muCount - 1);
+    const rowPosition = nu / Math.PI * (mesh.nuCount - 1);
+    if (columnPosition > mesh.muCount - 1) return null;
+    const column = Math.min(Math.floor(columnPosition), mesh.muCount - 2);
+    const row = Math.min(Math.floor(rowPosition), mesh.nuCount - 2);
+    const alongMu = columnPosition - column;
+    const alongNu = rowPosition - row;
+    const corners = [[row * mesh.columns + column, (1 - alongMu) * (1 - alongNu)], [row * mesh.columns + column + 1, alongMu * (1 - alongNu)],
+      [(row + 1) * mesh.columns + column, (1 - alongMu) * alongNu], [(row + 1) * mesh.columns + column + 1, alongMu * alongNu]];
+    if (corners.some(([node]) => !mesh.alive[node] || mesh.rimStar[node] >= 0)) return null;
+    const point = [0, 0, 0];
+    for (const [node, weightOfCorner] of corners) for (let axis = 0; axis < 3; axis++) point[axis] += weightOfCorner * positions[3 * node + axis];
+    return point;
+  },
+
+  /** Position [X, Y, W] of the axis point at Weyl z, interpolated between the surface's axis nodes; null if none. */
+  surfaceAxisPoint(mesh, positions, z) {
     let below = -1;
     let above = -1;
-    for (let column = 0; column < mesh.columns; column++) {
-      if (!mesh.alive[column]) continue;
-      if (mesh.nodeZ[column] <= z && (below < 0 || mesh.nodeZ[column] > mesh.nodeZ[below])) below = column;
-      if (mesh.nodeZ[column] >= z && (above < 0 || mesh.nodeZ[column] < mesh.nodeZ[above])) above = column;
+    for (let node = 0; node < mesh.nodeZ.length; node++) {
+      if (!mesh.alive[node] || mesh.nodeRho[node] !== 0) continue;
+      if (mesh.nodeZ[node] <= z && (below < 0 || mesh.nodeZ[node] > mesh.nodeZ[below])) below = node;
+      if (mesh.nodeZ[node] >= z && (above < 0 || mesh.nodeZ[node] < mesh.nodeZ[above])) above = node;
     }
     if (below < 0 || above < 0) return null;
     const fraction = above === below ? 0 : (z - mesh.nodeZ[below]) / (mesh.nodeZ[above] - mesh.nodeZ[below]);
     return [0, 1, 2].map((axis) => positions[3 * below + axis] + fraction * (positions[3 * above + axis] - positions[3 * below + axis]));
+  },
+
+  // ----- Flamm-style grid: the one-star page's warped grid, built from the true-length surface -----
+  //
+  // On Flamm's paraboloid, a point's distance from the axis seen from above is the areal radius r, and the one-star
+  // page places each grid point by sliding it along its downhill (radial) line until its true distance from the anchor
+  // equals its drawn distance. The same steps work on the two-star surface: look straight down (drawing coordinates
+  // X along the line, Y away from it), follow downhill lines of the surface, and turn the result about the line for 3D.
+
+  /**
+   * Samples the solved surface, seen from above, on a square raster (`cell` apart, X in ±xReach, Y in 0 … yReach):
+   * height W, its gradient, the Weyl point (ρ, z) below, and whether the cell is on the surface (not in a star).
+   */
+  rasterizeSurface(mesh, positions, xReach, yReach, cell) {
+    const columns = Math.round(2 * xReach / cell) + 1;
+    const rows = Math.round(yReach / cell) + 1;
+    const height = new Float64Array(columns * rows).fill(NaN);
+    const weylRho = new Float64Array(columns * rows).fill(NaN);
+    const weylZ = new Float64Array(columns * rows).fill(NaN);
+    const t = mesh.triangles;
+    for (let corner = 0; corner < t.length; corner += 3) {
+      const [a, b, c] = [t[corner], t[corner + 1], t[corner + 2]];
+      const [ax, ay, bx, by, cx, cy] = [positions[3 * a], positions[3 * a + 1], positions[3 * b], positions[3 * b + 1], positions[3 * c], positions[3 * c + 1]];
+      const area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
+      if (Math.abs(area) < 1e-12) continue;
+      const columnFrom = Math.max(0, Math.ceil((Math.min(ax, bx, cx) + xReach) / cell));
+      const columnTo = Math.min(columns - 1, Math.floor((Math.max(ax, bx, cx) + xReach) / cell));
+      const rowFrom = Math.max(0, Math.ceil(Math.min(ay, by, cy) / cell));
+      const rowTo = Math.min(rows - 1, Math.floor(Math.max(ay, by, cy) / cell));
+      for (let row = rowFrom; row <= rowTo; row++) {
+        for (let column = columnFrom; column <= columnTo; column++) {
+          const x = -xReach + column * cell;
+          const y = row * cell;
+          const wa = ((bx - x) * (cy - y) - (cx - x) * (by - y)) / area;
+          const wb = ((cx - x) * (ay - y) - (ax - x) * (cy - y)) / area;
+          const wc = 1 - wa - wb;
+          if (wa < -1e-9 || wb < -1e-9 || wc < -1e-9) continue;
+          const cellIndex = row * columns + column;
+          height[cellIndex] = wa * positions[3 * a + 2] + wb * positions[3 * b + 2] + wc * positions[3 * c + 2];
+          weylRho[cellIndex] = wa * mesh.nodeRho[a] + wb * mesh.nodeRho[b] + wc * mesh.nodeRho[c];
+          weylZ[cellIndex] = wa * mesh.nodeZ[a] + wb * mesh.nodeZ[b] + wc * mesh.nodeZ[c];
+        }
+      }
+    }
+    // How far outside the nearest star each cell is (its own Schwarzschild radius − R), and −cell inside a star's hole,
+    // so that a plain bilinear sample crosses zero at the star's edge.
+    const outside = new Float64Array(columns * rows);
+    for (let cellIndex = 0; cellIndex < outside.length; cellIndex++) {
+      outside[cellIndex] = Number.isFinite(height[cellIndex])
+        ? Math.min(...mesh.stars.map((star) => PhysicsCore.isolatedStarRadius(weylRho[cellIndex], weylZ[cellIndex], star))) - mesh.starRadius
+        : -cell;
+    }
+    // The height's slope at each cell (central differences, one-sided beside a star; mirror image below the axis), so
+    // that sampled bilinearly it varies smoothly and downhill lines don't jitter at cell edges.
+    const slopeX = new Float64Array(columns * rows).fill(NaN);
+    const slopeY = new Float64Array(columns * rows).fill(NaN);
+    const heightAt = (column, row) => (column < 0 || column >= columns || row >= rows ? NaN : height[Math.abs(row) * columns + column]);
+    const difference = (plus, centre, minus) => (Number.isFinite(plus) && Number.isFinite(minus) ? (plus - minus) / (2 * cell)
+      : Number.isFinite(plus) ? (plus - centre) / cell : Number.isFinite(minus) ? (centre - minus) / cell : NaN);
+    for (let row = 0; row < rows; row++) {
+      for (let column = 0; column < columns; column++) {
+        const centre = heightAt(column, row);
+        if (!Number.isFinite(centre)) continue;
+        slopeX[row * columns + column] = difference(heightAt(column + 1, row), centre, heightAt(column - 1, row));
+        slopeY[row * columns + column] = row === 0 ? 0 : difference(heightAt(column, row + 1), centre, heightAt(column, row - 1));
+      }
+    }
+    return { columns, rows, cell, xReach, yReach, height, weylRho, weylZ, outside, slopeX, slopeY, stars: mesh.stars,
+      starRadius: mesh.starRadius, centres: mesh.stars.map((star) => star.centre) };
+  },
+
+  /**
+   * Bilinear sample of a raster field at drawing point (X, Y ≥ 0). Corners off the surface (in a star) are left out
+   * and the rest re-weighted, so lines can run right up to a star's edge; NaN when all four are off it.
+   */
+  rasterSample(raster, field, x, y) {
+    const columnPosition = (x + raster.xReach) / raster.cell;
+    const rowPosition = Math.abs(y) / raster.cell;
+    const column = Math.floor(columnPosition);
+    const row = Math.floor(rowPosition);
+    if (column < 0 || row < 0 || column >= raster.columns - 1 || row >= raster.rows - 1) return NaN;
+    const fx = columnPosition - column;
+    const fy = rowPosition - row;
+    let sum = 0;
+    let weightSum = 0;
+    for (const [c, r, weight] of [[column, row, (1 - fx) * (1 - fy)], [column + 1, row, fx * (1 - fy)],
+      [column, row + 1, (1 - fx) * fy], [column + 1, row + 1, fx * fy]]) {
+      const value = field[r * raster.columns + c];
+      if (Number.isFinite(value)) { sum += weight * value; weightSum += weight; }
+    }
+    return weightSum > 1e-9 ? sum / weightSum : NaN;
+  },
+
+  /**
+   * Where the grid point drawn at (X, Y) goes, for an anchor: follow the downhill line through it toward the anchor
+   * (to the level anchor.height, or downhill to a star's surface when anchor.kind is "surfaces"), then put the point
+   * at the place on that line whose remaining true length to the anchor equals the drawn length from (X, Y) to the
+   * anchor. For one star this is exactly the one-star page's ρ = r_a + ℓ(r_a, r). Steps are `step` long near the stars
+   * and grow with distance, where the surface is smooth (midpoint rule). Returns {x, y}, or null where the line
+   * reaches neither the anchor nor a star (it runs into the saddle at the reddest point).
+   */
+  flammGridPoint(raster, anchor, x, y, step = 0.5, maxSteps = 3000) {
+    const heightAt = (px, py) => PhysicsCore.rasterSample(raster, raster.height, px, py);
+    // The precomputed slope field, sampled bilinearly (smooth across cell edges); its Y part changes sign below the axis.
+    const slopeAt = (px, py) => [PhysicsCore.rasterSample(raster, raster.slopeX, px, py),
+      Math.sign(py || 1) * PhysicsCore.rasterSample(raster, raster.slopeY, px, py)];
+    // How far outside the nearest star's surface a drawing point lies (negative inside), by plain bilinear sampling.
+    const outsideStars = (px, py) => {
+      const columnPosition = (px + raster.xReach) / raster.cell;
+      const rowPosition = Math.abs(py) / raster.cell;
+      const column = Math.floor(columnPosition);
+      const row = Math.floor(rowPosition);
+      if (column < 0 || row < 0 || column >= raster.columns - 1 || row >= raster.rows - 1) return Infinity;
+      const fx = columnPosition - column;
+      const fy = rowPosition - row;
+      const at = (c, r) => raster.outside[r * raster.columns + c];
+      return (1 - fx) * (1 - fy) * at(column, row) + fx * (1 - fy) * at(column + 1, row)
+        + (1 - fx) * fy * at(column, row + 1) + fx * fy * at(column + 1, row + 1);
+    };
+    const startHeight = heightAt(x, y);
+    if (!Number.isFinite(startHeight) || outsideStars(x, y) < 0) return null;
+    const toSurfaces = anchor.kind === "surfaces";
+    const direction = toSurfaces ? -1 : Math.sign(anchor.height - startHeight) || 1;   // +1 uphill, −1 downhill
+    const path = [[x, y, 0]];   // drawn point and true length so far
+    let [px, py, currentHeight, drawnLength, trueLength] = [x, y, startHeight, 0, 0];
+    let reached = false;
+    let previousDirection = null;
+    for (let count = 0; count < maxSteps; count++) {
+      const distance = Math.min(...raster.centres.map((centre) => Math.hypot(px - centre, py)));
+      const length = step * Math.max(1, distance / 40);
+      const unit = (sx, sy) => { const size = Math.hypot(sx, sy); return Number.isFinite(size) && size > 1e-12 ? [sx / size, sy / size] : null; };
+      const first = unit(...slopeAt(px, py));
+      let middle = first && unit(...slopeAt(px + 0.5 * direction * length * first[0], Math.abs(py + 0.5 * direction * length * first[1])));
+      // Right at a star's edge the slope can't be sampled: keep the last direction until the edge is crossed.
+      if (!middle && toSurfaces && previousDirection && outsideStars(px, py) < 2 * raster.cell) middle = previousDirection;
+      if (!middle) break;   // a flat spot (the saddle at the reddest point)
+      previousDirection = middle;
+      const nx = px + direction * length * middle[0];
+      const ny = Math.abs(py + direction * length * middle[1]);   // mirror symmetry: stay on the ρ ≥ 0 side
+      const nextHeight = heightAt(nx, ny);
+      // Crossing into a star (surfaces anchor) or across the anchor level: stop exactly there.
+      let fraction = null;
+      if (toSurfaces) {
+        const before = outsideStars(px, py);
+        const after = outsideStars(nx, ny);
+        if (after < 0) fraction = before / (before - after);
+      } else if (Number.isFinite(nextHeight) && (nextHeight - anchor.height) * (currentHeight - anchor.height) <= 0) {
+        fraction = (anchor.height - currentHeight) / (nextHeight - currentHeight);
+      } else if (!Number.isFinite(nextHeight)) {
+        break;
+      }
+      const endX = fraction === null ? nx : px + fraction * (nx - px);
+      const endY = fraction === null ? ny : py + fraction * (ny - py);
+      const endHeight = fraction === null ? nextHeight : (toSurfaces ? heightAt(endX, endY) : anchor.height);
+      const drawnStep = Math.hypot(endX - px, endY - py);
+      drawnLength += drawnStep;
+      trueLength += Math.hypot(drawnStep, endHeight - currentHeight);
+      [px, py, currentHeight] = [endX, endY, endHeight];
+      path.push([px, py, trueLength]);
+      if (fraction !== null) { reached = true; break; }
+    }
+    if (!reached) return null;
+    // The point whose remaining true length to the anchor equals the whole drawn length.
+    const wanted = trueLength - drawnLength;
+    for (let index = 1; index < path.length; index++) {
+      const [x1, y1, t1] = path[index - 1];
+      const [x2, y2, t2] = path[index];
+      if (t2 >= wanted) {
+        const fraction = t2 > t1 ? (wanted - t1) / (t2 - t1) : 0;
+        return { x: x1 + fraction * (x2 - x1), y: y1 + fraction * (y2 - y1) };
+      }
+    }
+    return { x: px, y: py };
+  },
+
+  /**
+   * The Flamm-style grid's map, worked out on a raster over the drawn region (X in ±xReach, Y in 0 … yReach, `cell`
+   * apart): where each raster point goes. Grid points in between are interpolated (flammGridLookup).
+   */
+  flammGridMap(raster, anchor, xReach, yReach, cell) {
+    const map = PhysicsCore.emptyFlammGridMap(xReach, yReach, cell);
+    PhysicsCore.fillFlammGridMap(map, raster, anchor, 0, map.rows);
+    return map;
+  },
+
+  /** An empty Flamm-style grid map (fill it with fillFlammGridMap, all at once or a few rows at a time). */
+  emptyFlammGridMap(xReach, yReach, cell) {
+    const columns = Math.round(2 * xReach / cell) + 1;
+    const rows = Math.round(yReach / cell) + 1;
+    return { columns, rows, cell, xReach, yReach, filledRows: 0,
+      mapX: new Float64Array(columns * rows).fill(NaN), mapY: new Float64Array(columns * rows).fill(NaN) };
+  },
+
+  /** Works out rows rowFrom … rowTo − 1 of a Flamm-style grid map. */
+  fillFlammGridMap(map, raster, anchor, rowFrom, rowTo) {
+    for (let row = rowFrom; row < Math.min(rowTo, map.rows); row++) {
+      for (let column = 0; column < map.columns; column++) {
+        const point = PhysicsCore.flammGridPoint(raster, anchor, -map.xReach + column * map.cell, row * map.cell);
+        if (point) { map.mapX[row * map.columns + column] = point.x; map.mapY[row * map.columns + column] = point.y; }
+      }
+      map.filledRows = row + 1;
+    }
+    return map;
+  },
+
+  /** Where the grid point drawn at (X, Y ≥ 0) goes, interpolated in the map; null where any neighbour has no answer. */
+  flammGridLookup(map, x, y) {
+    const columnPosition = (x + map.xReach) / map.cell;
+    const rowPosition = Math.abs(y) / map.cell;
+    const column = Math.floor(columnPosition);
+    const row = Math.floor(rowPosition);
+    if (column < 0 || row < 0 || column >= map.columns - 1 || row >= map.rows - 1) return null;
+    const fx = columnPosition - column;
+    const fy = rowPosition - row;
+    let px = 0;
+    let py = 0;
+    for (const [c, r, weight] of [[column, row, (1 - fx) * (1 - fy)], [column + 1, row, fx * (1 - fy)],
+      [column, row + 1, (1 - fx) * fy], [column + 1, row + 1, fx * fy]]) {
+      const index = r * map.columns + c;
+      if (!Number.isFinite(map.mapX[index])) return null;
+      px += weight * map.mapX[index];
+      py += weight * map.mapY[index];
+    }
+    return { x: px, y: py };
   },
 
   // ----- Anchored grid: straightest paths (geodesics of space) from a point on the line -----
@@ -1058,8 +1376,23 @@ const PhysicsCore = {
 // The default pair used by the tests (and by reference_values.py): 1.75 + 1.2 M☉, R = 12 km, Weyl centre distance 100 km.
 const testPair = () => PhysicsCore.starPair(PhysicsCore.geometricMassKm(1.75), PhysicsCore.geometricMassKm(1.2), 100, 12);
 const singleRod = (halfLength) => [{ centre: 0, halfLength }, { centre: 1e9, halfLength: 0 }];
-// One star with r_s = 1, its surface at r = 2 r_s, meshed out to 14 (for the Flamm checks of the true-length surface).
-const flammTestMesh = () => PhysicsCore.buildSliceMesh(singleRod(0.5), 2, -14, 14, 14, { fine: 0.12, growth: 0.1, coarse: 0.8 });
+// Solved surfaces for the tests, computed once each: one star (r_s = 1, surface at r = 2 r_s, a massless focus 6 away)
+// and the default pair on a coarser test mesh.
+let cachedOneStarSurface = null;
+const oneStarSurface = () => {
+  if (cachedOneStarSurface) return cachedOneStarSurface;
+  const mesh = PhysicsCore.buildSurfaceMesh([{ centre: 0, halfLength: 0.5 }, { centre: 6, halfLength: 0 }], 2, 400, 0.06);
+  const positions = PhysicsCore.solveSurfaceNow(mesh, 10);
+  cachedOneStarSurface = { mesh, positions, raster: PhysicsCore.rasterizeSurface(mesh, positions, 30, 30, 0.03) };
+  return cachedOneStarSurface;
+};
+let cachedTwoStarSurface = null;
+const twoStarSurface = () => {
+  if (cachedTwoStarSurface) return cachedTwoStarSurface;
+  const mesh = PhysicsCore.buildSurfaceMesh(testPair().rods, 12, 1000, 0.08);
+  cachedTwoStarSurface = { mesh, positions: PhysicsCore.solveSurfaceNow(mesh) };
+  return cachedTwoStarSurface;
+};
 
 // Each test: actual() computes with PhysicsCore; expected is a literal from physics/reference-values.json
 // (refKey), an exact limit, or a value fixed by construction. Tolerances are relative.
@@ -1222,30 +1555,54 @@ const PhysicsSelfTests = [
     source: "Weak-field expansion (equations.md §1)",
   },
   {
-    name: "True-length surface, one star: Flamm's exact paraboloid has the slice's true edge lengths (RMS error)",
-    actual: () => { const mesh = flammTestMesh(); return PhysicsCore.embeddingLengthErrors(mesh, PhysicsCore.flammStartingShape(mesh)).rms; },
-    expected: 0,
-    relativeTolerance: 1e-4,
-    source: "Flamm (1916) embedding vs the Weyl slice metric e^(γ−U); the only error is the straight-edge (chord) approximation",
-  },
-  {
-    name: "True-length surface, one star: after the full relaxation, the rise from 2 r_s to 10 r_s is still Flamm's (r_s = 1)",
-    actual: () => { const mesh = flammTestMesh(); const state = PhysicsCore.relaxEmbedding(mesh, PhysicsCore.startEmbedding(mesh), 1200);
-      return PhysicsCore.embeddedAxisPoint(mesh, state.positions, 9.5)[2] - PhysicsCore.embeddedAxisPoint(mesh, state.positions, 1.5)[2]; },
+    name: "True-length surface, one star: the rise from 2 r_s to 10 r_s along the line is Flamm's (r_s = 1)",
+    actual: () => { const { mesh, positions } = oneStarSurface();
+      return PhysicsCore.surfaceAxisPoint(mesh, positions, 9.5)[2] - PhysicsCore.surfaceAxisPoint(mesh, positions, 1.5)[2]; },
     expected: 4.0,
-    relativeTolerance: 2e-3,
+    relativeTolerance: 1e-3,
     refKey: "schwarzschild.flamm_height_2rs_to_10rs_in_rs",
-    source: "SciPy quad of the embedding condition in reference_values.py (on the axis, r = z + m); "
-      + "tolerance covers the smoothness term's small pull (about 0.1%)",
+    source: "SciPy quad of the embedding condition in reference_values.py (on the axis, r = z + m)",
   },
   {
-    name: "True-length surface, two stars: relaxed edge lengths match the true lengths (RMS error ≤ 0.1%)",
-    actual: () => { const pair = testPair(); const mesh = PhysicsCore.buildSliceMesh(pair.rods, 12, -150, 150, 90, { fine: 1.6, growth: 0.25, coarse: 10 });
-      const state = PhysicsCore.relaxEmbedding(mesh, PhysicsCore.startEmbedding(mesh), 1200);
-      return PhysicsCore.embeddingLengthErrors(mesh, state.positions).rms; },
-    expected: 0,
+    name: "Flamm-style grid, one star, anchored at the surface: drawn at 2 + ℓ(2 r_s, 10 r_s) it lands at r = 10 r_s",
+    actual: () => { const { raster } = oneStarSurface(); const drawn = 2 + 9.009692290348593;
+      const point = PhysicsCore.flammGridPoint(raster, { kind: "surfaces" }, drawn * Math.cos(0.9), drawn * Math.sin(0.9), 0.01);
+      return Math.hypot(point.x, point.y); },
+    expected: 10,
+    relativeTolerance: 2e-3,
+    source: "The one-star page's rule ρ = R + ℓ(R, r), with ℓ(2 r_s, 10 r_s) from schwarzschild.proper_distance_2rs_to_10rs_in_rs",
+  },
+  {
+    name: "Flamm-style grid, one star, anchored at the level of r = 10 r_s: a point drawn there stays (r_s = 1)",
+    actual: () => { const { mesh, positions, raster } = oneStarSurface(); const level = PhysicsCore.surfaceAxisPoint(mesh, positions, 9.5)[2];
+      const point = PhysicsCore.flammGridPoint(raster, { kind: "level", height: level }, 10 * Math.cos(2.1), 10 * Math.sin(2.1), 0.01);
+      return Math.hypot(point.x, point.y); },
+    expected: 10,
     relativeTolerance: 1e-3,
-    source: "Fixed by construction: the relaxation's own goal, checked on the default pair (coarse test mesh)",
+    source: "Fixed by construction: at the anchor, true and drawn distances are both zero",
+  },
+  {
+    name: "True-length surface, two stars: a point seen from above (X) agrees with an independent Python solve to 0.1 km",
+    actual: () => { const { mesh, positions } = twoStarSurface(); return PhysicsCore.surfacePointAt(mesh, positions, 30, -60)[0]; },
+    expected: -63.5803671799177,
+    relativeTolerance: 1.6e-3,
+    refKey: "two_body.surface_probe_seen_from_above_x_km",
+    source: "Independent Python rebuild solved with SciPy's sparse direct solver (reference_values.py); 0.1 km ≈ 1.6e-3 of 64 km",
+  },
+  {
+    name: "True-length surface, two stars: the same point's distance from the line (Y) agrees to 0.1 km",
+    actual: () => { const { mesh, positions } = twoStarSurface(); return PhysicsCore.surfacePointAt(mesh, positions, 30, -60)[1]; },
+    expected: 34.05089433419739,
+    relativeTolerance: 3e-3,
+    refKey: "two_body.surface_probe_seen_from_above_y_km",
+    source: "Independent Python rebuild solved with SciPy's sparse direct solver (reference_values.py); 0.1 km ≈ 3e-3 of 34 km",
+  },
+  {
+    name: "True-length surface, two stars: edge lengths match the true lengths (RMS error ≤ 0.05%)",
+    actual: () => { const { mesh, positions } = twoStarSurface(); return PhysicsCore.surfaceLengthErrors(mesh, positions).rms; },
+    expected: 0,
+    relativeTolerance: 5e-4,
+    source: "Fixed by construction: the solver's own goal, on the default pair (test mesh)",
   },
   {
     name: "Anchored grid, one star: a straight path of space from r = 5 r_s (60° from outward, 6 r_s long) ends at r",
@@ -1369,7 +1726,8 @@ const viewState = {
   coordinateTimeSeconds: 0,  // distant-observer time t that drives the clocks
   showClocks: true,
   showBands: true,
-  gridStyle: "anchored",     // "anchored" (laid out along geodesics from an anchor) or "bands" (straight, ruler bands)
+  gridStyle: "flamm",        // "flamm" (from the true-length surface), "anchored" (geodesics from a point) or "bands"
+  flammAnchor: "far",        // Flamm-style grid: "far", "surfaces", "reddest", "observer" or "camera"
   gridAnchor: "reddest",     // anchored grid: "star1", "reddest", "star2", "observer" (O's spot on the line) or "far"
   sectionCut: true,
   frame: "infinity",         // "infinity", "observer" (O) or "camera"
@@ -1597,12 +1955,45 @@ const starObjects = [0, 1].map((index) => {
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture, color: 0xffc070,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   const label = makeLabel("", "label faint");
-  gridGroup.add(mesh, glow, label);
-  return { mesh, glow, label, index };
+  const lathe = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0xffd9a0, side: THREE.DoubleSide }));
+  lathe.visible = false;
+  gridGroup.add(mesh, glow, label, lathe);
+  return { mesh, glow, label, lathe, index };
 });
 
-function updateStars() {
+/**
+ * Stars drawn in the true-length surface's looked-down coordinates (Flamm-style grid): each star's rim, seen from
+ * above, turned about the line (a solid of revolution, like the one-star page's sphere at areal radius R).
+ */
+function updateStarsSeenFromAbove() {
   for (const star of starObjects) {
+    star.mesh.visible = false;
+    const { mesh, positions } = surface;
+    const rim = [];
+    for (let node = 0; node < mesh.nodeZ.length; node++) if (mesh.alive[node] && mesh.rimStar[node] === star.index) rim.push(node);
+    const centre = mesh.stars[star.index].centre;
+    rim.sort((first, second) => Math.atan2(mesh.nodeRho[first], mesh.nodeZ[first] - centre) - Math.atan2(mesh.nodeRho[second], mesh.nodeZ[second] - centre));
+    // LatheGeometry turns (radius, height) about its y axis; turned by −90° about z, height runs along the scene's x.
+    const profile = rim.map((node) => new THREE.Vector2(positions[3 * node + 1], positions[3 * node])).reverse();
+    star.lathe.geometry.dispose();
+    star.lathe.geometry = new THREE.LatheGeometry(profile, 48);
+    star.lathe.rotation.z = -Math.PI / 2;
+    star.lathe.visible = true;
+    const xs = rim.map((node) => positions[3 * node]);
+    const middleX = 0.5 * (Math.min(...xs) + Math.max(...xs));
+    const radius = Math.max(...rim.map((node) => positions[3 * node + 1]));
+    star.glow.position.set(middleX, 0, 0);
+    star.glow.scale.setScalar(radius * 4);
+    star.label.position.set(middleX, radius + 5, 0);
+    star.label.element.textContent = `star ${star.index + 1}, ${spacetime.masses[star.index].toFixed(2)} M☉, R = ${STAR_RADIUS_KM} km`;
+  }
+}
+
+function updateStars() {
+  for (const star of starObjects) star.lathe.visible = false;
+  if (usesSurfaceFrame()) { updateStarsSeenFromAbove(); return; }
+  for (const star of starObjects) {
+    star.mesh.visible = star.glow.visible = true;
     const { along, across } = starSemiAxes(star.index);
     const centre = spacetime.rods[star.index].centre;
     star.mesh.scale.set(along, across, across);
@@ -1677,9 +2068,13 @@ function buildGrid() {
   const positions = [];
   const colors = [];
   const isAnchored = viewState.gridStyle === "anchored";
+  const isFlamm = viewState.gridStyle === "flamm" && flammGridReady();
   if (isAnchored) prepareAnchoredGrid();
-  // Each grid line is traced as two halves from its middle (parameter 0) outward.
-  const traceGridHalfLine = (pointAt, direction, end, linePositions, lineColors) => (isAnchored
+  // Each grid line is traced as two halves from its middle (parameter 0) outward. Until the Flamm-style grid is ready
+  // (the true-length surface takes a few seconds), the straight grid with ruler bands stands in for it.
+  const traceGridHalfLine = (pointAt, direction, end, linePositions, lineColors) => (isFlamm
+    ? traceFlammHalfLine(pointAt, end, linePositions, lineColors)
+    : isAnchored
     ? traceAnchoredHalfLine(pointAt, end, linePositions, lineColors)
     : traceBandedHalfLine(pointAt, direction, end, linePositions, lineColors));
   const halfLength = sceneHalfLength();
@@ -1970,18 +2365,17 @@ function buildObserverLevel() {
   observerLevelLabel.position.set(0, height + 2, -reach * 0.7);
 }
 
-// ===== True-length surface (numerical embedding) =====
+// ===== True-length surface (its own view, and the base of the Flamm-style grid) =====
 //
-// The plane through both stars at one moment, embedded in flat 3D so that lengths along the surface are true
-// ruler lengths: the two-star version of Flamm's paraboloid. PhysicsCore builds the mesh and relaxes it; this code
-// runs a few relaxation steps each frame (so the surface visibly settles), levels it and draws it. Its height means
-// nothing physical. Only the half rho ≥ 0 is solved (drawn on the −z side); the other half is its mirror image.
+// The plane through both stars at one moment, embedded in flat 3D so that lengths along it are true ruler lengths
+// (PhysicsCore.buildSurfaceMesh / solveSurface: far edge pinned to the total mass's Flamm paraboloid, line rule
+// cos(tilt) = clock rate). The solver is a generator: a slice of it runs each frame, so the page stays responsive and
+// the surface visibly settles. Coordinates: X along the line, Y away from it, W up (its height means nothing physical).
 
-const EMBEDDING_SPACING = { fine: 1.5, growth: 0.1, coarse: 4 };  // km: mesh spacing at the stars, growth, largest
-const EMBEDDING_STEPS_PER_FRAME = 25;
-const EMBEDDING_MAX_STEPS = 4000;
-const EMBEDDING_TARGET_RMS = 1e-4;                                // stop once edge lengths are this close (RMS)
-const EMBEDDING_REDRAW_EVERY = 8;                                 // frames between redraws while relaxing
+const SURFACE_OUTER_RADIUS_KM = 1000;   // the pinned far edge
+const SURFACE_MESH_CELL = 0.06;         // spacing in the mesh's μ and ν (about 2 km at the stars, 60 km at the far edge)
+const SURFACE_FRAME_BUDGET_MS = 30;     // solver time per animation frame
+const SURFACE_UNCERTAINTY_KM = 0.5;     // from the convergence study (mesh size, far-edge distance, solver steps)
 
 const embeddingGroup = new THREE.Group();
 scene.add(embeddingGroup);
@@ -1994,100 +2388,68 @@ const embeddingLidMaterial = new THREE.MeshBasicMaterial({ color: 0xffb060, tran
 const embeddingNoteLabel = makeLabel("true-length surface: distances along it are true ruler distances; its height means nothing physical", "label faint");
 const embeddingStarLabels = [0, 1].map(() => makeLabel("", "label faint"));
 embeddingGroup.add(embeddingNoteLabel, ...embeddingStarLabels);
-
-const embedding = { mesh: null, state: null, drawn: null, errors: null, frames: 0, stale: true, nodeRedshift: null };
 let embeddingObjects = [];
 
-/** Builds a fresh mesh for the current stars and starts relaxing it from the combined Flamm shapes. */
-function startEmbeddingSolve() {
-  const halfLength = sceneHalfLength();
-  const mesh = PhysicsCore.buildSliceMesh(spacetime.rods, STAR_RADIUS_KM, -halfLength, halfLength, GRID_SIDE_REACH_KM, EMBEDDING_SPACING);
-  embedding.mesh = mesh;
-  embedding.state = PhysicsCore.startEmbedding(mesh);
-  embedding.nodeRedshift = Float64Array.from(mesh.nodeZ, (z, node) => PhysicsCore.redshiftToInfinity(mesh.nodeRho[node], z, spacetime.rods));
-  embedding.frames = 0;
-  embedding.stale = false;
-  refreshEmbeddingDrawing();
+const surface = { mesh: null, solver: null, positions: null, steps: 0, done: false, stale: true, errors: null,
+  nodeRedshift: null, heightOffset: 0 };
+
+/** True when something on screen needs the true-length surface. */
+function needsSurface() {
+  return viewState.view === "embedding" || (viewState.view === "grid" && viewState.gridStyle === "flamm");
 }
 
-function isEmbeddingRelaxing() {
-  const { state, errors } = embedding;
-  return state && !state.finished && state.steps < EMBEDDING_MAX_STEPS && errors.rms > EMBEDDING_TARGET_RMS;
+/** Builds the mesh for the current stars and starts the solver (it then runs a slice per frame). */
+function startSurfaceSolve() {
+  const mesh = PhysicsCore.buildSurfaceMesh(spacetime.rods, STAR_RADIUS_KM, SURFACE_OUTER_RADIUS_KM, SURFACE_MESH_CELL);
+  surface.mesh = mesh;
+  surface.solver = PhysicsCore.solveSurface(mesh);
+  surface.positions = PhysicsCore.surfaceStartingShape(mesh);
+  surface.steps = 0;
+  surface.done = false;
+  surface.stale = false;
+  surface.nodeRedshift = Float64Array.from(mesh.nodeZ, (z, node) => PhysicsCore.redshiftToInfinity(mesh.nodeRho[node], z, spacetime.rods));
+  // Draw the rim of the scene at height 0: the total mass's Flamm height at the grid's reach.
+  const reachRadius = sceneHalfLength();
+  surface.heightOffset = 2 * Math.sqrt(2 * mesh.total.halfLength * (reachRadius - 2 * mesh.total.halfLength));
+  flammGrid.map = null;
+  flammGrid.raster = null;
+  refreshSurfaceDrawing();
 }
 
-/**
- * Levels the solved surface for drawing: turns it about the mirror plane's normal so its outer edge is level, puts that
- * edge at height 0, and shifts it along the line to sit where the other views put the stars. Result: scene coordinates.
- */
-function levelEmbedding() {
-  const { mesh, state } = embedding;
-  const positions = state.positions;
-  const edgeNodes = [];
-  for (let node = 0; node < mesh.nodeZ.length; node++) {
-    const row = Math.floor(node / mesh.columns);
-    const column = node % mesh.columns;
-    if (mesh.alive[node] && (row === mesh.rows - 1 || column === 0 || column === mesh.columns - 1)) edgeNodes.push(node);
+/** Runs the solver for a slice of this frame; redraws after each finished step, and finishes up at the end. */
+function advanceSurface() {
+  if (!surface.solver || surface.done || !needsSurface()) return;
+  const started = performance.now();
+  let stepped = false;
+  while (performance.now() - started < SURFACE_FRAME_BUDGET_MS) {
+    const result = surface.solver.next();
+    if (result.done) {
+      surface.positions = result.value;
+      surface.done = true;
+      stepped = true;
+      break;
+    }
+    if (result.value.positions) {
+      surface.positions = Float64Array.from(result.value.positions);
+      surface.steps = result.value.step;
+      stepped = true;
+    }
   }
-  const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
-  const meanX = mean(edgeNodes.map((node) => positions[3 * node]));
-  const meanHeight = mean(edgeNodes.map((node) => positions[3 * node + 2]));
-  let covariance = 0;
-  let variance = 0;
-  for (const node of edgeNodes) {
-    covariance += (positions[3 * node] - meanX) * (positions[3 * node + 2] - meanHeight);
-    variance += (positions[3 * node] - meanX) ** 2;
-  }
-  const tilt = Math.atan(covariance / variance);
-  const [cosine, sine] = [Math.cos(tilt), Math.sin(tilt)];
-  const drawn = new Float64Array(positions.length);
-  for (let node = 0; node < mesh.nodeZ.length; node++) {
-    const x = positions[3 * node];
-    const height = positions[3 * node + 2];
-    drawn[3 * node] = cosine * x + sine * height;
-    drawn[3 * node + 1] = -sine * x + cosine * height;
-    drawn[3 * node + 2] = -positions[3 * node + 1];   // the solved half goes on the −z side
-  }
-  const shiftX = mean(edgeNodes.map((node) => drawn[3 * node] - mesh.nodeZ[node]));
-  const shiftHeight = mean(edgeNodes.map((node) => drawn[3 * node + 1]));
-  for (let node = 0; node < mesh.nodeZ.length; node++) {
-    drawn[3 * node] -= shiftX;
-    drawn[3 * node + 1] -= shiftHeight;
-  }
-  embedding.drawn = drawn;
+  if (!stepped) return;
+  refreshSurfaceDrawing();
+  if (surface.done) onSurfaceSolved();
 }
 
-/** Index i with values[i] ≤ value ≤ values[i + 1], or −1 outside. */
-function findInterval(values, value) {
-  if (value < values[0] || value > values[values.length - 1]) return -1;
-  let low = 0;
-  let high = values.length - 1;
-  while (high - low > 1) {
-    const middle = (low + high) >> 1;
-    if (values[middle] <= value) low = middle; else high = middle;
-  }
-  return low;
+/** Scene position of a surface point [X, Y, W], on the −z side (the half the section cut keeps). */
+function surfaceScenePoint(point) {
+  return new THREE.Vector3(point[0], point[2] - surface.heightOffset, -point[1]);
 }
 
-/** Scene position of the surface at Weyl (rho, z), on the −z half (bilinear within a mesh cell), or null. */
-function embeddedPoint(rho, z) {
-  const { mesh, drawn } = embedding;
-  const column = findInterval(mesh.zs, z);
-  const row = findInterval(mesh.rhos, Math.abs(rho));
-  if (column < 0 || row < 0) return null;
-  const corner = row * mesh.columns + column;
-  const corners = [corner, corner + 1, corner + mesh.columns, corner + mesh.columns + 1];
-  if (corners.some((node) => !mesh.alive[node])) return null;
-  const alongZ = (z - mesh.zs[column]) / (mesh.zs[column + 1] - mesh.zs[column]);
-  const alongRho = (Math.abs(rho) - mesh.rhos[row]) / (mesh.rhos[row + 1] - mesh.rhos[row]);
-  const weights = [(1 - alongZ) * (1 - alongRho), alongZ * (1 - alongRho), (1 - alongZ) * alongRho, alongZ * alongRho];
-  const point = new THREE.Vector3();
-  corners.forEach((node, index) => point.add(new THREE.Vector3().fromArray(drawn, 3 * node).multiplyScalar(weights[index])));
-  return point;
-}
-
-/** The mesh node nearest a Weyl point (in coordinates), for spots right next to a star. */
-function nearestEmbeddingNode(rho, z) {
-  const { mesh } = embedding;
+/** Scene position of the surface above Weyl (ρ, z), falling back to the nearest mesh node next to a star. */
+function embeddedPointOrNearest(rho, z) {
+  const point = PhysicsCore.surfacePointAt(surface.mesh, surface.positions, rho, z);
+  if (point) return surfaceScenePoint(point);
+  const { mesh } = surface;
   let best = -1;
   let bestDistance = Infinity;
   for (let node = 0; node < mesh.nodeZ.length; node++) {
@@ -2095,66 +2457,65 @@ function nearestEmbeddingNode(rho, z) {
     const distance = Math.hypot(mesh.nodeZ[node] - z, mesh.nodeRho[node] - Math.abs(rho));
     if (distance < bestDistance) { bestDistance = distance; best = node; }
   }
-  return best;
+  return surfaceScenePoint([surface.positions[3 * best], surface.positions[3 * best + 1], surface.positions[3 * best + 2]]);
 }
 
-/** Scene position of the surface at Weyl (rho, z) on the −z half, falling back to the nearest node. */
-function embeddedPointOrNearest(rho, z) {
-  const point = embeddedPoint(rho, z);
-  if (point) return point;
-  return new THREE.Vector3().fromArray(embedding.drawn, 3 * nearestEmbeddingNode(rho, z));
-}
-
-/** Levels the latest solution and redraws the surface, its lines, the star rims and everything riding on it. */
-function refreshEmbeddingDrawing() {
-  embedding.errors = PhysicsCore.embeddingLengthErrors(embedding.mesh, embedding.state.positions);
-  levelEmbedding();
+function refreshSurfaceDrawing() {
+  surface.errors = PhysicsCore.surfaceLengthErrors(surface.mesh, surface.positions);
   drawEmbedding();
   if (viewState.view === "embedding") {
     buildStrut();
     rebuildBeam();
     placeObserverMarker();
-    describeView();
   }
+  describeView();
 }
 
 function drawEmbedding() {
   for (const object of embeddingObjects) { embeddingGroup.remove(object); object.geometry.dispose(); }
   embeddingObjects = [];
-  const { mesh, drawn, nodeRedshift } = embedding;
+  const { mesh, positions, nodeRedshift } = surface;
   const count = mesh.nodeZ.length;
   const color = new THREE.Color();
+  // Only the part within the scene's reach is drawn (the mesh runs on out to the pinned far edge).
+  const reach = sceneHalfLength() + 20;
+  const shown = (node) => Math.abs(positions[3 * node]) < reach && positions[3 * node + 1] < GRID_SIDE_REACH_KM + 20;
 
-  // The surface: the solved half and its mirror image (z → −z).
-  const positions = new Float32Array(6 * count);
+  const vertexPositions = new Float32Array(6 * count);
   const colors = new Float32Array(6 * count);
   for (let node = 0; node < count; node++) {
-    positions.set([drawn[3 * node], drawn[3 * node + 1], drawn[3 * node + 2]], 3 * node);
-    positions.set([drawn[3 * node], drawn[3 * node + 1], -drawn[3 * node + 2]], 3 * (count + node));
+    const point = surfaceScenePoint([positions[3 * node], positions[3 * node + 1], positions[3 * node + 2]]);
+    vertexPositions.set([point.x, point.y, point.z], 3 * node);
+    vertexPositions.set([point.x, point.y, -point.z], 3 * (count + node));
     redshiftColor(nodeRedshift[node], color).multiplyScalar(lineBrightness(nodeRedshift[node]));
     colors.set([color.r, color.g, color.b], 3 * node);
     colors.set([color.r, color.g, color.b], 3 * (count + node));
   }
+  const triangles = [];
+  for (let corner = 0; corner < mesh.triangles.length; corner += 3) {
+    const [a, b, c] = [mesh.triangles[corner], mesh.triangles[corner + 1], mesh.triangles[corner + 2]];
+    if (shown(a) && shown(b) && shown(c)) triangles.push(a, b, c, a + count, b + count, c + count);
+  }
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("position", new THREE.BufferAttribute(vertexPositions, 3));
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  geometry.setIndex([...mesh.triangles, ...mesh.triangles.map((node) => node + count)]);
+  geometry.setIndex(triangles);
   embeddingObjects.push(new THREE.Mesh(geometry, embeddingSurfaceMaterial));
 
-  // Wire lines: constant z and constant rho every 10 km of Weyl coordinate, both halves.
+  // Wire lines: constant z and constant ρ every 10 km of Weyl coordinate, both halves.
   const linePositions = [];
   const lineColors = [];
   const traceLine = (pointAt, from, to) => {
     let previous = null;
     for (let t = from; t <= to + 1e-9; t += 0.5) {
       const { rho, z } = pointAt(t);
-      const point = starContaining(rho, z) < 0 ? embeddedPoint(rho, z) : null;
+      const raw = starContaining(rho, z) < 0 ? PhysicsCore.surfacePointAt(mesh, positions, rho, z) : null;
       let current = null;
-      if (point) {
+      if (raw && Math.abs(raw[0]) < reach) {
         const redshift = PhysicsCore.redshiftToInfinity(rho, z, spacetime.rods);
         const brightness = lineBrightness(redshift);
         redshiftColor(redshift, color).multiplyScalar(brightness);
-        current = { point, color: [color.r, color.g, color.b], brightness };
+        current = { point: surfaceScenePoint(raw), color: [color.r, color.g, color.b], brightness };
       }
       if (previous && current && Math.max(previous.brightness, current.brightness) > 0.01) {
         for (const side of [1, -1]) {
@@ -2174,14 +2535,9 @@ function drawEmbedding() {
   lineGeometry.setColors(lineColors);
   embeddingObjects.push(new LineSegments2(lineGeometry, embeddingLineMaterial));
 
-  // Each star's rim (the nodes moved onto its surface, both halves) and a flat lid over its unmodelled inside.
+  // Each star's rim (both halves) and a flat lid over its unmodelled inside.
   mesh.stars.forEach((star, starIndex) => {
-    const rimNodes = [];
-    for (let node = 0; node < count; node++) if (mesh.alive[node] && mesh.rimStar[node] === starIndex) rimNodes.push(node);
-    rimNodes.sort((first, second) => Math.atan2(mesh.nodeRho[first], mesh.nodeZ[first] - star.centre)
-      - Math.atan2(mesh.nodeRho[second], mesh.nodeZ[second] - star.centre));
-    const half = rimNodes.map((node) => new THREE.Vector3().fromArray(drawn, 3 * node));
-    const loop = [...half, ...half.slice().reverse().map((point) => new THREE.Vector3(point.x, point.y, -point.z))];
+    const loop = starRimLoop(starIndex, (node) => surfaceScenePoint([positions[3 * node], positions[3 * node + 1], positions[3 * node + 2]]));
     if (loop.length < 3) return;
     const rimPositions = [];
     loop.forEach((point, index) => rimPositions.push(...point.toArray(), ...loop[(index + 1) % loop.length].toArray()));
@@ -2201,24 +2557,163 @@ function drawEmbedding() {
   embeddingNoteLabel.position.set(0, 8, -GRID_SIDE_REACH_KM);
 }
 
-/** Runs a few relaxation steps per frame while the view is shown, redrawing every few frames and at the end. */
-function advanceEmbedding() {
-  if (viewState.view !== "embedding" || !embedding.state || !isEmbeddingRelaxing()) return;
-  PhysicsCore.relaxEmbedding(embedding.mesh, embedding.state, EMBEDDING_STEPS_PER_FRAME);
-  embedding.frames++;
-  embedding.errors = PhysicsCore.embeddingLengthErrors(embedding.mesh, embedding.state.positions);
-  if (embedding.frames % EMBEDDING_REDRAW_EVERY === 0 || !isEmbeddingRelaxing()) {
-    refreshEmbeddingDrawing();
-    updateReadout();
+/**
+ * The scene points of a star's rim (the mesh nodes moved onto its surface), in order around it from one end of the
+ * line to the other on the −z half, then back along the mirror half: a closed loop.
+ */
+function starRimLoop(starIndex, toScene) {
+  const { mesh } = surface;
+  const star = mesh.stars[starIndex];
+  const rimNodes = [];
+  for (let node = 0; node < mesh.nodeZ.length; node++) if (mesh.alive[node] && mesh.rimStar[node] === starIndex) rimNodes.push(node);
+  rimNodes.sort((first, second) => Math.atan2(mesh.nodeRho[first], mesh.nodeZ[first] - star.centre)
+    - Math.atan2(mesh.nodeRho[second], mesh.nodeZ[second] - star.centre));
+  const half = rimNodes.map(toScene);
+  return [...half, ...half.slice().reverse().map((point) => new THREE.Vector3(point.x, point.y, -point.z))];
+}
+
+/** One line for the view notes: how far the solver has got, and how true the lengths are. */
+function describeSurfaceProgress() {
+  if (!surface.errors) return "";
+  const percent = (value) => `${(100 * value).toFixed(value < 1e-3 ? 3 : 2)}%`;
+  const lengths = `edge lengths match the true lengths to ${percent(surface.errors.rms)} (RMS; worst edge ${percent(surface.errors.largest)})`;
+  return surface.done
+    ? ` Solved (${surface.steps} steps): ${lengths}; its shape seen from above is good to about ±${SURFACE_UNCERTAINTY_KM} km.`
+    : ` Computing (step ${surface.steps} of ${SURFACE_SOLVER_STEPS}): ${lengths}.`;
+}
+
+// ===== Flamm-style grid (the one-star page's warped grid, built from the true-length surface) =====
+//
+// Seen from above, the true-length surface gives drawing coordinates (X, Y); turned about the line they fill 3D, just
+// as Flamm's paraboloid gives the one-star page's areal coordinates. Each grid point slides along its downhill line on
+// the surface until its true distance from the anchor equals its drawn distance (PhysicsCore.flammGridPoint).
+// The map is worked out a few rows per frame on a 2 km raster and interpolated in between.
+
+const FLAMM_RASTER_CELL_KM = 1;
+const FLAMM_MAP_CELL_KM = 2;
+const FLAMM_FRAME_BUDGET_MS = 30;
+const FLAMM_FAR_REDSHIFT = 0.01;                 // the "far away" anchor: where light reaches infinity with z = 0.01
+const FLAMM_FAR_RADIUS_LIMIT_KM = 900;           // … but inside the pinned far edge
+const flammGrid = { raster: null, map: null, anchorKey: null, anchor: null, cameraAnchorAt: null };
+
+/** True when the Flamm-style grid is ready to draw (surface solved, map complete). */
+function flammGridReady() {
+  return flammGrid.map && flammGrid.map.filledRows === flammGrid.map.rows;
+}
+
+/** True when the grid view draws everything in the surface's looked-down coordinates. */
+function usesSurfaceFrame() {
+  return viewState.view === "grid" && viewState.gridStyle === "flamm" && flammGridReady();
+}
+
+/** The far anchor's radius: where light reaches infinity with redshift 0.01, for the total mass. */
+function flammFarRadius() {
+  const schwarzschildRadius = 2 * surface.mesh.total.halfLength;
+  return Math.min(schwarzschildRadius / -Math.expm1(-2 * Math.log1p(FLAMM_FAR_REDSHIFT)), FLAMM_FAR_RADIUS_LIMIT_KM);
+}
+
+/** The chosen anchor as {kind, height}: a level on the surface, or "surfaces" (each star's own surface). */
+function flammAnchor() {
+  const choice = viewState.flammAnchor;
+  if (choice === "surfaces") return { kind: "surfaces" };
+  if (choice === "far") {
+    const radius = flammFarRadius();
+    return { kind: "level", height: 2 * Math.sqrt(2 * surface.mesh.total.halfLength * (radius - 2 * surface.mesh.total.halfLength)) };
+  }
+  if (choice === "reddest") return { kind: "level", height: PhysicsCore.surfaceAxisPoint(surface.mesh, surface.positions, spacetime.reddestZ)[2] };
+  if (choice === "camera") {
+    const height = PhysicsCore.rasterSample(flammGrid.raster, flammGrid.raster.height, camera.position.x, Math.hypot(camera.position.y, camera.position.z));
+    return { kind: "level", height: Number.isFinite(height) ? height : flammAnchorOfObserver() };
+  }
+  return { kind: "level", height: flammAnchorOfObserver() };
+}
+
+/** Surface height at O (pushed outside the stars). */
+function flammAnchorOfObserver() {
+  const point = pushOutsideStars({ rho: viewState.observerRho, z: viewState.observerX });
+  const raw = PhysicsCore.surfacePointAt(surface.mesh, surface.positions, point.rho, point.z);
+  return raw ? raw[2] : PhysicsCore.surfaceAxisPoint(surface.mesh, surface.positions, point.z)[2];
+}
+
+/** Once the surface is solved: sample it from above, then start working out the grid map. */
+function onSurfaceSolved() {
+  const reach = Math.max(flammFarRadius(), sceneHalfLength() + GRID_SIDE_REACH_KM) + 20;
+  flammGrid.raster = PhysicsCore.rasterizeSurface(surface.mesh, surface.positions, reach, reach, FLAMM_RASTER_CELL_KM);
+  restartFlammGridMap();
+}
+
+/** Starts (or restarts, for a new anchor) the grid map; it is filled a few rows per frame. */
+function restartFlammGridMap() {
+  if (!flammGrid.raster) return;
+  flammGrid.anchor = flammAnchor();
+  flammGrid.map = PhysicsCore.emptyFlammGridMap(sceneHalfLength() + 4, Math.SQRT2 * GRID_SIDE_REACH_KM + 6, FLAMM_MAP_CELL_KM);
+  flammGrid.cameraAnchorAt = camera.position.clone();
+  describeView();
+}
+
+function advanceFlammGridMap() {
+  if (!flammGrid.map || flammGridReady() || !needsSurface() || viewState.view !== "grid") return;
+  const started = performance.now();
+  while (performance.now() - started < FLAMM_FRAME_BUDGET_MS && !flammGridReady()) {
+    PhysicsCore.fillFlammGridMap(flammGrid.map, flammGrid.raster, flammGrid.anchor, flammGrid.map.filledRows, flammGrid.map.filledRows + 2);
+  }
+  if (flammGridReady()) onFlammGridReady(); else describeView();
+}
+
+/** The map is complete: redraw the grid and everything drawn in the surface's coordinates. */
+function onFlammGridReady() {
+  describeView();
+  updateStars();
+  buildGrid();
+  buildStrut();
+  rebuildBeam();
+  placeObserverMarker();
+}
+
+/**
+ * Where the flat grid point (x, y, z) is drawn: the map, applied to its distance from the line, keeping its angle
+ * around the line. Returns scene coordinates and the Weyl point below it, or null where the map has no answer.
+ */
+function flammGridScenePoint(x, y, z) {
+  const across = Math.hypot(y, z);
+  const moved = PhysicsCore.flammGridLookup(flammGrid.map, x, across);
+  if (!moved) return null;
+  const raster = flammGrid.raster;
+  const rho = PhysicsCore.rasterSample(raster, raster.weylRho, moved.x, moved.y);
+  const weylZ = PhysicsCore.rasterSample(raster, raster.weylZ, moved.x, moved.y);
+  if (!Number.isFinite(rho) || !Number.isFinite(weylZ)) return null;
+  const turn = across > 1e-9 ? moved.y / across : 0;
+  return { x: moved.x, y: y * turn, z: z * turn, rho, weylZ };
+}
+
+/** Traces half of one flat grid line, from its middle (t = 0) to `end`, through the Flamm-style map. */
+function traceFlammHalfLine(pointAt, end, positions, colors) {
+  const color = new THREE.Color();
+  const sign = Math.sign(end);
+  let previous = null;
+  for (let travelled = 0; Math.abs(travelled) <= Math.abs(end) + 1e-9; travelled += sign * ANCHORED_SAMPLE_KM) {
+    const flat = pointAt(Math.abs(travelled) > Math.abs(end) ? end : travelled);
+    const point = flammGridScenePoint(flat.x, flat.y, flat.z);
+    let current = null;
+    if (point && starContaining(point.rho, point.weylZ) < 0) {
+      const redshift = PhysicsCore.redshiftToInfinity(point.rho, point.weylZ, spacetime.rods);
+      const brightness = lineBrightness(redshift);
+      redshiftColor(redshift, color).multiplyScalar(brightness);
+      current = { point, color: [color.r, color.g, color.b], brightness };
+    }
+    if (previous && current && Math.max(previous.brightness, current.brightness) > 0.01
+      && Math.hypot(current.point.x - previous.point.x, current.point.y - previous.point.y, current.point.z - previous.point.z) < ANCHORED_MAX_JUMP_KM) {
+      positions.push(previous.point.x, previous.point.y, previous.point.z, current.point.x, current.point.y, current.point.z);
+      colors.push(...previous.color, ...current.color);
+    }
+    previous = current;
   }
 }
 
-/** One line for the view note: how far the relaxation has got. */
-function describeEmbeddingProgress() {
-  if (!embedding.errors) return "";
-  const percent = (value) => `${(100 * value).toFixed(value < 1e-3 ? 3 : 2)}%`;
-  const lengths = `edge lengths match the true lengths to ${percent(embedding.errors.rms)} (RMS; worst edge ${percent(embedding.errors.largest)})`;
-  return isEmbeddingRelaxing() ? ` Relaxing (${embedding.state.steps} steps): ${lengths}.` : ` Settled after ${embedding.state.steps} steps: ${lengths}.`;
+/** The camera anchor follows the camera: redo the map when the camera has moved by more than 5% of its distance. */
+function followCameraWithFlammAnchor() {
+  if (viewState.view !== "grid" || viewState.gridStyle !== "flamm" || viewState.flammAnchor !== "camera" || !flammGridReady()) return;
+  if (camera.position.distanceTo(flammGrid.cameraAnchorAt) > 0.05 * camera.position.length()) restartFlammGridMap();
 }
 
 // ===== Drawing points on the line =====
@@ -2229,8 +2724,9 @@ function describeEmbeddingProgress() {
  */
 function axisDrawPoint(z, sideways = PLANE_OFFSET_KM, lift = 0.3) {
   if (viewState.view === "embedding") {
-    return new THREE.Vector3(...PhysicsCore.embeddedAxisPoint(embedding.mesh, embedding.drawn, z)).add(new THREE.Vector3(0, lift, 0));
+    return surfaceScenePoint(PhysicsCore.surfaceAxisPoint(surface.mesh, surface.positions, z)).add(new THREE.Vector3(0, lift, 0));
   }
+  if (usesSurfaceFrame()) return new THREE.Vector3(PhysicsCore.surfaceAxisPoint(surface.mesh, surface.positions, z)[0], 0, sideways);
   if (viewState.view === "landscape") return new THREE.Vector3(z, landscapeHeight(z, 0) + lift, 0);
   return new THREE.Vector3(z, 0, sideways);
 }
@@ -2238,6 +2734,10 @@ function axisDrawPoint(z, sideways = PLANE_OFFSET_KM, lift = 0.3) {
 /** Where a static observer at Weyl (rho, z) is drawn: in the y = 0 plane on the −z side (the side the section cut keeps). */
 function offAxisDrawPoint(point, lift = 1.3) {
   if (viewState.view === "embedding") return embeddedPointOrNearest(point.rho, point.z).add(new THREE.Vector3(0, lift, 0));
+  if (usesSurfaceFrame()) {   // seen from above: X along the line, Y away from it
+    const seen = embeddedPointOrNearest(point.rho, point.z);
+    return new THREE.Vector3(seen.x, 0, seen.z);
+  }
   if (viewState.view === "landscape") return new THREE.Vector3(point.z, landscapeHeight(point.z, point.rho) + lift, -point.rho);
   return new THREE.Vector3(point.z, 0, -point.rho);
 }
@@ -2363,16 +2863,13 @@ scene.add(observerMarker);
 /** The camera's place in Weyl coordinates (on the landscape: the point of the plane below it), kept outside the stars. */
 function cameraPoint() {
   const position = camera.position;
-  if (viewState.view === "embedding" && embedding.drawn) {
-    // The surface point below the camera: the nearest node by horizontal position.
-    let best = -1;
-    let bestDistance = Infinity;
-    for (let node = 0; node < embedding.mesh.nodeZ.length; node++) {
-      if (!embedding.mesh.alive[node]) continue;
-      const distance = Math.hypot(embedding.drawn[3 * node] - position.x, -embedding.drawn[3 * node + 2] - Math.abs(position.z));
-      if (distance < bestDistance) { bestDistance = distance; best = node; }
-    }
-    return pushOutsideStars({ rho: embedding.mesh.nodeRho[best], z: embedding.mesh.nodeZ[best] });
+  if ((viewState.view === "embedding" || usesSurfaceFrame()) && flammGrid.raster) {
+    // The Weyl point below the camera, seen from above on the true-length surface.
+    const raster = flammGrid.raster;
+    const across = viewState.view === "embedding" ? Math.abs(position.z) : Math.hypot(position.y, position.z);
+    const rho = PhysicsCore.rasterSample(raster, raster.weylRho, position.x, across);
+    const z = PhysicsCore.rasterSample(raster, raster.weylZ, position.x, across);
+    if (Number.isFinite(rho) && Number.isFinite(z)) return pushOutsideStars({ rho, z });
   }
   const rho = viewState.view === "grid" ? Math.hypot(position.y, position.z) : Math.abs(position.z);
   return pushOutsideStars({ rho, z: position.x });
@@ -2485,7 +2982,12 @@ function makeClock(weylPoint, position, sizeKm, showRateLabel) {
 function planeClockSites() {
   // With the anchored grid shown, the clocks ride on its (moved) vertices.
   const onAnchoredGrid = viewState.view === "grid" && viewState.gridStyle === "anchored" && anchorFan;
+  const onFlammGrid = usesSurfaceFrame();
   const placeVertex = (point) => {
+    if (onFlammGrid) {
+      const moved = flammGridScenePoint(point.z, 0, -point.rho);
+      return moved ? { rho: moved.rho, z: moved.weylZ } : null;
+    }
     if (!onAnchoredGrid) return point;
     const moved = anchoredGridPoint(point.z, 0, -point.rho);
     return moved ? { rho: moved.rho, z: moved.x } : null;
@@ -2868,11 +3370,23 @@ function describeView() {
   const showIf = (selector, shown) => document.querySelectorAll(selector).forEach((element) => { element.style.display = shown ? "" : "none"; });
   showIf(".grid-only", viewState.view === "grid");
   showIf(".anchored-only", viewState.view === "grid" && viewState.gridStyle === "anchored");
+  showIf(".flamm-only", viewState.view === "grid" && viewState.gridStyle === "flamm");
   showIf(".bands-only", viewState.view === "grid" && viewState.gridStyle === "bands");
   if (viewState.view === "embedding") {
     document.getElementById("view-note").textContent = "The plane through both stars at one moment, bent in 3D so that every distance "
       + "along the surface is the true ruler distance: the two-star version of Flamm's paraboloid. There is no formula for it, so "
-      + "it is computed, and the height means nothing physical. Lines are every 10 km of Weyl's coordinates." + describeEmbeddingProgress();
+      + "it is computed, and the height means nothing physical. Lines are every 10 km of Weyl's coordinates." + describeSurfaceProgress();
+    return;
+  }
+  if (viewState.view === "grid" && viewState.gridStyle === "flamm") {
+    const anchorWords = { far: "far away (where light reaches infinity with z = 0.01)", surfaces: "at each star's surface",
+      reddest: "at the height of the reddest point", observer: "at O's height on the surface", camera: "at the camera's height (it follows the camera)" };
+    const progress = !surface.done ? "Computing the true-length surface first; the straight grid stands in meanwhile." + describeSurfaceProgress()
+      : !flammGridReady() ? `Laying out the grid (${Math.round(100 * (flammGrid.map ? flammGrid.map.filledRows / flammGrid.map.rows : 0))}%).`
+      : `Seen from above, the true-length surface is good to about ±${SURFACE_UNCERTAINTY_KM} km.`;
+    document.getElementById("view-note").textContent = "The one-star page's grid, built from the true-length surface: looked at from "
+      + "above, it gives the drawing coordinates (as Flamm's paraboloid gives r), and each grid point slides along its downhill line "
+      + `until its true distance from the anchor equals its drawn distance. Anchored ${anchorWords[viewState.flammAnchor]}. ${progress}`;
     return;
   }
   if (viewState.view === "grid" && viewState.gridStyle === "anchored") {
@@ -2902,12 +3416,15 @@ function updateObserverSliders() {
 /** Rebuilds everything that depends on the masses or the gap. */
 function onStarsChanged() {
   spacetime = describeSpacetime();
+  // The true-length surface (and the Flamm-style grid built on it) must be worked out again for the new stars.
+  surface.stale = true;
+  flammGrid.map = null;
+  flammGrid.raster = null;
   updateStars();
   updateObserverSliders();
   buildGrid();
   buildLandscape();
-  embedding.stale = true;
-  if (viewState.view === "embedding") startEmbeddingSolve();
+  if (needsSurface()) startSurfaceSolve();
   buildStrut();
   describeBodyNote();
   onBeamChanged();
@@ -2923,6 +3440,7 @@ function onBeamChanged() {
 
 function onFrameChanged() {
   if (viewState.gridStyle === "anchored" && viewState.gridAnchor === "observer") buildGrid();   // the anchor follows O
+  if (viewState.gridStyle === "flamm" && viewState.flammAnchor === "observer" && surface.done) restartFlammGridMap();
   placeObserverMarker();
   buildObserverLevel();
   buildClocks();
@@ -2947,7 +3465,7 @@ brightnessSlider.addEventListener("input", () => {
   showSliderValues();
   buildGrid();
   buildLandscape();
-  if (embedding.drawn && !embedding.stale) drawEmbedding();
+  if (surface.mesh && !surface.stale) drawEmbedding();
 });
 
 document.getElementById("restart-button").addEventListener("click", () => { viewState.travelledLightKm = 0; });
@@ -2995,10 +3513,22 @@ document.getElementById("clocks-checkbox").addEventListener("change", (event) =>
 /** Grid style and anchor buttons: rebuild the grid, and the clocks that ride on its vertices. */
 function onGridChoiceChanged() {
   syncControlsToState();
+  if (needsSurface() && surface.stale) startSurfaceSolve();
+  updateStars();
   describeView();
   buildGrid();
-  buildClocks();
+  buildStrut();
+  rebuildBeam();
+  placeObserverMarker();
 }
+document.getElementById("flamm-anchor-mode").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-anchor]");
+  if (!button) return;
+  viewState.flammAnchor = button.dataset.anchor;
+  syncControlsToState();
+  if (surface.done) restartFlammGridMap();
+  onGridChoiceChanged();
+});
 document.getElementById("grid-style").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-style]");
   if (!button) return;
@@ -3038,7 +3568,9 @@ function setView(view) {
   gridGroup.visible = view === "grid";
   landscapeGroup.visible = view === "landscape";
   embeddingGroup.visible = view === "embedding";
-  if (view === "embedding" && embedding.stale) startEmbeddingSolve();
+  if (needsSurface() && surface.stale) startSurfaceSolve();
+  updateStars();
+  if (view === "grid") buildGrid();
   describeView();
   applyLabelVisibility();
   buildStrut();
@@ -3117,9 +3649,11 @@ function animate(now) {
   requestAnimationFrame(animate);
   const elapsedSeconds = Math.min((now - previousFrameTime) / 1000, 0.1);
   previousFrameTime = now;
-  advanceEmbedding();
+  advanceSurface();
+  advanceFlammGridMap();
   advanceBeam(elapsedSeconds);
   if (frameCounter++ % 6 === 0) {
+    followCameraWithFlammAnchor();
     updateFrontReadout();
     updateCameraReadout();
     if (viewState.frame === "camera") {   // the observer moves with the camera
@@ -3151,7 +3685,8 @@ function syncControlsToState() {
     "clocks-checkbox": viewState.showClocks,
   };
   for (const [id, checked] of Object.entries(checkboxes)) document.getElementById(id).checked = checked;
-  const groups = { "frame-mode": ["frame", viewState.frame], "grid-style": ["style", viewState.gridStyle], "anchor-mode": ["anchor", viewState.gridAnchor] };
+  const groups = { "frame-mode": ["frame", viewState.frame], "grid-style": ["style", viewState.gridStyle], "anchor-mode": ["anchor", viewState.gridAnchor],
+    "flamm-anchor-mode": ["anchor", viewState.flammAnchor] };
   for (const [id, [key, value]] of Object.entries(groups)) {
     document.querySelectorAll(`#${id} button`).forEach((button) => button.classList.toggle("active", button.dataset[key] === value));
   }

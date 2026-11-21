@@ -359,6 +359,18 @@
       "unit": "km",
       "description": "Weyl rho at the end of a spatial geodesic from the reddest point, 70.0 deg from +z, 50.0 km long; 1.75 + 1.2 M_sun, Weyl centre separation 100 km",
       "source": "SciPy solve_ivp with numerical rod potentials, gamma carried by its field equations"
+    },
+    "two_body.surface_probe_seen_from_above_x_km": {
+      "value": -63.5803671799177,
+      "unit": "km",
+      "description": "True-length surface seen from above: X of the probe point; 1.75 + 1.2 M_sun, Weyl centre separation 100 km; mesh cell 0.08, far edge 1000 km; probe at Weyl rho = 30.0 km, z = -60.0 km",
+      "source": "Independent Python rebuild of the page's true-length surface, solved with SciPy's sparse direct solver"
+    },
+    "two_body.surface_probe_seen_from_above_y_km": {
+      "value": 34.05089433419739,
+      "unit": "km",
+      "description": "True-length surface seen from above: Y (distance from the line) of the probe point; 1.75 + 1.2 M_sun, Weyl centre separation 100 km; mesh cell 0.08, far edge 1000 km; probe at Weyl rho = 30.0 km, z = -60.0 km",
+      "source": "Independent Python rebuild of the page's true-length surface, solved with SciPy's sparse direct solver"
     }
   }
 }

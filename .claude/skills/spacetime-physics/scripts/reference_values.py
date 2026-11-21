@@ -420,6 +420,186 @@ def geodesic_reference_values():
     }
 
 
+# ----- True-length surface (two-body-problem.html): an independent re-implementation -----
+#
+# The page embeds the plane through both stars in flat 3D with true edge lengths, pinning the far edge to the total
+# mass's Flamm paraboloid and the line through the stars to cos(tilt) = clock rate. This rebuilds the same mesh and
+# conditions in Python (closed-form Weyl functions, written separately from the page), solves them with SciPy's sparse
+# direct solver, and reports where one surface point lands seen from above.
+
+SURFACE_TEST_CELL = 0.08
+SURFACE_TEST_OUTER_KM = 1000.0
+SURFACE_TEST_PROBE = (30.0, -60.0)   # Weyl (rho, z) in km, z from the midpoint of the rod centres
+SURFACE_LINK_WEIGHT = 10.0
+
+
+def rod_potential_closed(rho, z, centre, half):
+    upper = math.hypot(rho, z - centre - half); lower = math.hypot(rho, z - centre + half)
+    return 0.5 * math.log1p(-4 * half / (upper + lower + 2 * half))
+
+
+def weyl_gamma_closed(rho, z, rods):
+    def pair_term(k, l):
+        dk = math.hypot(rho, z - k); dl = math.hypot(rho, z - l); product = (z - k) * (z - l)
+        if product >= 0: return dk * dl + product + rho * rho
+        return rho * rho * (rho * rho + (z - k) ** 2 + (z - l) ** 2) / (dk * dl - product) + rho * rho
+    if rho < 1e-9:
+        (c1, m1), (c2, m2) = sorted(rods)
+        if c1 + m1 < z < c2 - m2:
+            d = c2 - c1
+            return math.log1p(-4 * m1 * m2 / (d * d - (m1 - m2) ** 2))
+        return 0.0
+    total = 0.0
+    for ci, mi in rods:
+        for cj, mj in rods:
+            total += 0.25 * math.log(pair_term(ci - mi, cj + mj) * pair_term(ci + mi, cj - mj) / (pair_term(ci - mi, cj - mj) * pair_term(ci + mi, cj + mj)))
+    return total
+
+
+def surface_reference_values():
+    import numpy as np
+    import scipy.sparse as sp
+    import scipy.sparse.linalg as spla
+    from scipy.optimize import minimize_scalar
+
+    (c1, m1), (c2, m2) = two_body_rods()
+    middle = 0.5 * (c1 + c2); c1, c2 = c1 - middle, c2 - middle   # the page's star pair is centred on 0
+    rods = [(c1, m1), (c2, m2)]; radius = TWO_BODY_STAR_RADIUS_KM
+    U = lambda rho, z: sum(rod_potential_closed(rho, z, c, h) for c, h in rods)
+    metric = lambda rho, z: math.exp(weyl_gamma_closed(rho, z, rods) - U(rho, z))
+    own_radius = lambda rho, z, c, h: 0.5 * (math.hypot(rho, z - c - h) + math.hypot(rho, z - c + h)) + h
+    focus = (c2 - c1) / 2; mu_max = math.acosh(SURFACE_TEST_OUTER_KM / focus)
+    n_mu = math.ceil(mu_max / SURFACE_TEST_CELL) + 1; n_nu = math.ceil(math.pi / SURFACE_TEST_CELL) + 1
+    count = n_mu * n_nu
+    z_of = np.zeros(count); rho_of = np.zeros(count); alive = np.zeros(count, bool); rim = -np.ones(count, int)
+    star_at = lambda rho, z: next((i for i, (c, h) in enumerate(rods) if own_radius(rho, z, c, h) < radius), -1)
+    for j in range(n_nu):
+        for i in range(n_mu):
+            n = j * n_mu + i; mu = mu_max * i / (n_mu - 1); nu = math.pi * j / (n_nu - 1)
+            z_of[n] = focus * math.cosh(mu) * math.cos(nu)
+            rho_of[n] = 0.0 if (i == 0 or j == 0 or j == n_nu - 1) else focus * math.sinh(mu) * math.sin(nu)
+            alive[n] = star_at(rho_of[n], z_of[n]) < 0
+    grid_z = z_of.copy(); grid_rho = rho_of.copy()
+    for j in range(n_nu):
+        for i in range(n_mu):
+            n = j * n_mu + i
+            if not alive[n]: continue
+            for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                ii, jj = i + di, j + dj
+                if not (0 <= ii < n_mu and 0 <= jj < n_nu): continue
+                nn = jj * n_mu + ii
+                if alive[nn]: continue
+                s = star_at(grid_rho[nn], grid_z[nn]); c, h = rods[s]
+                along = radius - h; across = math.sqrt(radius * (radius - 2 * h)); offset = grid_z[n] - c
+                scale = 1 / math.hypot(offset / along, grid_rho[n] / across)
+                z_of[n] = c + offset * scale; rho_of[n] = grid_rho[n] * scale; rim[n] = s
+                break
+    edges = set()
+    for j in range(n_nu - 1):
+        for i in range(n_mu - 1):
+            a = j * n_mu + i; b, c, d = a + 1, a + n_mu + 1, a + n_mu
+            live = [k for k in (a, b, c, d) if alive[k]]
+            if len(live) == 4:
+                for p, q in ((a, b), (b, c), (c, d), (d, a), (a, c), (b, d)): edges.add((min(p, q), max(p, q)))
+            elif len(live) == 3:
+                for p, q in ((live[0], live[1]), (live[1], live[2]), (live[2], live[0])): edges.add((min(p, q), max(p, q)))
+    edges = sorted(edges)
+    target = []
+    for p, q in edges:
+        length = math.hypot(z_of[q] - z_of[p], rho_of[q] - rho_of[p])
+        target.append(length / 6 * (metric(rho_of[p], z_of[p]) + 4 * metric(0.5 * (rho_of[p] + rho_of[q]), 0.5 * (z_of[p] + z_of[q])) + metric(rho_of[q], z_of[q])))
+    target = np.array(target); E = np.array(edges)
+    # Line rule along the axis.
+    surface1 = c1 + (radius - m1); surface2 = c2 - (radius - m2)
+    reddest = minimize_scalar(lambda z: -U(0.0, z), bounds=(surface1, surface2), method="bounded", options={"xatol": 1e-10}).x
+    u_reddest = U(0.0, reddest)
+    def slopes(z):
+        between = surface1 - 1e-9 < z < surface2 + 1e-9
+        u = U(0.0, z); true_length = math.exp(weyl_gamma_closed(0.0, z, rods) - u)
+        drawn = true_length * math.exp(u - (u_reddest if between else 0.0))
+        return drawn, math.sqrt(max(true_length ** 2 - drawn ** 2, 0.0)), between
+    def uphill(z):
+        if surface1 < z < surface2: return math.copysign(1, reddest - z)
+        nearest = c1 if abs(z - c1) < abs(z - c2) else c2
+        return math.copysign(1, z - nearest)
+    axis = sorted((n for n in range(count) if alive[n] and rho_of[n] == 0), key=lambda n: z_of[n])
+    links = []
+    for a, b in zip(axis, axis[1:]):
+        z1, z2 = z_of[a], z_of[b]
+        if any(z1 < c < z2 for c, _ in rods): continue
+        pieces = 40; step = (z2 - z1) / pieces; rise = height = 0.0
+        for k in range(pieces):
+            za = z1 + k * step; s0, s1, s2 = slopes(za), slopes(za + step / 2), slopes(za + step)
+            rise += step / 6 * (s0[0] + 4 * s1[0] + s2[0])
+            height += step / 6 * (s0[1] + 4 * s1[1] + s2[1]) * uphill(za + step / 2)
+        links.append((a, b, rise, height, max(z2 - z1, 1e-9)))
+    # Pinned far edge (outermost ring) and starting shape.
+    total_mass = m1 + m2; total_centre = (m1 * c1 + m2 * c2) / total_mass
+    def flamm_map(c, h, rho, z):
+        upper = math.hypot(rho, z - c - h); lower = math.hypot(rho, z - c + h); r = 0.5 * (upper + lower) + h
+        cosine = min(max((lower - upper) / (2 * h), -1), 1)
+        return np.array([c + r * cosine, r * math.sqrt(1 - cosine * cosine), 2 * math.sqrt(2 * h * max(r - 2 * h, 0))])
+    pinned = np.array([(n % n_mu) == n_mu - 1 for n in range(count)])
+    x = np.zeros((count, 3))
+    for n in range(count):
+        tot = flamm_map(total_centre, total_mass, rho_of[n], z_of[n])
+        if pinned[n]: x[n] = tot; continue
+        X, Y, W = z_of[n], rho_of[n], tot[2]
+        for c, h in rods:
+            own = flamm_map(c, h, rho_of[n], z_of[n]); X += own[0] - z_of[n]; Y += own[1] - rho_of[n]
+            W += own[2] - flamm_map(total_centre, h, rho_of[n], z_of[n])[2]
+        x[n] = (X, Y, W)
+    index = -np.ones((count, 3), int); unknowns = 0
+    for n in range(count):
+        if not alive[n] or pinned[n]: continue
+        for k in range(3):
+            if k == 1 and rho_of[n] == 0: continue
+            index[n, k] = unknowns; unknowns += 1
+    w = math.sqrt(SURFACE_LINK_WEIGHT)
+    la = np.array([l[0] for l in links]); lb = np.array([l[1] for l in links]); lrise = np.array([l[2] for l in links])
+    lheight = np.array([l[3] for l in links]); llen = np.array([l[4] for l in links])
+    def residuals(x):
+        D = x[E[:, 0]] - x[E[:, 1]]; length = np.linalg.norm(D, axis=1)
+        return np.concatenate([length / target - 1, w * (x[lb, 0] - x[la, 0] - lrise) / llen, w * (x[lb, 2] - x[la, 2] - lheight) / llen]), D, length
+    def jacobian(D, length):
+        rows, cols, vals = [], [], []
+        g = D / (target * length)[:, None]
+        for side, sign in ((0, 1.0), (1, -1.0)):
+            for k in range(3):
+                col = index[E[:, side], k]; mask = col >= 0
+                rows.append(np.nonzero(mask)[0]); cols.append(col[mask]); vals.append(sign * g[mask, k])
+        base = len(target)
+        for block, k in ((0, 0), (1, 2)):
+            for node, sign in ((lb, 1.0), (la, -1.0)):
+                col = index[node, k]; mask = col >= 0
+                rows.append(base + block * len(links) + np.nonzero(mask)[0]); cols.append(col[mask]); vals.append(sign * w / llen[mask])
+        return sp.csr_matrix((np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))), shape=(len(target) + 2 * len(links), unknowns))
+    r, D, length = residuals(x); cost = r @ r; damping = 1e-3
+    for _ in range(60):
+        J = jacobian(D, length); A = (J.T @ J).tocsc(); g = J.T @ r; accepted = False
+        for _ in range(12):
+            step = spla.spsolve(A + damping * sp.diags(A.diagonal()), -g)
+            trial = x.copy(); mask = index >= 0; trial[mask] += step[index[mask]]
+            rt, Dt, lt = residuals(trial); ct = rt @ rt
+            if ct < cost: x, r, D, length, cost = trial, rt, Dt, lt, ct; damping = max(damping / 3, 1e-12); accepted = True; break
+            damping *= 4
+        if not accepted: break
+    # Where the probe point lands, seen from above (bilinear in its mesh cell, as the page does).
+    rho, z = SURFACE_TEST_PROBE
+    to_left = math.hypot(z + focus, rho); to_right = math.hypot(z - focus, rho)
+    mu = math.acosh(max((to_left + to_right) / (2 * focus), 1)); nu = math.acos(min(max((to_left - to_right) / (2 * focus), -1), 1))
+    fi = mu / mu_max * (n_mu - 1); fj = nu / math.pi * (n_nu - 1); i = min(int(fi), n_mu - 2); j = min(int(fj), n_nu - 2); ti, tj = fi - i, fj - j
+    point = sum(weight * x[node] for node, weight in ((j * n_mu + i, (1 - ti) * (1 - tj)), (j * n_mu + i + 1, ti * (1 - tj)),
+                                                    ((j + 1) * n_mu + i, (1 - ti) * tj), ((j + 1) * n_mu + i + 1, ti * tj)))
+    setup = (f"1.75 + 1.2 M_sun, Weyl centre separation 100 km; mesh cell {SURFACE_TEST_CELL}, far edge {SURFACE_TEST_OUTER_KM:.0f} km; "
+             f"probe at Weyl rho = {rho} km, z = {z} km")
+    source = "Independent Python rebuild of the page's true-length surface, solved with SciPy's sparse direct solver"
+    return {
+        "two_body.surface_probe_seen_from_above_x_km": entry(point[0], "km", f"True-length surface seen from above: X of the probe point; {setup}", source),
+        "two_body.surface_probe_seen_from_above_y_km": entry(point[1], "km", f"True-length surface seen from above: Y (distance from the line) of the probe point; {setup}", source),
+    }
+
+
 def astropy_constants_label():
     return "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
 
@@ -489,6 +669,7 @@ def build_reference_values():
     # --- Two static bodies (Weyl / Israel–Khan), for two-body-problem.html ---
     values.update(two_body_reference_values())
     values.update(geodesic_reference_values())
+    values.update(surface_reference_values())
     return values
 
 
