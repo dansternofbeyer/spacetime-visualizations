@@ -158,19 +158,23 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   length, counted from the grid's middle planes; replaces the one-star page's warped ruler-coordinate grid, which has no
   unique two-body version) and "Clock-rate landscape" (plane through both stars sunk by 100 km × (1 − dτ/dt): a graph,
   not an embedding; Flamm's paraboloid has no exact two-body version). In an observer frame the landscape shows O's level.
-- True-length surface (rebuilt 2026-11-20, replacing the first relaxed version): the plane through both stars embedded
-  in flat 3D with true edge lengths. Lengths fix the curvature (static vacuum: R_ij = ∇_i∇_j N / N, plane curvature
-  K = −∇N·∇ln c / N) but not the bending in the extra direction, which is genuinely free (a hyperbolic problem; edge
-  pinning alone left 1–9 km of freedom). Two stated conventions pin it: far edge (1000 km) = total-mass Flamm
-  paraboloid; along the whole line, cos(tilt) = clock rate vs the fastest clock on that piece (far clock beyond the
-  stars, reddest point's clock between them) — the owner's proper-time idea; both are exact Flamm for one star.
-  `PhysicsCore.buildSurfaceMesh` (prolate spheroidal mesh, foci at the star centres, cell 0.06), `solveSurface`
-  (generator: Levenberg–Marquardt, banded Cholesky, 25 steps, ~5 s; the page runs a 30 ms slice per frame).
-  Accuracy: matches an independent Python/SciPy rebuild to < 1 m (self-tests); convergence study gives ±0.3–0.5 km
-  near the stars seen from above (mesh size 0.48 km, far edge 1000 vs 2000 km 0.34 km). Things tried and rejected
-  (numbers in the session history): free edge + smoothing (ripples, km drift), pinning a point (L1 = reddest point),
-  height = function of the potential (impossible: needs each star's own mass near it and the total far away; 2–3%
-  length errors), "always tilt toward faster clocks" (the true geometry violates it on ~10% of edges).
+- True-length surface (rebuilt 2026-11-20; conventions revised the same day after the owner reported holes and
+  wiggles with widely separated stars): the plane through both stars embedded in flat 3D with true edge lengths.
+  Lengths fix the curvature (static vacuum: R_ij = ∇_i∇_j N / N, plane curvature K = −∇N·∇ln c / N) but not the
+  bending in the extra direction. Conventions now: (1) along the whole line, cos(tilt) = clock rate vs the fastest
+  clock on that piece (far clock beyond the stars, reddest point's clock between them) — the owner's proper-time idea;
+  (2) the least bent shape (smoothness weight SURFACE_SMOOTHNESS = 1e-3). Both exact Flamm for one star. One node on
+  the line is held (gauge). The earlier pinned far edge (total-mass Flamm at 1000 km) was dropped: it fought the line
+  rule when the stars were far apart, leaving domes and 1–3% length errors. Without (2), nearly flat regions (between
+  far-apart stars) bent freely into 1–2 km bumps, which wrecked the downhill directions (holes, wiggles).
+  Mesh: prolate spheroidal, graded to ~3 km next to the stars (SURFACE_MESH_SPACING), ~2,000–3,000 nodes. Solver:
+  Levenberg–Marquardt, PCG with a banded Cholesky preconditioner (smoothness rows: diagonal only, to stay positive
+  definite — keeping their in-band part broke CG), ~5–11 s, run a 30 ms slice per frame. Accuracy: lengths 0.014%
+  RMS (default) / 0.03% (0.53 + 3.5 M☉, 300 km); agrees with an independent Python/SciPy rebuild to 0.04 km
+  (self-tests); convergence: 0.25 km (default) to 0.4–0.8 km (300 km gap, far corners). Things tried and rejected
+  (numbers in the session history): free edge + staged smoothing with L-BFGS (too slow, inexact), pinning a point
+  (L1 = reddest point), height = function of the potential (2–3% length errors; needs each star's own mass near it),
+  "always tilt toward faster clocks" (~10% of edges violate it), pinned far edge (see above).
 - Flamm-style grid (owner's request, 2026-11-20; now the default grid): the one-star page's construction on the true-
   length surface. Drawing coordinates = the surface seen from above, turned about the line; each grid point slides
   along its downhill line until its true distance from the anchor equals its drawn distance (exactly ρ = r_a + ℓ(r_a, r)
@@ -178,8 +182,10 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   level, O's level, the camera's level (redone when the camera moves 5%). `rasterizeSurface` (1 km, with a smooth slope
   field), `flammGridPoint`, map on a 2 km raster filled a few rows per frame (~1 s). Stars are drawn as their rims
   turned about the line; beam, strut, clocks in the same coordinates. Known: a crease where downhill lines part between
-  the stars (the plane through the reddest point), a few unmapped points at the reddest point's flat saddle, and
-  lumpy-looking star outlines (rim polygon). While the surface is computing, the straight ruler-band grid stands in.
+  the stars (the plane through the reddest point), and a tear there with the "stars' surfaces" anchor; slight
+  unevenness right next to the stars (mesh scale ~3 km). Points exactly on the line start 0.2 km off it so they pass
+  the reddest point's flat saddle. Starting camera steps back for wide gaps. While the surface is computing, the
+  straight ruler-band grid stands in.
 - Other grid styles kept: straightest paths (geodesics) from a point on the line, and straight with ruler bands.
 - Light runs only along the axis (straight by symmetry): c dt = e^(γ₀−2U) dz, ruler dℓ = e^(γ₀−U) dz. Wave sampled evenly in
   L = ∫e^(γ₀−2U)dz. Same wave exaggeration and colour method as the one-star page.

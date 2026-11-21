@@ -422,15 +422,16 @@ def geodesic_reference_values():
 
 # ----- True-length surface (two-body-problem.html): an independent re-implementation -----
 #
-# The page embeds the plane through both stars in flat 3D with true edge lengths, pinning the far edge to the total
-# mass's Flamm paraboloid and the line through the stars to cos(tilt) = clock rate. This rebuilds the same mesh and
+# The page embeds the plane through both stars in flat 3D with true edge lengths, with the line through the stars
+# pinned to cos(tilt) = clock rate and a small "least bent" preference. This rebuilds the same mesh and
 # conditions in Python (closed-form Weyl functions, written separately from the page), solves them with SciPy's sparse
 # direct solver, and reports where one surface point lands seen from above.
 
-SURFACE_TEST_CELL = 0.08
+SURFACE_TEST_SPACING = {"near_star_km": 4.0, "far": 0.12, "growth": 0.6}   # the page's test mesh
 SURFACE_TEST_OUTER_KM = 1000.0
 SURFACE_TEST_PROBE = (30.0, -60.0)   # Weyl (rho, z) in km, z from the midpoint of the rod centres
 SURFACE_LINK_WEIGHT = 10.0
+SURFACE_SMOOTHNESS = 1e-3
 
 
 def rod_potential_closed(rho, z, centre, half):
@@ -469,13 +470,24 @@ def surface_reference_values():
     metric = lambda rho, z: math.exp(weyl_gamma_closed(rho, z, rods) - U(rho, z))
     own_radius = lambda rho, z, c, h: 0.5 * (math.hypot(rho, z - c - h) + math.hypot(rho, z - c + h)) + h
     focus = (c2 - c1) / 2; mu_max = math.acosh(SURFACE_TEST_OUTER_KM / focus)
-    n_mu = math.ceil(mu_max / SURFACE_TEST_CELL) + 1; n_nu = math.ceil(math.pi / SURFACE_TEST_CELL) + 1
+    spacing = SURFACE_TEST_SPACING
+    star_reach = math.sqrt(2 * (radius + 4) / focus)
+    near_step = min(spacing["far"], spacing["near_star_km"] / (focus * math.sinh(star_reach)))
+    step_at = lambda u: min(spacing["far"], near_step * max(1.0, 1 + spacing["growth"] * (u - 1.5 * star_reach) / star_reach))
+    def graded(start, end):
+        values = [start]
+        while values[-1] < end - 1e-12: values.append(min(values[-1] + step_at(values[-1]), end))
+        if len(values) > 2 and values[-1] - values[-2] < 0.5 * step_at(values[-2]): values.pop(-2)
+        return values
+    mus = graded(0.0, mu_max); half_nus = graded(0.0, math.pi / 2)
+    nus = half_nus + [math.pi - nu for nu in reversed(half_nus[:-1])]
+    n_mu, n_nu = len(mus), len(nus)
     count = n_mu * n_nu
     z_of = np.zeros(count); rho_of = np.zeros(count); alive = np.zeros(count, bool); rim = -np.ones(count, int)
     star_at = lambda rho, z: next((i for i, (c, h) in enumerate(rods) if own_radius(rho, z, c, h) < radius), -1)
     for j in range(n_nu):
         for i in range(n_mu):
-            n = j * n_mu + i; mu = mu_max * i / (n_mu - 1); nu = math.pi * j / (n_nu - 1)
+            n = j * n_mu + i; mu = mus[i]; nu = nus[j]
             z_of[n] = focus * math.cosh(mu) * math.cos(nu)
             rho_of[n] = 0.0 if (i == 0 or j == 0 or j == n_nu - 1) else focus * math.sinh(mu) * math.sin(nu)
             alive[n] = star_at(rho_of[n], z_of[n]) < 0
@@ -539,16 +551,30 @@ def surface_reference_values():
         upper = math.hypot(rho, z - c - h); lower = math.hypot(rho, z - c + h); r = 0.5 * (upper + lower) + h
         cosine = min(max((lower - upper) / (2 * h), -1), 1)
         return np.array([c + r * cosine, r * math.sqrt(1 - cosine * cosine), 2 * math.sqrt(2 * h * max(r - 2 * h, 0))])
-    pinned = np.array([(n % n_mu) == n_mu - 1 for n in range(count)])
+    held = min((n for n in range(count) if alive[n] and rho_of[n] == 0), key=lambda n: abs(z_of[n] - reddest))
+    pinned = np.zeros(count, bool); pinned[held] = True
     x = np.zeros((count, 3))
     for n in range(count):
         tot = flamm_map(total_centre, total_mass, rho_of[n], z_of[n])
-        if pinned[n]: x[n] = tot; continue
         X, Y, W = z_of[n], rho_of[n], tot[2]
         for c, h in rods:
             own = flamm_map(c, h, rho_of[n], z_of[n]); X += own[0] - z_of[n]; Y += own[1] - rho_of[n]
             W += own[2] - flamm_map(total_centre, h, rho_of[n], z_of[n])[2]
-        x[n] = (X, Y, W)
+        x[n] = (X, 0.0 if rho_of[n] == 0 else Y, W)
+    # Smoothness triples along mesh rows and columns: bend of the middle node from its neighbours' interpolation.
+    triples = []
+    def add_triple(l, c, r):
+        if not (alive[l] and alive[c] and alive[r]): return
+        d1 = math.hypot(z_of[c] - z_of[l], rho_of[c] - rho_of[l]); d2 = math.hypot(z_of[r] - z_of[c], rho_of[r] - rho_of[c])
+        if d1 + d2 < 1e-9: return
+        triples.append((l, c, r, d2 / (d1 + d2), d1 / (d1 + d2), 1 / (0.5 * (d1 + d2))))
+    for j in range(n_nu):
+        for i in range(1, n_mu - 1): n = j * n_mu + i; add_triple(n - 1, n, n + 1)
+    for j in range(1, n_nu - 1):
+        for i in range(n_mu): n = j * n_mu + i; add_triple(n - n_mu, n, n + n_mu)
+    tl, tc, tr = (np.array([t[k] for t in triples]) for k in range(3))
+    twl = np.array([t[3] for t in triples]); twr = np.array([t[4] for t in triples]); tsc = np.array([t[5] for t in triples])
+    sb = math.sqrt(SURFACE_SMOOTHNESS)
     index = -np.ones((count, 3), int); unknowns = 0
     for n in range(count):
         if not alive[n] or pinned[n]: continue
@@ -560,7 +586,9 @@ def surface_reference_values():
     lheight = np.array([l[3] for l in links]); llen = np.array([l[4] for l in links])
     def residuals(x):
         D = x[E[:, 0]] - x[E[:, 1]]; length = np.linalg.norm(D, axis=1)
-        return np.concatenate([length / target - 1, w * (x[lb, 0] - x[la, 0] - lrise) / llen, w * (x[lb, 2] - x[la, 2] - lheight) / llen]), D, length
+        B = x[tc] - twl[:, None] * x[tl] - twr[:, None] * x[tr]
+        return np.concatenate([length / target - 1, w * (x[lb, 0] - x[la, 0] - lrise) / llen, w * (x[lb, 2] - x[la, 2] - lheight) / llen]
+                              + [sb * tsc * B[:, k] for k in range(3)]), D, length
     def jacobian(D, length):
         rows, cols, vals = [], [], []
         g = D / (target * length)[:, None]
@@ -573,7 +601,12 @@ def surface_reference_values():
             for node, sign in ((lb, 1.0), (la, -1.0)):
                 col = index[node, k]; mask = col >= 0
                 rows.append(base + block * len(links) + np.nonzero(mask)[0]); cols.append(col[mask]); vals.append(sign * w / llen[mask])
-        return sp.csr_matrix((np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))), shape=(len(target) + 2 * len(links), unknowns))
+        base += 2 * len(links)
+        for k in range(3):
+            for node, coefficient in ((tc, np.ones(len(triples))), (tl, -twl), (tr, -twr)):
+                col = index[node, k]; mask = col >= 0
+                rows.append(base + k * len(triples) + np.nonzero(mask)[0]); cols.append(col[mask]); vals.append((sb * tsc * coefficient)[mask])
+        return sp.csr_matrix((np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))), shape=(len(target) + 2 * len(links) + 3 * len(triples), unknowns))
     r, D, length = residuals(x); cost = r @ r; damping = 1e-3
     for _ in range(60):
         J = jacobian(D, length); A = (J.T @ J).tocsc(); g = J.T @ r; accepted = False
@@ -588,10 +621,12 @@ def surface_reference_values():
     rho, z = SURFACE_TEST_PROBE
     to_left = math.hypot(z + focus, rho); to_right = math.hypot(z - focus, rho)
     mu = math.acosh(max((to_left + to_right) / (2 * focus), 1)); nu = math.acos(min(max((to_left - to_right) / (2 * focus), -1), 1))
-    fi = mu / mu_max * (n_mu - 1); fj = nu / math.pi * (n_nu - 1); i = min(int(fi), n_mu - 2); j = min(int(fj), n_nu - 2); ti, tj = fi - i, fj - j
+    import bisect
+    i = min(max(bisect.bisect_right(mus, mu) - 1, 0), n_mu - 2); j = min(max(bisect.bisect_right(nus, nu) - 1, 0), n_nu - 2)
+    ti = (mu - mus[i]) / (mus[i + 1] - mus[i]); tj = (nu - nus[j]) / (nus[j + 1] - nus[j])
     point = sum(weight * x[node] for node, weight in ((j * n_mu + i, (1 - ti) * (1 - tj)), (j * n_mu + i + 1, ti * (1 - tj)),
                                                     ((j + 1) * n_mu + i, (1 - ti) * tj), ((j + 1) * n_mu + i + 1, ti * tj)))
-    setup = (f"1.75 + 1.2 M_sun, Weyl centre separation 100 km; mesh cell {SURFACE_TEST_CELL}, far edge {SURFACE_TEST_OUTER_KM:.0f} km; "
+    setup = (f"1.75 + 1.2 M_sun, Weyl centre separation 100 km; mesh {SURFACE_TEST_SPACING}, outer edge {SURFACE_TEST_OUTER_KM:.0f} km; "
              f"probe at Weyl rho = {rho} km, z = {z} km")
     source = "Independent Python rebuild of the page's true-length surface, solved with SciPy's sparse direct solver"
     return {

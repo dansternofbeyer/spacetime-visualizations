@@ -294,15 +294,19 @@
         curvature is <span class="tex" data-tex="K=-\nabla N\cdot\nabla\ln c\,/\,N"></span>, with c the radius of the circle
         around the line; for one star this is Flamm's −r<sub>s</sub>/2r³). But lengths don't fix how the plane bends in the
         made-up vertical direction, and with two stars many shapes fit them almost equally well. Two stated conventions pin it
-        down: <b>far away</b> (1000 km out) the surface is the Flamm paraboloid of the total mass, as the pair looks from a
-        distance; and <b>along the line through both stars</b> it tilts so that
+        down: <b>along the line through both stars</b> the surface tilts so that
         <span class="tex" data-tex="\cos(\text{tilt})=d\tau/dt"></span>, the clock rate compared with the fastest clock on that
-        piece of line (a far clock beyond the stars, the reddest point's clock between them). For one star both are exactly
-        Flamm's paraboloid, whose tilt obeys cos(tilt) = √(1 − r<sub>s</sub>/r). The surface is computed on a mesh of about
-        3,500 points in prolate spheroidal coordinates (the star centres as foci), by Levenberg–Marquardt with an exact banded
-        solve (Nocedal &amp; Wright 2006). The self-tests check it against an independent Python solve (agreement within
-        0.1 km) and, with one star, against Flamm's paraboloid. A convergence study (mesh size, far-edge distance, solver steps)
-        puts its shape seen from above at about ±0.5 km near the stars. The height means nothing physical, and each star's
+        piece of line (a far clock beyond the stars, the reddest point's clock between them); and <b>of all shapes with these
+        lengths, the least bent one</b> is taken. The second matters where space is nearly flat (far from both stars, and between
+        them when they are far apart): a nearly flat surface can bend freely without stretching, like paper, so lengths alone
+        would leave kilometre-sized bumps there. For one star both are exactly Flamm's paraboloid, whose tilt obeys
+        cos(tilt) = √(1 − r<sub>s</sub>/r). The surface is computed on a mesh of about 2,000–3,000 points in prolate spheroidal
+        coordinates (the star centres as foci, about 3 km apart next to the stars), by Levenberg–Marquardt with a banded
+        Cholesky preconditioner for conjugate gradients (Nocedal &amp; Wright 2006). The page shows how true its edge lengths
+        come out (about 0.01–0.03% on average). The self-tests check it against an independent Python solve and, with one
+        star, against Flamm's paraboloid. A convergence study (finer mesh, larger outer edge) puts its shape seen from above at about
+        ±0.3 km for the default stars, and up to ±0.8 km when they are 300 km apart. The height means
+        nothing physical, and each star's
         inside isn't modelled (a flat orange lid).</p>
       <p>• <b>Flamm-style grid</b> (the default grid). The one-star page's grid, built from the true-length surface. Seen from
         above, Flamm's paraboloid puts each point at its areal radius r; the one-star grid then slides each grid point along
@@ -312,8 +316,9 @@
         The stars, the beam and the clocks are drawn in the same coordinates. Anchors: far away (where light reaches infinity
         with z = 0.01), each star's own surface, the reddest point's height, O's height, or the camera's height. With one star
         this reproduces the one-star page's grid (self-tests). Where downhill lines part toward one star or the other (the
-        plane through the reddest point), the grid has a crease, and very close to the reddest point some lines run into its
-        flat saddle and are left out.</p>
+        plane through the reddest point) the grid has a crease, and with the stars' surfaces as anchor it tears there, since
+        neighbouring points then measure from different stars. Right next to the stars the drawing follows the mesh (about 3 km),
+        so lines can look slightly uneven there.</p>
       <p>• <b>Wave size:</b> the wave is drawn <span id="exaggeration-note"></span> times longer than real light. Ratios between
         wavelengths are true.</p>
       <p>• <b>Speed of light slider:</b> only slows the playback. Real light crosses the picture in under a millisecond.</p>
@@ -396,6 +401,13 @@ const PhysicsConstants = {
 // Levenberg–Marquardt steps (25 bring it within 0.03 km of the fully converged shape; checked against SciPy).
 const SURFACE_LINK_WEIGHT = 10;
 const SURFACE_SOLVER_STEPS = 25;
+// Mesh spacing: about 3 km at each star's surface, growing outward to 0.09 in the prolate spheroidal coordinates.
+const SURFACE_MESH_SPACING = { nearStarKm: 3, far: 0.09, growth: 0.6 };
+// Weight of the "least bent" preference: between the stars space is nearly flat, and nearly flat surfaces can bend
+// freely without stretching (like paper), so lengths alone leave kilometre-sized bumps there. This small weight picks
+// the least bent shape; it changes the edge lengths' error by about 0.01% (checked against SciPy).
+const SURFACE_SMOOTHNESS = 1e-3;
+const SURFACE_INNER_ITERATIONS = 40;   // conjugate-gradient iterations per Levenberg–Marquardt step (at most)
 
 const PhysicsCore = {
   /** Schwarzschild radius r_s = 2GM/c^2, in metres, from GM in m^3/s^2. */
@@ -644,12 +656,23 @@ const PhysicsCore = {
   // ----- True-length surface (rigorous version): the plane through both stars, embedded in flat 3D -----
   //
   // The plane's lengths fix its curvature but not how it bends in the extra drawing direction, so two conventions
-  // pin that down: (1) far away the pair looks like one star of the total mass, so the far edge (1000 km out) is the
-  // total mass's Flamm paraboloid; (2) along the whole line through both stars the surface tilts so that
-  // cos(tilt) = the clock rate, compared with the fastest clock on that piece of line (a far clock beyond the stars,
-  // the reddest point's clock between them). For one star both give exactly Flamm's paraboloid. The mesh uses prolate
-  // spheroidal coordinates with the star centres as foci (z = z_c + a cosh μ cos ν, ρ = a sinh μ sin ν): its cells
-  // stay square from the stars out to the far edge. Solved by Levenberg–Marquardt with an exact banded Cholesky solve.
+  // pin that down: (1) along the whole line through both stars the surface tilts so that cos(tilt) = the clock rate,
+  // compared with the fastest clock on that piece of line (a far clock beyond the stars, the reddest point's clock
+  // between them); (2) of all shapes with these lengths the least bent one is taken (nearly flat parts of space could
+  // otherwise bend freely, like paper). For one star both give exactly Flamm's paraboloid. (An earlier version pinned
+  // the far edge to the total mass's Flamm paraboloid instead of (2); that fought the line rule when the stars were far
+  // apart.) The mesh uses prolate spheroidal coordinates with the star centres as foci (z = z_c + a cosh μ cos ν,
+  // ρ = a sinh μ sin ν), graded to about 3 km next to the stars. Solved by Levenberg–Marquardt.
+
+  /** Coordinates from start to end, each step stepAt(current) long; the last step is evened out with the one before. */
+  gradedCoordinates(start, end, stepAt) {
+    const values = [start];
+    while (values[values.length - 1] < end - 1e-12) values.push(Math.min(values[values.length - 1] + stepAt(values[values.length - 1]), end));
+    if (values.length > 2 && values[values.length - 1] - values[values.length - 2] < 0.5 * stepAt(values[values.length - 2])) {
+      values.splice(values.length - 2, 1);
+    }
+    return values;
+  },
 
   /** One rod's own Flamm map at Weyl (ρ, z): [X, Y, W] = (centre + r cos θ, r sin θ, 2 sqrt(r_s (r − r_s))). */
   rodFlammMap(rod, rho, z) {
@@ -662,15 +685,24 @@ const PhysicsCore = {
 
   /**
    * The surface's mesh over the half-plane ρ ≥ 0 (prolate spheroidal grid, `cell` apart in μ and ν, out to
-   * outerRadius), with true edge lengths, the pinned far edge, the line rule's links and the unknowns' ordering.
+   * outerRadius), with true edge lengths, the line rule's links, one held node on the line and the smoothness triples.
    */
-  buildSurfaceMesh(rods, starRadius, outerRadius, cell) {
+  buildSurfaceMesh(rods, starRadius, outerRadius, spacing = SURFACE_MESH_SPACING) {
     const [left, right] = [...rods].sort((a, b) => a.centre - b.centre);   // the foci (a massless rod is allowed)
     const focus = (right.centre - left.centre) / 2;
     const middle = (left.centre + right.centre) / 2;
     const muMax = Math.acosh(outerRadius / focus);
-    const muCount = Math.ceil(muMax / cell) + 1;
-    const nuCount = Math.ceil(Math.PI / cell) + 1;
+    // Graded spacing in μ and ν: about spacing.nearStarKm next to the stars, whatever their distance apart, growing to
+    // spacing.far (in μ, ν) away from them. Near a focus the mesh is polar-like: a point at distance r from it has
+    // |μ + iν| ≈ sqrt(2r/focus), and one step there spans about focus · sinh|μ + iν| × the step.
+    const starReach = Math.sqrt(2 * (starRadius + 4) / focus);
+    const nearStep = Math.min(spacing.far, spacing.nearStarKm / (focus * Math.sinh(starReach)));
+    const stepAt = (distanceFromFocus) => Math.min(spacing.far, nearStep * Math.max(1, 1 + spacing.growth * (distanceFromFocus - 1.5 * starReach) / starReach));
+    const mus = PhysicsCore.gradedCoordinates(0, muMax, (mu) => stepAt(mu));
+    const halfNus = PhysicsCore.gradedCoordinates(0, Math.PI / 2, (nu) => stepAt(nu));
+    const nus = [...halfNus, ...halfNus.slice(0, -1).reverse().map((nu) => Math.PI - nu)];
+    const muCount = mus.length;
+    const nuCount = nus.length;
     const columns = muCount;
     const rows = nuCount;
     const count = columns * rows;
@@ -683,8 +715,8 @@ const PhysicsCore = {
     for (let row = 0; row < rows; row++) {
       for (let column = 0; column < columns; column++) {
         const node = row * columns + column;
-        const mu = muMax * column / (muCount - 1);
-        const nu = Math.PI * row / (nuCount - 1);
+        const mu = mus[column];
+        const nu = nus[row];
         nodeZ[node] = middle + focus * Math.cosh(mu) * Math.cos(nu);
         nodeRho[node] = column === 0 || row === 0 || row === rows - 1 ? 0 : focus * Math.sinh(mu) * Math.sin(nu);
         alive[node] = starAt(nodeRho[node], nodeZ[node]) < 0 ? 1 : 0;
@@ -751,12 +783,33 @@ const PhysicsCore = {
         + PhysicsCore.sliceMetricFactor(nodeRho[second], nodeZ[second], rods));
     }
     const totalMass = left.halfLength + right.halfLength;
-    const mesh = { foci: [left, right], rods, starRadius, focus, middle, muMax, muCount, nuCount, columns, rows, nodeZ, nodeRho, alive, rimStar,
+    const mesh = { foci: [left, right], rods, starRadius, focus, middle, muMax, mus, nus, muCount, nuCount, columns, rows, nodeZ, nodeRho, alive, rimStar,
       edges: Int32Array.from(edges), targetLengths, triangles, stars,
       total: { centre: (left.halfLength * left.centre + right.halfLength * right.centre) / totalMass, halfLength: totalMass },
       leftSurfaceZ: left.centre + (starRadius - left.halfLength), rightSurfaceZ: right.centre - (starRadius - right.halfLength),
-      pinned: Uint8Array.from({ length: count }, (_, node) => (node % columns === columns - 1 ? 1 : 0)) };
+      pinned: new Uint8Array(count) };
     mesh.links = PhysicsCore.surfaceLineRuleLinks(mesh);
+    // One node on the line is held still (the surface may otherwise slide as a whole): the one nearest the reddest
+    // point, or for one star the nearest beyond it.
+    const anchorZ = stars.length === 2 ? PhysicsCore.reddestAxisPoint(mesh.leftSurfaceZ, mesh.rightSurfaceZ, rods) : stars[0].centre + 3 * starRadius;
+    let held = -1;
+    for (let node = 0; node < count; node++) {
+      if (alive[node] && nodeRho[node] === 0 && (held < 0 || Math.abs(nodeZ[node] - anchorZ) < Math.abs(nodeZ[held] - anchorZ))) held = node;
+    }
+    mesh.pinned[held] = 1;
+    // Smoothness triples: three live nodes in a row or column, the weights that interpolate the middle one from its
+    // neighbours, and 1 / (half span)². Their bend is what the "least bent" preference keeps small.
+    mesh.smoothness = [];
+    const addTriple = (leftNode, middleNode, rightNode) => {
+      if (!alive[leftNode] || !alive[middleNode] || !alive[rightNode]) return;
+      const before = Math.hypot(nodeZ[middleNode] - nodeZ[leftNode], nodeRho[middleNode] - nodeRho[leftNode]);
+      const after = Math.hypot(nodeZ[rightNode] - nodeZ[middleNode], nodeRho[rightNode] - nodeRho[middleNode]);
+      if (before + after < 1e-9) return;
+      mesh.smoothness.push({ left: leftNode, middle: middleNode, right: rightNode, leftWeight: after / (before + after),
+        rightWeight: before / (before + after), scale: 1 / (0.5 * (before + after)) ** 2 });
+    };
+    for (let row = 0; row < rows; row++) for (let column = 1; column < columns - 1; column++) addTriple(row * columns + column - 1, row * columns + column, row * columns + column + 1);
+    for (let row = 1; row < rows - 1; row++) for (let column = 0; column < columns; column++) addTriple((row - 1) * columns + column, row * columns + column, (row + 1) * columns + column);
     return mesh;
   },
 
@@ -806,8 +859,8 @@ const PhysicsCore = {
   },
 
   /**
-   * Starting shape: the far edge exactly on the total mass's Flamm paraboloid; elsewhere each star's own Flamm map
-   * added, with heights corrected so that far away they become the total mass's.
+   * Starting shape: each star's own Flamm map added, with heights corrected so that far away they become the total
+   * mass's Flamm paraboloid. Nodes on the line start exactly on it.
    */
   surfaceStartingShape(mesh) {
     const positions = new Float64Array(3 * mesh.nodeZ.length);
@@ -815,7 +868,6 @@ const PhysicsCore = {
       const rho = mesh.nodeRho[node];
       const z = mesh.nodeZ[node];
       const total = PhysicsCore.rodFlammMap(mesh.total, rho, z);
-      if (mesh.pinned[node]) { positions.set(total, 3 * node); continue; }
       let x = z;
       let y = rho;
       let height = total[2];
@@ -825,7 +877,7 @@ const PhysicsCore = {
         y += own[1] - rho;
         height += own[2] - PhysicsCore.rodFlammMap({ centre: mesh.total.centre, halfLength: star.halfLength }, rho, z)[2];
       }
-      positions.set([x, y, height], 3 * node);
+      positions.set([x, rho === 0 ? 0 : y, height], 3 * node);
     }
     return positions;
   },
@@ -857,10 +909,14 @@ const PhysicsCore = {
     return { index, count, band };
   },
 
-  /** Residuals: edges (drawn/true − 1), then the line rule's links (weighted, per unit length), rises then heights. */
+  /**
+   * Residuals: edges (drawn/true − 1), then the line rule's links (weighted, per unit length), rises then heights,
+   * then the smoothness triples' bends (weighted), X, Y and W.
+   */
   surfaceResiduals(mesh, positions) {
     const weight = Math.sqrt(SURFACE_LINK_WEIGHT);
-    const residuals = new Float64Array(mesh.targetLengths.length + 2 * mesh.links.length);
+    const smoothWeight = Math.sqrt(SURFACE_SMOOTHNESS);
+    const residuals = new Float64Array(mesh.targetLengths.length + 2 * mesh.links.length + 3 * mesh.smoothness.length);
     for (let edge = 0; edge < mesh.targetLengths.length; edge++) {
       const a = 3 * mesh.edges[2 * edge];
       const b = 3 * mesh.edges[2 * edge + 1];
@@ -873,23 +929,31 @@ const PhysicsCore = {
         residuals[row++] = weight * (positions[3 * link.second + axis] - positions[3 * link.first + axis] - link[key]) / link.length;
       }
     }
+    for (let axis = 0; axis < 3; axis++) {
+      for (const triple of mesh.smoothness) {
+        residuals[row++] = smoothWeight * Math.sqrt(triple.scale) * (positions[3 * triple.middle + axis]
+          - triple.leftWeight * positions[3 * triple.left + axis] - triple.rightWeight * positions[3 * triple.right + axis]);
+      }
+    }
     return residuals;
   },
 
   /**
    * Solves for the surface, as a generator so a page can spread the work over animation frames: it yields
    * {step, mismatch} now and then, and returns the positions. Levenberg–Marquardt (Nocedal & Wright 2006, §10.3):
-   * each step solves (JᵀJ + λ diag JᵀJ) δ = −Jᵀr exactly, by banded Cholesky factorisation.
+   * each step solves (JᵀJ + λ diag JᵀJ) δ = −Jᵀr by preconditioned conjugate gradients (ch. 5), the preconditioner
+   * being an exact banded Cholesky factorisation of everything but the smoothness terms' longer couplings.
    */
   *solveSurface(mesh, steps = SURFACE_SOLVER_STEPS) {
     const positions = PhysicsCore.surfaceStartingShape(mesh);
     const { index, count, band } = PhysicsCore.surfaceUnknowns(mesh);
     const width = band + 1;
     const weight = Math.sqrt(SURFACE_LINK_WEIGHT);
+    const smoothWeight = Math.sqrt(SURFACE_SMOOTHNESS);
     let residuals = PhysicsCore.surfaceResiduals(mesh, positions);
     let mismatch = residuals.reduce((sum, value) => sum + value * value, 0);
     let damping = 1e-3;
-    // Jacobian rows as (unknown index, value) lists: edges touch 6 coordinates, links 2.
+    // Jacobian rows as (unknown index, value) lists: edges touch 6 coordinates, links 2, smoothness triples 3.
     const jacobianRows = () => {
       const rowsList = [];
       for (let edge = 0; edge < mesh.targetLengths.length; edge++) {
@@ -912,24 +976,56 @@ const PhysicsCore = {
           rowsList.push(entries);
         }
       }
+      for (let axis = 0; axis < 3; axis++) {
+        for (const triple of mesh.smoothness) {
+          const factor = smoothWeight * Math.sqrt(triple.scale);
+          const entries = [];
+          for (const [node, coefficient] of [[triple.middle, 1], [triple.left, -triple.leftWeight], [triple.right, -triple.rightWeight]]) {
+            if (index[3 * node + axis] >= 0) entries.push([index[3 * node + axis], factor * coefficient]);
+          }
+          rowsList.push(entries);
+        }
+      }
       return rowsList;
     };
     for (let step = 0; step < steps; step++) {
       const rowsList = jacobianRows();
-      // Normal matrix JᵀJ (upper band, row i holds columns i … i + band) and gradient Jᵀr.
+      // Gradient Jᵀr, diagonal of JᵀJ, and its banded part (upper band, row i holds columns i … i + band).
       const normal = new Float64Array(count * width);
       const gradient = new Float64Array(count);
+      const diagonal = new Float64Array(count);
+      // The preconditioner keeps the edge and link rows whole but only the diagonal of the smoothness rows (their
+      // couplings two cells apart lie outside the band, and cutting them off partly would spoil positive definiteness).
+      const firstSmoothnessRow = mesh.targetLengths.length + 2 * mesh.links.length;
       rowsList.forEach((entries, row) => {
         for (const [i, value] of entries) {
           gradient[i] += value * residuals[row];
+          diagonal[i] += value * value;
+          if (row >= firstSmoothnessRow) { normal[i * width] += value * value; continue; }
           for (const [j, other] of entries) if (j >= i) normal[i * width + (j - i)] += value * other;
         }
       });
+      // (JᵀJ + λD) v, without forming JᵀJ: the Jacobian packed row by row into typed arrays (compressed rows).
+      const rowStart = new Int32Array(rowsList.length + 1);
+      rowsList.forEach((entries, row) => { rowStart[row + 1] = rowStart[row] + entries.length; });
+      const columnOf = new Int32Array(rowStart[rowsList.length]);
+      const valueOf = new Float64Array(rowStart[rowsList.length]);
+      rowsList.forEach((entries, row) => entries.forEach(([i, value], k) => { columnOf[rowStart[row] + k] = i; valueOf[rowStart[row] + k] = value; }));
+      const applyMatrix = (vector, out) => {
+        out.fill(0);
+        for (let row = 0; row < rowsList.length; row++) {
+          let sum = 0;
+          for (let k = rowStart[row]; k < rowStart[row + 1]; k++) sum += valueOf[k] * vector[columnOf[k]];
+          for (let k = rowStart[row]; k < rowStart[row + 1]; k++) out[columnOf[k]] += valueOf[k] * sum;
+        }
+        for (let i = 0; i < count; i++) out[i] += damping * diagonal[i] * vector[i];
+        return out;
+      };
       let accepted = false;
       for (let attempt = 0; attempt < 12 && !accepted; attempt++) {
-        // Banded Cholesky of the damped matrix: A = Uᵀ U.
+        // Banded Cholesky of the damped banded part: P = Uᵀ U (the preconditioner).
         const factor = Float64Array.from(normal);
-        for (let i = 0; i < count; i++) factor[i * width] *= 1 + damping;
+        for (let i = 0; i < count; i++) factor[i * width] += damping * diagonal[i];
         for (let i = 0; i < count; i++) {
           const start = Math.max(0, i - band);
           let sum = factor[i * width];
@@ -944,17 +1040,37 @@ const PhysicsCore = {
           }
           if (i % 400 === 399) yield { step, mismatch };
         }
-        // Solve Uᵀ y = −g, then U δ = y.
-        const solution = Float64Array.from(gradient, (value) => -value);
-        for (let i = 0; i < count; i++) {
-          let value = solution[i];
-          for (let k = Math.max(0, i - band); k < i; k++) value -= factor[k * width + (i - k)] * solution[k];
-          solution[i] = value / factor[i * width];
-        }
-        for (let i = count - 1; i >= 0; i--) {
-          let value = solution[i];
-          for (let d = 1; d <= band && i + d < count; d++) value -= factor[i * width + d] * solution[i + d];
-          solution[i] = value / factor[i * width];
+        const precondition = (vector) => {   // solve Uᵀ U z = vector
+          const z = Float64Array.from(vector);
+          for (let i = 0; i < count; i++) {
+            let value = z[i];
+            for (let k = Math.max(0, i - band); k < i; k++) value -= factor[k * width + (i - k)] * z[k];
+            z[i] = value / factor[i * width];
+          }
+          for (let i = count - 1; i >= 0; i--) {
+            let value = z[i];
+            for (let d = 1; d <= band && i + d < count; d++) value -= factor[i * width + d] * z[i + d];
+            z[i] = value / factor[i * width];
+          }
+          return z;
+        };
+        // Preconditioned conjugate gradients for (JᵀJ + λD) δ = −g.
+        const solution = new Float64Array(count);
+        const remainder = Float64Array.from(gradient, (value) => -value);
+        let searched = precondition(remainder);
+        let direction = Float64Array.from(searched);
+        let product = remainder.reduce((sum, value, i) => sum + value * searched[i], 0);
+        const target = 1e-8 * product;
+        const matrixTimesDirection = new Float64Array(count);
+        for (let iteration = 0; iteration < SURFACE_INNER_ITERATIONS && product > target; iteration++) {
+          applyMatrix(direction, matrixTimesDirection);
+          const alpha = product / direction.reduce((sum, value, i) => sum + value * matrixTimesDirection[i], 0);
+          for (let i = 0; i < count; i++) { solution[i] += alpha * direction[i]; remainder[i] -= alpha * matrixTimesDirection[i]; }
+          searched = precondition(remainder);
+          const newProduct = remainder.reduce((sum, value, i) => sum + value * searched[i], 0);
+          const beta = newProduct / product;
+          product = newProduct;
+          for (let i = 0; i < count; i++) direction[i] = searched[i] + beta * direction[i];
         }
         const trial = Float64Array.from(positions);
         for (let coordinate = 0; coordinate < index.length; coordinate++) if (index[coordinate] >= 0) trial[coordinate] += solution[index[coordinate]];
@@ -1012,13 +1128,17 @@ const PhysicsCore = {
   /** The surface position [X, Y, W] at Weyl (ρ ≥ 0, z), bilinear within its mesh cell; null next to or inside a star. */
   surfacePointAt(mesh, positions, rho, z) {
     const { mu, nu } = PhysicsCore.surfaceMeshCoordinates(mesh, Math.abs(rho), z);
-    const columnPosition = mu / mesh.muMax * (mesh.muCount - 1);
-    const rowPosition = nu / Math.PI * (mesh.nuCount - 1);
-    if (columnPosition > mesh.muCount - 1) return null;
-    const column = Math.min(Math.floor(columnPosition), mesh.muCount - 2);
-    const row = Math.min(Math.floor(rowPosition), mesh.nuCount - 2);
-    const alongMu = columnPosition - column;
-    const alongNu = rowPosition - row;
+    if (mu > mesh.muMax) return null;
+    const interval = (values, value) => {
+      let low = 0;
+      let high = values.length - 1;
+      while (high - low > 1) { const middle = (low + high) >> 1; if (values[middle] <= value) low = middle; else high = middle; }
+      return low;
+    };
+    const column = interval(mesh.mus, mu);
+    const row = interval(mesh.nus, nu);
+    const alongMu = (mu - mesh.mus[column]) / (mesh.mus[column + 1] - mesh.mus[column]);
+    const alongNu = (nu - mesh.nus[row]) / (mesh.nus[row + 1] - mesh.nus[row]);
     const corners = [[row * mesh.columns + column, (1 - alongMu) * (1 - alongNu)], [row * mesh.columns + column + 1, alongMu * (1 - alongNu)],
       [(row + 1) * mesh.columns + column, (1 - alongMu) * alongNu], [(row + 1) * mesh.columns + column + 1, alongMu * alongNu]];
     if (corners.some(([node]) => !mesh.alive[node] || mesh.rimStar[node] >= 0)) return null;
@@ -1059,9 +1179,13 @@ const PhysicsCore = {
     const weylRho = new Float64Array(columns * rows).fill(NaN);
     const weylZ = new Float64Array(columns * rows).fill(NaN);
     const t = mesh.triangles;
-    for (let corner = 0; corner < t.length; corner += 3) {
+    // Each triangle and its mirror image below the axis, so cells on the axis itself are covered too.
+    for (let pass = 0; pass < 2 * t.length; pass += 3) {
+      const corner = pass % t.length;
+      const mirror = pass >= t.length ? -1 : 1;
       const [a, b, c] = [t[corner], t[corner + 1], t[corner + 2]];
-      const [ax, ay, bx, by, cx, cy] = [positions[3 * a], positions[3 * a + 1], positions[3 * b], positions[3 * b + 1], positions[3 * c], positions[3 * c + 1]];
+      const [ax, ay, bx, by, cx, cy] = [positions[3 * a], mirror * positions[3 * a + 1], positions[3 * b], mirror * positions[3 * b + 1],
+        positions[3 * c], mirror * positions[3 * c + 1]];
       const area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
       if (Math.abs(area) < 1e-12) continue;
       const columnFrom = Math.max(0, Math.ceil((Math.min(ax, bx, cx) + xReach) / cell));
@@ -1236,7 +1360,9 @@ const PhysicsCore = {
   fillFlammGridMap(map, raster, anchor, rowFrom, rowTo) {
     for (let row = rowFrom; row < Math.min(rowTo, map.rows); row++) {
       for (let column = 0; column < map.columns; column++) {
-        const point = PhysicsCore.flammGridPoint(raster, anchor, -map.xReach + column * map.cell, row * map.cell);
+        // Points exactly on the line between the stars climb straight into the flat saddle at the reddest point; starting
+        // them a hair off the line lets them pass beside it, as their neighbours do.
+        const point = PhysicsCore.flammGridPoint(raster, anchor, -map.xReach + column * map.cell, Math.max(row * map.cell, 0.2));
         if (point) { map.mapX[row * map.columns + column] = point.x; map.mapY[row * map.columns + column] = point.y; }
       }
       map.filledRows = row + 1;
@@ -1376,20 +1502,22 @@ const PhysicsCore = {
 // The default pair used by the tests (and by reference_values.py): 1.75 + 1.2 M☉, R = 12 km, Weyl centre distance 100 km.
 const testPair = () => PhysicsCore.starPair(PhysicsCore.geometricMassKm(1.75), PhysicsCore.geometricMassKm(1.2), 100, 12);
 const singleRod = (halfLength) => [{ centre: 0, halfLength }, { centre: 1e9, halfLength: 0 }];
-// Solved surfaces for the tests, computed once each: one star (r_s = 1, surface at r = 2 r_s, a massless focus 6 away)
+// Solved surfaces for the tests, computed once each: one star (r_s = 1, surface at r = 2 r_s, a massless focus 6 away,
+// mesh out to 100)
 // and the default pair on a coarser test mesh.
 let cachedOneStarSurface = null;
 const oneStarSurface = () => {
   if (cachedOneStarSurface) return cachedOneStarSurface;
-  const mesh = PhysicsCore.buildSurfaceMesh([{ centre: 0, halfLength: 0.5 }, { centre: 6, halfLength: 0 }], 2, 400, 0.06);
-  const positions = PhysicsCore.solveSurfaceNow(mesh, 10);
+  const mesh = PhysicsCore.buildSurfaceMesh([{ centre: 0, halfLength: 0.5 }, { centre: 6, halfLength: 0 }], 2, 100,
+    { nearStarKm: 0.8, far: 0.2, growth: 1.0 });
+  const positions = PhysicsCore.solveSurfaceNow(mesh);
   cachedOneStarSurface = { mesh, positions, raster: PhysicsCore.rasterizeSurface(mesh, positions, 30, 30, 0.03) };
   return cachedOneStarSurface;
 };
 let cachedTwoStarSurface = null;
 const twoStarSurface = () => {
   if (cachedTwoStarSurface) return cachedTwoStarSurface;
-  const mesh = PhysicsCore.buildSurfaceMesh(testPair().rods, 12, 1000, 0.08);
+  const mesh = PhysicsCore.buildSurfaceMesh(testPair().rods, 12, 1000, { nearStarKm: 4, far: 0.12, growth: 0.6 });
   cachedTwoStarSurface = { mesh, positions: PhysicsCore.solveSurfaceNow(mesh) };
   return cachedTwoStarSurface;
 };
@@ -1584,7 +1712,7 @@ const PhysicsSelfTests = [
   {
     name: "True-length surface, two stars: a point seen from above (X) agrees with an independent Python solve to 0.1 km",
     actual: () => { const { mesh, positions } = twoStarSurface(); return PhysicsCore.surfacePointAt(mesh, positions, 30, -60)[0]; },
-    expected: -63.5803671799177,
+    expected: -63.895233801929926,
     relativeTolerance: 1.6e-3,
     refKey: "two_body.surface_probe_seen_from_above_x_km",
     source: "Independent Python rebuild solved with SciPy's sparse direct solver (reference_values.py); 0.1 km ≈ 1.6e-3 of 64 km",
@@ -1592,7 +1720,7 @@ const PhysicsSelfTests = [
   {
     name: "True-length surface, two stars: the same point's distance from the line (Y) agrees to 0.1 km",
     actual: () => { const { mesh, positions } = twoStarSurface(); return PhysicsCore.surfacePointAt(mesh, positions, 30, -60)[1]; },
-    expected: 34.05089433419739,
+    expected: 33.98548989029628,
     relativeTolerance: 3e-3,
     refKey: "two_body.surface_probe_seen_from_above_y_km",
     source: "Independent Python rebuild solved with SciPy's sparse direct solver (reference_values.py); 0.1 km ≈ 3e-3 of 34 km",
@@ -2372,10 +2500,9 @@ function buildObserverLevel() {
 // cos(tilt) = clock rate). The solver is a generator: a slice of it runs each frame, so the page stays responsive and
 // the surface visibly settles. Coordinates: X along the line, Y away from it, W up (its height means nothing physical).
 
-const SURFACE_OUTER_RADIUS_KM = 1000;   // the pinned far edge
-const SURFACE_MESH_CELL = 0.06;         // spacing in the mesh's μ and ν (about 2 km at the stars, 60 km at the far edge)
+const SURFACE_OUTER_RADIUS_KM = 1000;   // the mesh's outer edge
 const SURFACE_FRAME_BUDGET_MS = 30;     // solver time per animation frame
-const SURFACE_UNCERTAINTY_KM = 0.5;     // from the convergence study (mesh size, far-edge distance, solver steps)
+const SURFACE_UNCERTAINTY_TEXT = "about ±0.3 km, or up to ±0.8 km when the stars are far apart";   // convergence study (mesh size, outer edge)
 
 const embeddingGroup = new THREE.Group();
 scene.add(embeddingGroup);
@@ -2400,7 +2527,7 @@ function needsSurface() {
 
 /** Builds the mesh for the current stars and starts the solver (it then runs a slice per frame). */
 function startSurfaceSolve() {
-  const mesh = PhysicsCore.buildSurfaceMesh(spacetime.rods, STAR_RADIUS_KM, SURFACE_OUTER_RADIUS_KM, SURFACE_MESH_CELL);
+  const mesh = PhysicsCore.buildSurfaceMesh(spacetime.rods, STAR_RADIUS_KM, SURFACE_OUTER_RADIUS_KM);
   surface.mesh = mesh;
   surface.solver = PhysicsCore.solveSurface(mesh);
   surface.positions = PhysicsCore.surfaceStartingShape(mesh);
@@ -2408,9 +2535,6 @@ function startSurfaceSolve() {
   surface.done = false;
   surface.stale = false;
   surface.nodeRedshift = Float64Array.from(mesh.nodeZ, (z, node) => PhysicsCore.redshiftToInfinity(mesh.nodeRho[node], z, spacetime.rods));
-  // Draw the rim of the scene at height 0: the total mass's Flamm height at the grid's reach.
-  const reachRadius = sceneHalfLength();
-  surface.heightOffset = 2 * Math.sqrt(2 * mesh.total.halfLength * (reachRadius - 2 * mesh.total.halfLength));
   flammGrid.map = null;
   flammGrid.raster = null;
   refreshSurfaceDrawing();
@@ -2460,8 +2584,18 @@ function embeddedPointOrNearest(rho, z) {
   return surfaceScenePoint([surface.positions[3 * best], surface.positions[3 * best + 1], surface.positions[3 * best + 2]]);
 }
 
+/** Height of the surface on the line at a Weyl distance from the centre of mass, averaged over both sides. */
+function surfaceHeightOnLine(offsetFromCentre) {
+  const centre = surface.mesh.total.centre;
+  const right = PhysicsCore.surfaceAxisPoint(surface.mesh, surface.positions, centre + offsetFromCentre);
+  const left = PhysicsCore.surfaceAxisPoint(surface.mesh, surface.positions, centre - offsetFromCentre);
+  return 0.5 * (right[2] + left[2]);
+}
+
 function refreshSurfaceDrawing() {
   surface.errors = PhysicsCore.surfaceLengthErrors(surface.mesh, surface.positions);
+  // Draw the scene's edge at height 0: the surface's height on the line at the grid's reach.
+  surface.heightOffset = surfaceHeightOnLine(sceneHalfLength());
   drawEmbedding();
   if (viewState.view === "embedding") {
     buildStrut();
@@ -2477,7 +2611,7 @@ function drawEmbedding() {
   const { mesh, positions, nodeRedshift } = surface;
   const count = mesh.nodeZ.length;
   const color = new THREE.Color();
-  // Only the part within the scene's reach is drawn (the mesh runs on out to the pinned far edge).
+  // Only the part within the scene's reach is drawn (the mesh runs on out to its outer edge, 1000 km away).
   const reach = sceneHalfLength() + 20;
   const shown = (node) => Math.abs(positions[3 * node]) < reach && positions[3 * node + 1] < GRID_SIDE_REACH_KM + 20;
 
@@ -2578,7 +2712,7 @@ function describeSurfaceProgress() {
   const percent = (value) => `${(100 * value).toFixed(value < 1e-3 ? 3 : 2)}%`;
   const lengths = `edge lengths match the true lengths to ${percent(surface.errors.rms)} (RMS; worst edge ${percent(surface.errors.largest)})`;
   return surface.done
-    ? ` Solved (${surface.steps} steps): ${lengths}; its shape seen from above is good to about ±${SURFACE_UNCERTAINTY_KM} km.`
+    ? ` Solved (${surface.steps} steps): ${lengths}; its shape seen from above is good to ${SURFACE_UNCERTAINTY_TEXT}.`
     : ` Computing (step ${surface.steps} of ${SURFACE_SOLVER_STEPS}): ${lengths}.`;
 }
 
@@ -2593,7 +2727,7 @@ const FLAMM_RASTER_CELL_KM = 1;
 const FLAMM_MAP_CELL_KM = 2;
 const FLAMM_FRAME_BUDGET_MS = 30;
 const FLAMM_FAR_REDSHIFT = 0.01;                 // the "far away" anchor: where light reaches infinity with z = 0.01
-const FLAMM_FAR_RADIUS_LIMIT_KM = 900;           // … but inside the pinned far edge
+const FLAMM_FAR_RADIUS_LIMIT_KM = 900;           // … but inside the mesh's outer edge
 const flammGrid = { raster: null, map: null, anchorKey: null, anchor: null, cameraAnchorAt: null };
 
 /** True when the Flamm-style grid is ready to draw (surface solved, map complete). */
@@ -2617,8 +2751,8 @@ function flammAnchor() {
   const choice = viewState.flammAnchor;
   if (choice === "surfaces") return { kind: "surfaces" };
   if (choice === "far") {
-    const radius = flammFarRadius();
-    return { kind: "level", height: 2 * Math.sqrt(2 * surface.mesh.total.halfLength * (radius - 2 * surface.mesh.total.halfLength)) };
+    // On the line, far out, Weyl distance from the centre of mass ≈ areal radius − total m.
+    return { kind: "level", height: surfaceHeightOnLine(flammFarRadius() - surface.mesh.total.halfLength) };
   }
   if (choice === "reddest") return { kind: "level", height: PhysicsCore.surfaceAxisPoint(surface.mesh, surface.positions, spacetime.reddestZ)[2] };
   if (choice === "camera") {
@@ -3383,7 +3517,7 @@ function describeView() {
       reddest: "at the height of the reddest point", observer: "at O's height on the surface", camera: "at the camera's height (it follows the camera)" };
     const progress = !surface.done ? "Computing the true-length surface first; the straight grid stands in meanwhile." + describeSurfaceProgress()
       : !flammGridReady() ? `Laying out the grid (${Math.round(100 * (flammGrid.map ? flammGrid.map.filledRows / flammGrid.map.rows : 0))}%).`
-      : `Seen from above, the true-length surface is good to about ±${SURFACE_UNCERTAINTY_KM} km.`;
+      : `Seen from above, the true-length surface is good to ${SURFACE_UNCERTAINTY_TEXT}.`;
     document.getElementById("view-note").textContent = "The one-star page's grid, built from the true-length surface: looked at from "
       + "above, it gives the drawing coordinates (as Flamm's paraboloid gives r), and each grid point slides along its downhill line "
       + `until its true distance from the anchor equals its drawn distance. Anchored ${anchorWords[viewState.flammAnchor]}. ${progress}`;
@@ -3579,7 +3713,10 @@ function setView(view) {
   if (view === "grid") { camera.position.set(30, 95, 215); controls.target.set(0, 0, 0); }
   else if (view === "landscape") { camera.position.set(20, 120, 190); controls.target.set(0, -15, 0); }
   else { camera.position.set(20, 110, 200); controls.target.set(0, -25, 0); }
-  // On a tall, narrow (phone) screen, step back so both stars fit side by side.
+  // Step back for widely separated stars (the views were framed for the default pair), and on a tall, narrow (phone)
+  // screen, so both stars fit side by side.
+  const sceneScale = Math.max(1, sceneHalfLength() / 160);
+  camera.position.sub(controls.target).multiplyScalar(sceneScale).add(controls.target);
   if (camera.aspect < 1) camera.position.sub(controls.target).multiplyScalar(0.8 / camera.aspect).add(controls.target);
   controls.update();
 }
