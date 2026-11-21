@@ -14,7 +14,7 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 - `gravitational-redshift.html` (added 2026-11-16): working prototype. Radial light from A to B around a 12 km
   star or, above Buchdahl's limit (~3.6 M☉), a black hole. Views: warped cube grid and Flamm's paraboloid. All 16 physics self-tests pass.
   The owner asked to see this first version before more controls are added.
-- `two-body-problem.html` (added 2026-11-20): working prototype. Two 12 km stars on a line, exact static Weyl /
+- `two-body-problem.html` (added 2026-11-20): work in progress (labelled so on the page and the index, owner's request). Two 12 km stars on a line, exact static Weyl /
   Israel–Khan solution. Light A → B along the line, clocks along the path, reference frames. Three views, including a
   rigorous true-length surface (two-star Flamm); the default grid is Flamm-style (the one-star page's grid built from
   that surface) with five anchors. All 32 physics self-tests pass (the checker takes ~10 s: it solves two surfaces).

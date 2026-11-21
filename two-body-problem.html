@@ -43,6 +43,8 @@
   #controls { top: 12px; left: 12px; width: 310px; max-height: calc(100% - 70px); overflow-y: auto; }
   #readout { top: 12px; right: 12px; width: 320px; max-height: calc(100% - 70px); overflow-y: auto; }
   h1 { font-size: 16px; margin: 0 0 4px; }
+  .badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: 2px; color: #1a1205; background: var(--warning); }
   h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 6px; }
   .subtitle { color: var(--muted); margin: 0 0 6px; font-size: 12.5px; }
   label { display: block; margin: 6px 0; }
@@ -104,7 +106,9 @@
 
 <section id="controls" class="panel">
   <button id="panel-toggle" class="small">Hide</button>
-  <h1>Two Body Problem</h1>
+  <h1>Two Body Problem <span class="badge">Work in progress</span></h1>
+  <p class="note warning" style="margin-top:0">Work in progress: the physics is checked by self-tests, but the Flamm-style grid can
+    still look uneven or break in places, especially with very unequal or very distant stars. See the physics notes.</p>
   <p class="subtitle">Light travels from A to B between two stars. Its colour is the wavelength a <i>static observer at
     that spot</i> would measure: it reddens while climbing out of one star's gravity, then blues again while falling toward
     the other. Exact static solution of Einstein's equations (Weyl / Israel–Khan); the stars are held apart by a strut.</p>
