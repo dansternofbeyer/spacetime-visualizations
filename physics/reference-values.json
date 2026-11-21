@@ -371,6 +371,54 @@
       "unit": "km",
       "description": "True-length surface seen from above: Y (distance from the line) of the probe point; 1.75 + 1.2 M_sun, Weyl centre separation 100 km; mesh {'near_star_km': 4.0, 'far': 0.12, 'growth': 0.6}, outer edge 1000 km; probe at Weyl rho = 30.0 km, z = -60.0 km",
       "source": "Independent Python rebuild of the page's true-length surface, solved with SciPy's sparse direct solver"
+    },
+    "galaxies.potential_at_A_over_c2": {
+      "value": -1.366640369070298e-06,
+      "unit": "",
+      "description": "\u03a6/c\u00b2 at A (8.29 kpc from the Milky Way's centre, on the line); Patel et al. 2017 models MWa and M31a, separation 761 kpc, discs in the plane of the line",
+      "source": "Numerical Poisson integrals (SciPy quad) in reference_values.py"
+    },
+    "galaxies.potential_at_B_over_c2": {
+      "value": -1.7420911059328067e-06,
+      "unit": "",
+      "description": "\u03a6/c\u00b2 at B (8 kpc from M31's centre, on the line); Patel et al. 2017 models MWa and M31a, separation 761 kpc, discs in the plane of the line",
+      "source": "Numerical Poisson integrals (SciPy quad) in reference_values.py"
+    },
+    "galaxies.gravitational_redshift_A_to_B": {
+      "value": -3.7545066638088967e-07,
+      "unit": "",
+      "description": "Gravitational redshift of light from A to B (static observers); Patel et al. 2017 models MWa and M31a, separation 761 kpc, discs in the plane of the line",
+      "source": "Numerical Poisson integrals (SciPy quad) in reference_values.py"
+    },
+    "galaxies.shapiro_delay_A_to_B_years": {
+      "value": 2.4326569271283582,
+      "unit": "yr",
+      "description": "Shapiro delay along the line A to B, \u2212(2/c\u00b3)\u222b\u03a6 dl (isotropic coordinates); Patel et al. 2017 models MWa and M31a, separation 761 kpc, discs in the plane of the line",
+      "source": "Numerical Poisson integrals (SciPy quad) in reference_values.py"
+    },
+    "galaxies.extra_ruler_length_A_to_B_pc": {
+      "value": 0.37292800222981454,
+      "unit": "pc",
+      "description": "Ruler length minus coordinate length A to B, \u2212\u222b\u03a6/c\u00b2 dl (isotropic coordinates); Patel et al. 2017 models MWa and M31a, separation 761 kpc, discs in the plane of the line",
+      "source": "Numerical Poisson integrals (SciPy quad) in reference_values.py"
+    },
+    "galaxies.mw_circular_speed_8p29_km_s": {
+      "value": 199.94089841311268,
+      "unit": "km/s",
+      "description": "Milky Way (MWa) circular speed at 8.29 kpc in the disc plane",
+      "source": "Numerical Poisson integrals (SciPy quad) in reference_values.py"
+    },
+    "galaxies.mw_disc_monopole_mass_10kpc_msun": {
+      "value": 43097499803.061966,
+      "unit": "M_sun",
+      "description": "Spherically averaged (monopole) mass of the MWa disc inside 10 kpc",
+      "source": "Numerical Poisson integrals (SciPy quad) in reference_values.py"
+    },
+    "galaxies.mw_extra_ruler_10_to_300kpc_pc": {
+      "value": 0.0697953952860505,
+      "unit": "pc",
+      "description": "Milky Way (MWa) alone: extra ruler length from 10 to 300 kpc, \u222b G m(r)/(r c\u00b2) dr (areal gauge, monopole mass)",
+      "source": "Numerical Poisson integrals (SciPy quad) in reference_values.py"
     }
   }
 }

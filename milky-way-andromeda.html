@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<!--
+  milky-way-andromeda.html — light and clocks between the Milky Way and Andromeda, in weak-field gravity.
+
+  The two galaxies sit 761 kpc apart (adjustable), each with a dark-matter halo, a disc and a bulge from a published
+  mass model. Light travels along the line between them from A to B. Gravity here is very weak (Φ/c² ≈ 10⁻⁶), so the
+  weak-field metric is accurate to about one part in 10¹², the two galaxies' potentials simply add, and each galaxy's
+  warp of the grid can be worked out on its own (as on the one-star Gravitational Redshift page) and added. The galaxies
+  are falling toward each other, but light crosses in 2.5 million years while they close by only ~0.3 kpc, so the page
+  shows a still snapshot. Every effect is tiny, so the drawing exaggerates gravity's effects by a stated factor; the
+  readouts give true values.
+
+  All physics lives in the PHYSICS CORE block and is checked by self-tests
+  (open with ?selftest, or run .claude/skills/spacetime-physics/scripts/check_physics.mjs).
+
+  Open by double-clicking. Needs internet only for three.js and KaTeX from the CDN.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Milky Way and Andromeda</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<style>
+  :root {
+    --background: #05070d;
+    --panel: rgba(14, 18, 30, 0.92);
+    --panel-border: rgba(140, 160, 210, 0.25);
+    --text: #e6e9f2;
+    --muted: #9aa3b8;
+    --accent: #8ab4ff;
+    --warning: #ffcf7a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--background); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #scene { position: fixed; inset: 0; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 10px; padding: 12px 14px; backdrop-filter: blur(6px); }
+  #controls { top: 12px; left: 12px; width: 320px; max-height: calc(100% - 70px); overflow-y: auto; }
+  #readout { top: 12px; right: 12px; width: 330px; max-height: calc(100% - 70px); overflow-y: auto; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 6px; }
+  .subtitle { color: var(--muted); margin: 0 0 6px; font-size: 12.5px; }
+  label { display: block; margin: 6px 0; }
+  label.check { display: flex; gap: 6px; align-items: center; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .segmented button, button.small { background: #1b2236; color: var(--text); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 5px 8px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .segmented button.active { background: #2f4a80; border-color: var(--accent); }
+  input[type=range] { width: 100%; }
+  .value { float: right; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 12px; margin: 4px 0; }
+  .warning { color: var(--warning); }
+  #legend-bar { height: 10px; border-radius: 4px; margin-top: 4px; }
+  .legend-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  #readout dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0 0; }
+  #readout dt { color: var(--muted); }
+  #readout dd { margin: 0; font-variant-numeric: tabular-nums; }
+  #observers-table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  #observers-table th { color: var(--muted); font-weight: normal; text-align: left; padding: 2px 4px 2px 0; }
+  #observers-table td { padding: 2px 4px 2px 0; }
+  #path-plot { width: 100%; height: 150px; display: block; margin-top: 4px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px;
+    vertical-align: -1px; border: 1px solid rgba(255, 255, 255, 0.3); }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--accent); }
+  #physics-notes { font-size: 12.5px; }
+  #physics-notes p { margin: 6px 0; }
+  .tex { overflow-x: auto; overflow-y: hidden; }
+  .label { color: var(--text); font-size: 12px; background: rgba(5, 7, 13, 0.6); padding: 1px 5px;
+    border-radius: 4px; pointer-events: none; white-space: nowrap; }
+  .label.faint { color: var(--muted); font-size: 11px; background: none; }
+  footer { position: fixed; bottom: 6px; left: 0; right: 0; text-align: center; font-size: 11.5px; color: var(--muted);
+    pointer-events: none; }
+  footer a { color: var(--muted); pointer-events: auto; }
+  #panel-toggle { display: none; }
+  .selftest-panel { position: fixed; bottom: 30px; right: 12px; max-width: min(760px, calc(100% - 24px)); max-height: 45%;
+    overflow: auto; margin: 0; font-size: 11.5px; background: #0d1220; border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 10px; z-index: 5; }
+  @media (max-width: 760px) {
+    #controls { top: auto; bottom: 82px; left: 8px; right: 8px; width: auto; max-height: 45%; }
+    footer { bottom: 0; padding: 4px 8px 6px; background: rgba(5, 7, 13, 0.85); }
+    .footer-extra { display: none; }
+    #controls.collapsed > :not(#panel-toggle):not(h1) { display: none; }
+    #panel-toggle { display: inline-block; float: right; }
+    #readout { top: 8px; left: 8px; right: 8px; width: auto; font-size: 12.5px; max-height: 32%; }
+  }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<section id="controls" class="panel">
+  <button id="panel-toggle" class="small">Hide</button>
+  <h1>Milky Way and Andromeda</h1>
+  <p class="subtitle">Light crossing the 2.5 million light-years between our galaxy and Andromeda. Gravity here is very weak,
+    so its effects simply add, galaxy by galaxy. They are also tiny (parts per million), so the picture exaggerates them by
+    the factor below; the numbers on the right are true.</p>
+
+  <h2>The two galaxies</h2>
+  <p class="note" style="margin-bottom:2px">Milky Way mass model (Patel et al. 2017)</p>
+  <div class="segmented row" id="mw-model">
+    <button data-model="MWa">1.0 × 10¹² M☉</button>
+    <button data-model="MWb">1.5 × 10¹² M☉</button>
+  </div>
+  <p class="note" style="margin-bottom:2px">Andromeda mass model</p>
+  <div class="segmented row" id="m31-model">
+    <button data-model="M31a">1.5 × 10¹² M☉</button>
+    <button data-model="M31b">2.0 × 10¹² M☉</button>
+  </div>
+  <label>Distance between their centres <span class="value" id="separation-value"></span>
+    <input type="range" id="separation-slider" min="150" max="1500" step="1"></label>
+  <p class="note">Measured: 761 ± 11 kpc (Li et al. 2021). Each galaxy: a dark-matter halo, a disc and a bulge.</p>
+
+  <h2>Light beam (along the line between them)</h2>
+  <label>A, where light is emitted <span class="value" id="emitter-value"></span>
+    <input type="range" id="emitter-slider" min="0" max="1000" step="1"></label>
+  <label>B, where light is received <span class="value" id="receiver-value"></span>
+    <input type="range" id="receiver-slider" min="0" max="1000" step="1"></label>
+  <label>Wavelength emitted at A <span class="value" id="wavelength-value"></span>
+    <input type="range" id="wavelength-slider" min="380" max="700" step="1"></label>
+  <label class="check"><input type="checkbox" id="doppler-checkbox"> Receiver moves with Andromeda (approaching at 109 km/s)</label>
+  <div class="row">
+    <button class="small" id="restart-button">Emit again</button>
+    <button class="small" id="pause-button">Pause</button>
+    <button class="small" id="swap-button">Swap A and B</button>
+  </div>
+  <label>Playback: million years of far-away time per second <span class="value" id="speed-value"></span>
+    <input type="range" id="speed-slider" min="0" max="1000" step="1"></label>
+
+  <h2>How space is drawn</h2>
+  <div class="segmented row" id="view-mode">
+    <button data-view="grid" class="active">Warped grid</button>
+    <button data-view="landscape">Clock-rate landscape</button>
+  </div>
+  <p class="note grid-only" style="margin-bottom:2px">Grid matches flat space…</p>
+  <div class="segmented row grid-only" id="anchor-mode">
+    <button data-anchor="far">far away</button>
+    <button data-anchor="centres">at the galaxies' centres</button>
+    <button data-anchor="observer">at the observer</button>
+    <button data-anchor="camera">at the camera</button>
+  </div>
+  <label class="check grid-only"><input type="checkbox" id="section-checkbox"> Section cut: hide the near half of the grid</label>
+  <label class="check grid-only"><input type="checkbox" id="halo-checkbox"> Show the halos' edges (virial radius)</label>
+  <label>Exaggeration of gravity's effects <span class="value" id="exaggeration-value"></span>
+    <input type="range" id="exaggeration-slider" min="0" max="1000" step="1"></label>
+  <p class="note" id="view-note"></p>
+  <label>Lines fully visible where |Φ|/c² ≥ <span class="value" id="brightness-value"></span>
+    <input type="range" id="brightness-slider" min="0" max="1000" step="1"></label>
+  <div id="legend-bar"></div>
+  <div class="legend-labels"><span>≤ 10⁻⁷</span><span>2.5×10⁻⁷</span><span>6×10⁻⁷</span><span>1.6×10⁻⁶</span><span>4×10⁻⁶</span><span>10⁻⁵</span></div>
+  <p class="note">Colour: how deep the spot sits in the galaxies' gravity, |Φ|/c² (equal to the redshift of light from there
+    to far away). Faint where gravity is weakest. A visual choice.</p>
+
+  <h2>Reference frame</h2>
+  <div class="segmented row" id="frame-mode">
+    <button data-frame="infinity" class="active">Far away (∞)</button>
+    <button data-frame="observer">Observer O</button>
+    <button data-frame="camera">The camera</button>
+  </div>
+  <div id="observer-controls" style="display:none">
+    <p class="note" style="margin-bottom:2px">Put O…</p>
+    <div class="segmented row" id="observer-presets">
+      <button data-preset="sun">at the Sun's distance</button>
+      <button data-preset="balance">at the balance point</button>
+      <button data-preset="m31">in Andromeda</button>
+      <button data-preset="side">off to the side</button>
+    </div>
+    <label>O along the line (x) <span class="value" id="observer-x-value"></span>
+      <input type="range" id="observer-x-slider" step="1"></label>
+    <label>O's distance from the line <span class="value" id="observer-rho-value"></span>
+      <input type="range" id="observer-rho-slider" min="0" max="600" step="1"></label>
+  </div>
+  <p class="note" id="frame-note"></p>
+
+  <h2>Clocks</h2>
+  <label class="check"><input type="checkbox" id="clocks-checkbox" checked> Show clocks</label>
+  <p class="note" id="clock-note"></p>
+
+  <details>
+    <summary>Physics notes</summary>
+    <div id="physics-notes">
+      <p><b>Why this works.</b> The Milky Way's gravity makes clocks run slow by only about one part in a million
+        (Φ/c² ≈ −10⁻⁶). At that strength the weak-field metric is accurate to about one part in 10¹²
+        (Carroll 2004, ch. 7; Will 2014):</p>
+      <div class="tex" data-tex="ds^2=-\left(1+\frac{2\Phi}{c^2}\right)c^2dt^2+\left(1-\frac{2\Phi}{c^2}\right)\left(dx^2+dy^2+dz^2\right)"></div>
+      <p>Φ is the ordinary Newtonian potential, so the two galaxies' potentials simply add: Φ = Φ<sub>MW</sub> + Φ<sub>M31</sub>.
+        The galaxies are falling toward each other, but light takes 2.5 million years to cross while they close by only
+        about 0.3 kpc (0.04%), so a still snapshot is a fair picture. No strut or exact two-body solution is needed.</p>
+
+      <p><b>Mass models</b> (Patel, Besla &amp; Sohn 2017, Table 2). Each galaxy has an NFW dark-matter halo (mass
+        M<sub>vir</sub> − M<sub>disc</sub> − M<sub>bulge</sub>, cut off at the virial radius, scale radius R<sub>vir</sub>/c),
+        a Miyamoto–Nagai disc and a Hernquist bulge:</p>
+      <div class="tex" data-tex="\Phi_{\rm disc}=-\frac{GM_d}{\sqrt{R^2+(R_d+\sqrt{z^2+z_d^2})^2}},\qquad \Phi_{\rm bulge}=-\frac{GM_b}{r+R_b}"></div>
+      <div class="tex" data-tex="\Phi_{\rm halo}(r<R_{\rm vir})=-G\left[\frac{m(r)}{r}+4\pi\rho_s r_s^3\left(\frac{1}{r_s+r}-\frac{1}{r_s+R_{\rm vir}}\right)\right],\quad m(r)=4\pi\rho_s r_s^3\left[\ln\!\left(1+\frac{r}{r_s}\right)-\frac{r/r_s}{1+r/r_s}\right]"></div>
+      <p>(The first term is the pull of the halo inside r, the second that of the halo between r and its edge.) Their halos are also
+        "adiabatically contracted" by the stars; this page leaves that out. Without it the Milky Way model's circular speed at
+        the Sun's distance is 200 km/s, below the measured ≈ 230–240 km/s, so the potential here is somewhat shallower than
+        the real one. Both galaxies' discs are drawn in the plane containing the line between them (their real orientations
+        are left out); this affects the potential only within about 20 kpc of each centre.</p>
+
+      <p><b>Clocks and redshift.</b> A static clock runs at <span class="tex" data-tex="d\tau/dt=e^{\Phi/c^2}\approx 1+\Phi/c^2"></span>
+        compared with one far away, and light between two static observers shifts by
+        <span class="tex" data-tex="1+z=e^{(\Phi_B-\Phi_A)/c^2}"></span>, whatever its path. Along the line, Φ is highest at the
+        <b>balance point</b>, where the two galaxies' pulls cancel (the static counterpart of the Lagrange point L1): light is
+        reddest there. Andromeda's own motion matters far more than gravity for its light: it approaches at 109 km/s
+        (van der Marel et al. 2012), a Doppler blueshift of about 3.6 × 10⁻⁴, hundreds of times the gravitational shift. With
+        the receiver moving with Andromeda, the page multiplies the two:
+        <span class="tex" data-tex="1+z=(1+z_{\rm grav})\sqrt{(1+\beta)/(1-\beta)}"></span>, β = −109 km/s ÷ c.</p>
+
+      <p><b>Light time and distance.</b> On the far-away clock, light along the line takes
+        <span class="tex" data-tex="t=\frac1c\int\left(1-\frac{2\Phi}{c^2}\right)dl"></span>; the second part is the Shapiro delay
+        (a few years). A chain of rulers along the line measures <span class="tex" data-tex="\int(1-\Phi/c^2)\,dl"></span>,
+        a fraction of a parsec more than the coordinate distance (in these isotropic coordinates).</p>
+
+      <p><b>Warped grid.</b> As on the one-star page, each galaxy on its own stretches space along the lines straight out from
+        it: in its own (areal) radius r, ruler distance grows by <span class="tex" data-tex="d\ell = \left(1+\frac{G\,m(r)}{r\,c^2}\right)dr"></span>,
+        m(r) the mass inside r (here the galaxy's spherically averaged mass). Each grid point is moved along each galaxy's
+        radial line so that its ruler distance from the anchor equals its flat-grid distance, as on the one-star page, and in
+        the weak field <b>the two galaxies' moves simply add</b> (to about one part in 10¹²). Anchors: far away (2 Mpc), at each
+        galaxy's centre, at the observer, or at the camera. The moves are a fraction of a parsec, so they are drawn multiplied
+        by the exaggeration factor.</p>
+
+      <p class="warning"><b>Visual choices (not physics)</b></p>
+      <p>• <b>Exaggeration</b> (slider): the grid's warp, the colour change of the light, the difference in the clocks' hand
+        speeds, and the landscape's depth are all drawn multiplied by this factor. The readouts are true.</p>
+      <p>• <b>Clock-rate landscape</b>: the plane of the line, sunk by 20 kpc × the exaggeration ÷ 10⁵ per part per million of
+        |Φ|/c². A graph of the clock rate, not a picture of space.</p>
+      <p>• <b>Galaxies</b> are drawn as glowing discs 6 disc scale lengths in radius (about the edge of the visible disc); their halos (most of the mass) are
+        invisible dark matter, shown as faint spheres at their virial radius if chosen.</p>
+      <p>• <b>Wave size</b> and <b>playback speed</b> are only for display.</p>
+
+      <p><b>Limits.</b> No cosmic expansion: the Local Group is gravitationally bound, so space between the two galaxies does not
+        expand (between galaxy clusters far apart it would dominate). Strong gravity near the central black holes (Sgr A*,
+        M31*) is left out: it matters only within a tiny region around each.</p>
+
+      <p><b>Sources.</b> A. Patel, G. Besla &amp; S. T. Sohn (2017), MNRAS 464, 3825,
+        <a href="https://arxiv.org/abs/1609.04823">arXiv:1609.04823</a> (mass models, Table 2).
+        S. Li et al. (2021), "A Sub-2% Distance to M31", ApJ 920, 84,
+        <a href="https://arxiv.org/abs/2107.08029">arXiv:2107.08029</a> (761 ± 11 kpc).
+        R. P. van der Marel et al. (2012), ApJ 753, 8, <a href="https://arxiv.org/abs/1205.6864">arXiv:1205.6864</a>
+        (radial velocity −109.3 ± 4.4 km/s). T. Sawala et al. (2025), Nature Astronomy (about even odds of a merger within
+        10 billion years). P. McMillan (2011), MNRAS 414, 2446 (the Sun's distance, 8.29 kpc, and 239 km/s). S. Carroll, <i>Spacetime and
+        Geometry</i> (2004), ch. 7; C. M. Will (2014), Living Rev. Relativ. 17, 4. J. Navarro, C. Frenk &amp; S. White (1996);
+        M. Miyamoto &amp; R. Nagai (1975); L. Hernquist (1990). Colours: CIE 1931 fit by Wyman, Sloan &amp; Shirley (2013).
+        Constants: IAU 2015 GM☉, exact SI c. Checks: Astropy and SciPy reference values (<code>physics/reference-values.md</code>).</p>
+    </div>
+  </details>
+</section>
+
+<section id="readout" class="panel">
+  <h2 style="margin-top:0">Along the beam</h2>
+  <canvas id="path-plot" aria-label="Gravitational potential along the line between the galaxies"></canvas>
+  <p class="note" id="path-plot-note"></p>
+  <h2>Measured values (true, not exaggerated)</h2>
+  <dl>
+    <dt>Frame</dt><dd id="readout-frame"></dd>
+    <dt>Gravity A → B</dt><dd id="readout-z-grav"></dd>
+    <dt>Motion</dt><dd id="readout-z-doppler"></dd>
+    <dt>Received at B</dt><dd id="readout-lambda-b"></dd>
+    <dt>Clock at A</dt><dd id="readout-clock-a"></dd>
+    <dt>Clock at B</dt><dd id="readout-clock-b"></dd>
+    <dt>Balance point</dt><dd id="readout-balance"></dd>
+    <dt>Light time A → B</dt><dd id="readout-time"></dd>
+    <dt>Ruler distance</dt><dd id="readout-distance"></dd>
+    <dt>Snapshot</dt><dd id="readout-snapshot"></dd>
+    <dt>Galaxies</dt><dd id="readout-galaxies"></dd>
+  </dl>
+  <h2>Who measures what</h2>
+  <table id="observers-table">
+    <thead><tr><th>Static observer</th><th>Clock vs frame</th><th>A's light: Δλ/λ</th></tr></thead>
+    <tbody id="observers-body"></tbody>
+  </table>
+  <p class="note">Clock rates as parts per million (ppm) faster (+) or slower (−) than the frame's clock, and how many years
+    that adds or loses per billion years. "A's light" is the gravitational shift each static observer measures.</p>
+</section>
+
+<footer>
+  Open source under the <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/LICENSE">MIT License</a>.
+  <span class="footer-extra">Mass models: Patel, Besla &amp; Sohn (2017). Distance: Li et al. (2021). Velocity: van der Marel et al. (2012).
+  Built with three.js, KaTeX and Astropy.</span>
+  <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/CREDITS.md">Full credits</a>.
+</footer>
+
+<script>
+// ===== PHYSICS CORE START =====
+// Physics notes: weak-field (linearised) metric of two galaxies, Φ = Φ_MW + Φ_M31 (Newtonian potentials add);
+// static observers; times on the clock of a static observer far away. Lengths in kpc, masses in solar masses,
+// velocities in km/s. Mass models: Patel, Besla & Sohn (2017) Table 2 (NFW halo truncated at R_vir, Miyamoto–Nagai
+// disc, Hernquist bulge; adiabatic contraction left out). Geometry: centres on the x axis, discs in the plane y = 0.
+// Sources: Carroll (2004) ch. 7; Will (2014); Navarro, Frenk & White (1996); Miyamoto & Nagai (1975); Hernquist (1990).
+// Constants: IAU 2015 nominal GM_sun, exact SI c, IAU parsec, Julian year.
+
+const PhysicsConstants = {
+  speedOfLightKmS: 299792.458,              // km/s, exact
+  solarGM: 1.3271244e20,                    // m^3/s^2, IAU 2015 nominal
+  kiloparsecKm: 3.0856775814913673e16,      // km (IAU 2012 au, parsec = 648000/π au)
+  yearSeconds: 365.25 * 86400,              // Julian year
+};
+// G in kpc (km/s)^2 per solar mass: GM_sun / (1 kpc), with GM_sun in km^3/s^2.
+const GRAVITATIONAL_CONSTANT_KPC = PhysicsConstants.solarGM / 1e9 / PhysicsConstants.kiloparsecKm;
+
+// Patel, Besla & Sohn (2017), Table 2: total (virial) mass, concentration, virial radius, disc mass, scale length and
+// height, bulge mass and scale radius. Masses in solar masses, lengths in kpc.
+const GALAXY_MODELS = {
+  MWa: { name: "Milky Way", virialMass: 1.0e12, concentration: 9.86, virialRadius: 261, discMass: 6.5e10, discScaleLength: 3.5, discScaleHeight: 0.53, bulgeMass: 1.0e10, bulgeScaleRadius: 0.7 },
+  MWb: { name: "Milky Way", virialMass: 1.5e12, concentration: 9.56, virialRadius: 299, discMass: 5.5e10, discScaleLength: 3.5, discScaleHeight: 0.53, bulgeMass: 1.0e10, bulgeScaleRadius: 0.7 },
+  M31a: { name: "Andromeda", virialMass: 1.5e12, concentration: 9.56, virialRadius: 299, discMass: 8.5e10, discScaleLength: 5.0, discScaleHeight: 1.0, bulgeMass: 1.9e10, bulgeScaleRadius: 1.0 },
+  M31b: { name: "Andromeda", virialMass: 2.0e12, concentration: 9.36, virialRadius: 329, discMass: 8.0e10, discScaleLength: 5.0, discScaleHeight: 1.0, bulgeMass: 1.9e10, bulgeScaleRadius: 1.0 },
+};
+
+const PhysicsCore = {
+  /** NFW's mass function μ(x) = ln(1 + x) − x/(1 + x). */
+  nfwMassFunction(x) {
+    return Math.log1p(x) - x / (1 + x);
+  },
+
+  /** A galaxy model with the derived halo numbers: halo mass, scale radius r_s, and 4πρ_s r_s³. */
+  galaxy(modelName, centreX) {
+    const model = GALAXY_MODELS[modelName];
+    const haloMass = model.virialMass - model.discMass - model.bulgeMass;
+    const scaleRadius = model.virialRadius / model.concentration;
+    return { ...model, modelName, centreX, haloMass, scaleRadius,
+      haloNormalisation: haloMass / PhysicsCore.nfwMassFunction(model.concentration) };   // = 4π ρ_s r_s³
+  },
+
+  /** NFW halo mass inside radius r (cut off at the virial radius). */
+  haloEnclosedMass(galaxy, r) {
+    return galaxy.haloNormalisation * PhysicsCore.nfwMassFunction(Math.min(r, galaxy.virialRadius) / galaxy.scaleRadius);
+  },
+
+  /**
+   * NFW halo potential (cut off at R_vir), in (km/s)²: −G m(r)/r − G ∫_r^{R_vir} 4πρ r' dr', where
+   * ∫ 4πρ r' dr' = 4πρ_s r_s³ [1/(r_s + r) − 1/(r_s + R_vir)]. Outside: −G M_halo / r.
+   */
+  haloPotential(galaxy, r) {
+    const G = GRAVITATIONAL_CONSTANT_KPC;
+    if (r >= galaxy.virialRadius) return -G * galaxy.haloMass / r;
+    const radius = Math.max(r, 1e-9);
+    return -G * (PhysicsCore.haloEnclosedMass(galaxy, radius) / radius
+      + galaxy.haloNormalisation * (1 / (galaxy.scaleRadius + radius) - 1 / (galaxy.scaleRadius + galaxy.virialRadius)));
+  },
+
+  /** Hernquist bulge potential −GM/(r + a), and its enclosed mass M r²/(r + a)². */
+  bulgePotential(galaxy, r) {
+    return -GRAVITATIONAL_CONSTANT_KPC * galaxy.bulgeMass / (r + galaxy.bulgeScaleRadius);
+  },
+  bulgeEnclosedMass(galaxy, r) {
+    return galaxy.bulgeMass * r * r / (r + galaxy.bulgeScaleRadius) ** 2;
+  },
+
+  /** Miyamoto–Nagai disc potential at in-plane distance R and height z: −GM / sqrt(R² + (a + sqrt(z² + b²))²). */
+  discPotential(galaxy, radiusInPlane, height) {
+    return -GRAVITATIONAL_CONSTANT_KPC * galaxy.discMass
+      / Math.sqrt(radiusInPlane ** 2 + (galaxy.discScaleLength + Math.sqrt(height ** 2 + galaxy.discScaleHeight ** 2)) ** 2);
+  },
+
+  /** One galaxy's potential at offset (dx, dy, dz) from its centre (disc in the plane dy = 0), in (km/s)². */
+  galaxyPotential(galaxy, dx, dy, dz) {
+    const r = Math.hypot(dx, dy, dz);
+    return PhysicsCore.haloPotential(galaxy, r) + PhysicsCore.bulgePotential(galaxy, r) + PhysicsCore.discPotential(galaxy, Math.hypot(dx, dz), dy);
+  },
+
+  /** Φ/c² at a scene point (x, y, z): the galaxies' potentials added (exact for Newtonian potentials). */
+  potentialOverC2(x, y, z, galaxies) {
+    let sum = 0;
+    for (const galaxy of galaxies) sum += PhysicsCore.galaxyPotential(galaxy, x - galaxy.centreX, y, z);
+    return sum / PhysicsConstants.speedOfLightKmS ** 2;
+  },
+
+  /** dτ/dt = e^(Φ/c²): a static clock's rate compared with a clock far away. */
+  clockRate(x, y, z, galaxies) {
+    return Math.exp(PhysicsCore.potentialOverC2(x, y, z, galaxies));
+  },
+
+  /** Gravitational redshift between static observers: 1 + z = e^((Φ_B − Φ_A)/c²). Points as [x, y, z]. */
+  gravitationalRedshift(emitter, receiver, galaxies) {
+    return Math.expm1(PhysicsCore.potentialOverC2(...receiver, galaxies) - PhysicsCore.potentialOverC2(...emitter, galaxies));
+  },
+
+  /** Doppler redshift for a receding speed v (km/s; negative = approaching): 1 + z = sqrt((1 + β)/(1 − β)). */
+  dopplerRedshift(recedingSpeedKmS) {
+    const beta = recedingSpeedKmS / PhysicsConstants.speedOfLightKmS;
+    return Math.sqrt((1 + beta) / (1 - beta)) - 1;
+  },
+
+  /** ∫ Φ dl along the straight segment from emitter to receiver ((km/s)² kpc), Simpson's rule with `pieces` pieces. */
+  potentialLineIntegral(emitter, receiver, galaxies, pieces = 4000) {
+    const length = Math.hypot(receiver[0] - emitter[0], receiver[1] - emitter[1], receiver[2] - emitter[2]);
+    const at = (t) => PhysicsCore.potentialOverC2(emitter[0] + t * (receiver[0] - emitter[0]), emitter[1] + t * (receiver[1] - emitter[1]),
+      emitter[2] + t * (receiver[2] - emitter[2]), galaxies) * PhysicsConstants.speedOfLightKmS ** 2;
+    let sum = 0;
+    for (let piece = 0; piece < pieces; piece++) {
+      const a = piece / pieces;
+      const b = (piece + 1) / pieces;
+      sum += (b - a) / 6 * (at(a) + 4 * at(0.5 * (a + b)) + at(b));
+    }
+    return sum * length;
+  },
+
+  /** Shapiro delay along the segment, −(2/c³) ∫ Φ dl, in years (isotropic coordinates, far-away clock). */
+  shapiroDelayYears(emitter, receiver, galaxies) {
+    const c = PhysicsConstants.speedOfLightKmS;
+    return -2 * PhysicsCore.potentialLineIntegral(emitter, receiver, galaxies) / c ** 3 * PhysicsConstants.kiloparsecKm / PhysicsConstants.yearSeconds;
+  },
+
+  /** Ruler length minus coordinate length along the segment, −∫ Φ/c² dl, in parsecs (isotropic coordinates). */
+  extraRulerLengthParsecs(emitter, receiver, galaxies) {
+    return -PhysicsCore.potentialLineIntegral(emitter, receiver, galaxies) / PhysicsConstants.speedOfLightKmS ** 2 * 1000;
+  },
+
+  /** Circular speed in the disc plane at distance R from a galaxy's centre (that galaxy alone): sqrt(R dΦ/dR). */
+  circularSpeed(galaxy, radius) {
+    const step = 1e-4 * radius;
+    const slope = (PhysicsCore.galaxyPotential(galaxy, radius + step, 0, 0) - PhysicsCore.galaxyPotential(galaxy, radius - step, 0, 0)) / (2 * step);
+    return Math.sqrt(radius * slope);
+  },
+
+  /**
+   * The disc's spherically averaged ("monopole") mass inside r: r² dΦ̄/dr / G, with Φ̄ the disc potential averaged
+   * over the sphere of radius r (Gauss–Legendre in cos θ, 48 points).
+   */
+  discMonopoleMass(galaxy, r) {
+    const averaged = (radius) => {
+      let sum = 0;
+      for (const [node, weight] of GAUSS_LEGENDRE_48) {
+        const cosine = node;
+        sum += weight * PhysicsCore.discPotential(galaxy, radius * Math.sqrt(1 - cosine * cosine), radius * cosine);
+      }
+      return 0.5 * sum;
+    };
+    const step = 1e-4 * r;
+    return r * r * (averaged(r + step) - averaged(r - step)) / (2 * step) / GRAVITATIONAL_CONSTANT_KPC;
+  },
+
+  /** A galaxy's spherically averaged mass inside r: halo + bulge + the disc's monopole. */
+  enclosedMass(galaxy, r) {
+    return PhysicsCore.haloEnclosedMass(galaxy, r) + PhysicsCore.bulgeEnclosedMass(galaxy, r) + PhysicsCore.discMonopoleMass(galaxy, r);
+  },
+
+  /**
+   * The one-star page's radial stretch for one galaxy, in the weak field: extra ruler length (kpc) between radii r1 and
+   * r2 from its centre, ∫ G m(r) / (r c²) dr (areal radius; Simpson's rule in ln r).
+   */
+  extraRadialRulerLength(galaxy, r1, r2, pieces = 400) {
+    const c2 = PhysicsConstants.speedOfLightKmS ** 2;
+    const integrand = (logRadius) => { const r = Math.exp(logRadius); return GRAVITATIONAL_CONSTANT_KPC * PhysicsCore.enclosedMass(galaxy, r) / c2; };
+    const [a, b] = [Math.log(r1), Math.log(r2)];
+    let sum = 0;
+    for (let piece = 0; piece < pieces; piece++) {
+      const x0 = a + (b - a) * piece / pieces;
+      const x1 = a + (b - a) * (piece + 1) / pieces;
+      sum += (x1 - x0) / 6 * (integrand(x0) + 4 * integrand(0.5 * (x0 + x1)) + integrand(x1));
+    }
+    return sum;   // dr / r = d ln r, so G m(r) / (r c²) dr = G m / c² d ln r
+  },
+
+  /** The highest point of Φ on the line between x1 and x2 (golden-section search): the balance point. */
+  balancePoint(x1, x2, galaxies) {
+    const ratio = (Math.sqrt(5) - 1) / 2;
+    let [low, high] = [Math.min(x1, x2), Math.max(x1, x2)];
+    for (let step = 0; step < 200 && high - low > 1e-9; step++) {
+      const left = high - ratio * (high - low);
+      const right = low + ratio * (high - low);
+      if (PhysicsCore.potentialOverC2(left, 0, 0, galaxies) < PhysicsCore.potentialOverC2(right, 0, 0, galaxies)) low = left; else high = right;
+    }
+    return 0.5 * (low + high);
+  },
+};
+
+// Gauss–Legendre nodes and weights on [−1, 1] (48 points), computed once by Newton's method on the Legendre polynomial.
+const GAUSS_LEGENDRE_48 = (() => {
+  const count = 48;
+  const pairs = [];
+  for (let index = 1; index <= count; index++) {
+    let x = Math.cos(Math.PI * (index - 0.25) / (count + 0.5));
+    let derivative = 0;
+    for (let iteration = 0; iteration < 50; iteration++) {
+      let [p0, p1] = [1, x];
+      for (let k = 2; k <= count; k++) [p0, p1] = [p1, ((2 * k - 1) * x * p1 - (k - 1) * p0) / k];
+      derivative = count * (x * p1 - p0) / (x * x - 1);
+      const change = p1 / derivative;
+      x -= change;
+      if (Math.abs(change) < 1e-15) break;
+    }
+    pairs.push([x, 2 / ((1 - x * x) * derivative * derivative)]);
+  }
+  return pairs;
+})();
+
+// The configuration of the tests and of reference_values.py: models MWa and M31a, 761 kpc apart,
+// A 8.29 kpc from the Milky Way's centre toward Andromeda, B 8 kpc short of Andromeda's centre.
+const testGalaxies = () => [PhysicsCore.galaxy("MWa", -380.5), PhysicsCore.galaxy("M31a", 380.5)];
+const testEmitter = [-380.5 + 8.29, 0, 0];
+const testReceiver = [380.5 - 8.0, 0, 0];
+
+const PhysicsSelfTests = [
+  {
+    name: "Φ/c² at A (8.29 kpc from the Milky Way's centre, toward Andromeda)",
+    actual: () => PhysicsCore.potentialOverC2(...testEmitter, testGalaxies()),
+    expected: -1.366640369070298e-06,
+    relativeTolerance: 1e-7,
+    refKey: "galaxies.potential_at_A_over_c2",
+    source: "Numerical Poisson integrals of the densities (SciPy quad) in reference_values.py",
+  },
+  {
+    name: "Φ/c² at B (8 kpc from Andromeda's centre)",
+    actual: () => PhysicsCore.potentialOverC2(...testReceiver, testGalaxies()),
+    expected: -1.7420911059328067e-06,
+    relativeTolerance: 1e-7,
+    refKey: "galaxies.potential_at_B_over_c2",
+    source: "Numerical Poisson integrals of the densities (SciPy quad) in reference_values.py",
+  },
+  {
+    name: "Gravitational redshift A → B (a blueshift: B sits deeper)",
+    actual: () => PhysicsCore.gravitationalRedshift(testEmitter, testReceiver, testGalaxies()),
+    expected: -3.7545066638088967e-07,
+    relativeTolerance: 1e-6,
+    refKey: "galaxies.gravitational_redshift_A_to_B",
+    source: "Numerical Poisson integrals in reference_values.py",
+  },
+  {
+    name: "Shapiro delay along the line A → B (years)",
+    actual: () => PhysicsCore.shapiroDelayYears(testEmitter, testReceiver, testGalaxies()),
+    expected: 2.4326569271283582,
+    relativeTolerance: 1e-6,
+    refKey: "galaxies.shapiro_delay_A_to_B_years",
+    source: "SciPy quad of −(2/c³)∫Φ dl in reference_values.py",
+  },
+  {
+    name: "Extra ruler length along the line A → B (pc)",
+    actual: () => PhysicsCore.extraRulerLengthParsecs(testEmitter, testReceiver, testGalaxies()),
+    expected: 0.37292800222981454,
+    relativeTolerance: 1e-6,
+    refKey: "galaxies.extra_ruler_length_A_to_B_pc",
+    source: "SciPy quad of −∫Φ/c² dl in reference_values.py",
+  },
+  {
+    name: "Milky Way (MWa) circular speed at 8.29 kpc (km/s)",
+    actual: () => PhysicsCore.circularSpeed(PhysicsCore.galaxy("MWa", 0), 8.29),
+    expected: 199.94089841311268,
+    relativeTolerance: 1e-6,
+    refKey: "galaxies.mw_circular_speed_8p29_km_s",
+    source: "Numerical derivative of the numerically integrated potential (reference_values.py)",
+  },
+  {
+    name: "Milky Way disc's spherically averaged mass inside 10 kpc (M☉)",
+    actual: () => PhysicsCore.discMonopoleMass(PhysicsCore.galaxy("MWa", 0), 10),
+    expected: 43097499803.061966,
+    relativeTolerance: 1e-5,
+    refKey: "galaxies.mw_disc_monopole_mass_10kpc_msun",
+    source: "SciPy quad of the sphere-averaged disc potential (reference_values.py)",
+  },
+  {
+    name: "Milky Way alone: extra radial ruler length from 10 to 300 kpc (pc), the grid's stretch",
+    actual: () => 1000 * PhysicsCore.extraRadialRulerLength(PhysicsCore.galaxy("MWa", 0), 10, 300),
+    expected: 0.0697953952860505,
+    relativeTolerance: 1e-5,
+    refKey: "galaxies.mw_extra_ruler_10_to_300kpc_pc",
+    source: "SciPy quad of ∫ G m(r)/(r c²) dr (reference_values.py)",
+  },
+  {
+    name: "Far away the halo is a point mass: Φ = −G M_halo / r beyond the virial radius (r = 2 Mpc)",
+    actual: () => { const galaxy = PhysicsCore.galaxy("M31a", 0); return PhysicsCore.haloPotential(galaxy, 2000) * 2000 / (-GRAVITATIONAL_CONSTANT_KPC * galaxy.haloMass); },
+    expected: 1,
+    relativeTolerance: 1e-12,
+    source: "Fixed by construction (Gauss's law)",
+  },
+  {
+    name: "The halo potential is continuous at the virial radius",
+    actual: () => { const galaxy = PhysicsCore.galaxy("MWa", 0); return PhysicsCore.haloPotential(galaxy, galaxy.virialRadius * (1 - 1e-9)) / PhysicsCore.haloPotential(galaxy, galaxy.virialRadius); },
+    expected: 1,
+    relativeTolerance: 1e-8,
+    source: "Fixed by construction",
+  },
+  {
+    name: "Weak field: |Φ|/c² stays below 10⁻⁵ even at the Milky Way's centre (so (Φ/c²)² terms are below 10⁻¹⁰)",
+    actual: () => Number(Math.abs(PhysicsCore.potentialOverC2(-380.5, 0, 0, testGalaxies())) < 1e-5),
+    expected: 1,
+    relativeTolerance: 0,
+    source: "Justifies the weak-field metric (Carroll 2004 ch. 7)",
+  },
+  {
+    name: "Doppler: approaching at 109.3 km/s gives a blueshift of β ≈ −3.646 × 10⁻⁴ (first order)",
+    actual: () => PhysicsCore.dopplerRedshift(-109.3) / (-109.3 / PhysicsConstants.speedOfLightKmS),
+    expected: 1,
+    relativeTolerance: 5e-4,
+    source: "Relativistic Doppler formula (equations.md §2); second-order term is β/2 ≈ 1.8 × 10⁻⁴",
+  },
+];
+// ===== PHYSICS CORE END =====
+</script>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+
+// ===== Settings =====
+//
+// Scene units: kpc. x runs along the line between the galaxies (origin halfway), y is up (the discs lie in y = 0).
+
+const SUN_DISTANCE_KPC = 8.29;                  // the Sun's distance from the Galactic centre (McMillan 2011, as used by Patel et al. 2017)
+const ANDROMEDA_APPROACH_KM_S = -109.3;         // radial velocity toward the Milky Way (van der Marel et al. 2012)
+const GRID_SPACING_KPC = 50;
+const GRID_REACH_KPC = 400;                     // beyond the galaxies and away from the line
+const GRID_SAMPLE_KPC = 5;
+const FAR_ANCHOR_KPC = 2000;
+const LANDSCAPE_KPC_PER_PPM = 20;               // at exaggeration 10⁵
+const POTENTIAL_COLOR_LOG_MIN = -7;             // lines fade out where |Φ|/c² ≤ 10⁻⁷ (a visual choice)
+const POTENTIAL_COLOR_LOG_MAX = -5;
+const BEAM_POINTS = 1200;
+const WAVE_LENGTH_DRAWN_KPC = 12;               // drawn wavelength for 500 nm light (display only)
+const WAVE_AMPLITUDE_KPC = 4;
+const CLOCK_SIZE_KPC = 9;
+const PATH_CLOCK_COUNT = 7;
+const PATH_CLOCK_LIFT_KPC = 28;
+const PROFILE_SAMPLES = 400;
+
+const viewState = {
+  milkyWayModel: "MWa",
+  andromedaModel: "M31a",
+  separationKpc: 761,
+  emitterFraction: SUN_DISTANCE_KPC / 761,
+  receiverFraction: 1 - 8 / 761,
+  emittedWavelengthNm: 500,
+  dopplerAtB: false,
+  playbackMyrPerSecond: 0.2,
+  paused: false,
+  travelledMyr: 0,       // far-away time since emission
+  clockMyr: 0,           // far-away time driving the clocks
+  view: "grid",
+  anchor: "far",
+  sectionCut: true,
+  showHalos: false,
+  exaggeration: 3e5,
+  fullBrightnessPotential: 2e-6,
+  frame: "infinity",
+  observerX: 0,
+  observerRho: 0,
+  showClocks: true,
+};
+
+let model = null;
+
+/** The galaxies and everything about the line that the drawing needs. */
+function describeModel() {
+  const half = viewState.separationKpc / 2;
+  const galaxies = [PhysicsCore.galaxy(viewState.milkyWayModel, -half), PhysicsCore.galaxy(viewState.andromedaModel, half)];
+  const balanceX = PhysicsCore.balancePoint(-half + 1, half - 1, galaxies);
+  // Each galaxy's cumulative radial stretch E(r) = ∫_0^r G m / (r c²) dr on a log grid, for the warped grid.
+  const stretchTables = galaxies.map((galaxy) => {
+    const radii = [0];
+    const values = [0];
+    const inner = 0.01;
+    const outer = FAR_ANCHOR_KPC * 2;
+    let cumulative = 0;
+    let previous = inner;
+    for (let index = 1; index <= PROFILE_SAMPLES; index++) {
+      const radius = inner * (outer / inner) ** (index / PROFILE_SAMPLES);
+      cumulative += PhysicsCore.extraRadialRulerLength(galaxy, previous, radius, 4);
+      radii.push(radius);
+      values.push(cumulative);
+      previous = radius;
+    }
+    return { radii, values };
+  });
+  return { galaxies, half, balanceX, stretchTables };
+}
+
+// ===== Positions and small helpers =====
+
+const emitterX = () => -model.half + viewState.emitterFraction * viewState.separationKpc;
+const receiverX = () => -model.half + viewState.receiverFraction * viewState.separationKpc;
+const potentialAt = (x, y = 0, z = 0) => PhysicsCore.potentialOverC2(x, y, z, model.galaxies);
+const sceneHalfLength = () => model.half + GRID_REACH_KPC;
+const distanceFromMilkyWay = (x) => x + model.half;
+
+function interpolate(inputs, outputs, value) {
+  const last = inputs.length - 1;
+  if (value <= inputs[0]) return outputs[0];
+  if (value >= inputs[last]) return outputs[last];
+  let low = 0;
+  let high = last;
+  while (high - low > 1) { const middle = (low + high) >> 1; if (inputs[middle] <= value) low = middle; else high = middle; }
+  return outputs[low] + (value - inputs[low]) / (inputs[high] - inputs[low]) * (outputs[high] - outputs[low]);
+}
+
+/** A galaxy's cumulative radial stretch E(r), kpc. */
+const radialStretch = (index, r) => interpolate(model.stretchTables[index].radii, model.stretchTables[index].values, r);
+
+// ===== Colour of light (CIE 1931 fit by Wyman, Sloan & Shirley 2013) =====
+
+function piecewiseGaussian(wavelength, mean, widthBelow, widthAbove) {
+  const scaled = (wavelength - mean) / (wavelength < mean ? widthBelow : widthAbove);
+  return Math.exp(-0.5 * scaled * scaled);
+}
+
+function wavelengthToLinearRgb(wavelengthNm) {
+  if (!(wavelengthNm >= 380 && wavelengthNm <= 780)) return { r: 0.22, g: 0.22, b: 0.24 };
+  const x = 1.056 * piecewiseGaussian(wavelengthNm, 599.8, 37.9, 31.0) + 0.362 * piecewiseGaussian(wavelengthNm, 442.0, 16.0, 26.7)
+    - 0.065 * piecewiseGaussian(wavelengthNm, 501.1, 20.4, 26.2);
+  const y = 0.821 * piecewiseGaussian(wavelengthNm, 568.8, 46.9, 40.5) + 0.286 * piecewiseGaussian(wavelengthNm, 530.9, 16.3, 31.1);
+  const z = 1.217 * piecewiseGaussian(wavelengthNm, 437.0, 11.8, 36.0) + 0.681 * piecewiseGaussian(wavelengthNm, 459.0, 26.0, 13.8);
+  let red = 3.2406 * x - 1.5372 * y - 0.4986 * z;
+  let green = -0.9689 * x + 1.8758 * y + 0.0415 * z;
+  let blue = 0.0557 * x - 0.2040 * y + 1.0570 * z;
+  const lowest = Math.min(red, green, blue);
+  if (lowest < 0) { red -= lowest; green -= lowest; blue -= lowest; }
+  const highest = Math.max(red, green, blue);
+  const edgeFade = wavelengthNm < 420 ? 0.3 + 0.7 * (wavelengthNm - 380) / 40 : wavelengthNm > 700 ? 0.3 + 0.7 * (780 - wavelengthNm) / 80 : 1;
+  return { r: red / highest * edgeFade, g: green / highest * edgeFade, b: blue / highest * edgeFade };
+}
+
+function linearToCss({ r, g, b }) {
+  const encode = (channel) => Math.round(255 * (channel <= 0.0031308 ? 12.92 * channel : 1.055 * channel ** (1 / 2.4) - 0.055));
+  return `rgb(${encode(r)}, ${encode(g)}, ${encode(b)})`;
+}
+
+// ===== Grid colour: depth |Φ|/c², log scale =====
+
+const DEPTH_COLOR_STOPS = ["#2f5bff", "#1fb6e0", "#3ccf6e", "#e8d44a", "#ff8a2a", "#ff3b3b"].map((hex) => new THREE.Color(hex));
+
+function depthColor(depth, target) {
+  const position = Math.min(Math.max((Math.log10(Math.max(depth, 1e-12)) - POTENTIAL_COLOR_LOG_MIN) / (POTENTIAL_COLOR_LOG_MAX - POTENTIAL_COLOR_LOG_MIN), 0), 1)
+    * (DEPTH_COLOR_STOPS.length - 1);
+  const index = Math.min(Math.floor(position), DEPTH_COLOR_STOPS.length - 2);
+  return target.copy(DEPTH_COLOR_STOPS[index]).lerp(DEPTH_COLOR_STOPS[index + 1], position - index);
+}
+
+const smoothStep = (value) => { const t = Math.min(Math.max(value, 0), 1); return t * t * (3 - 2 * t); };
+
+/** Line brightness 0…1 from the depth (visual choice): 0 at 10⁻⁷, 1 at the slider's value, log scale between. */
+function lineBrightness(depth) {
+  return smoothStep((Math.log10(Math.max(depth, 1e-12)) - POTENTIAL_COLOR_LOG_MIN) / (Math.log10(viewState.fullBrightnessPotential) - POTENTIAL_COLOR_LOG_MIN));
+}
+
+// ===== Scene setup =====
+
+const container = document.getElementById("scene");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+container.appendChild(renderer.domElement);
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.domElement.style.position = "fixed";
+labelRenderer.domElement.style.inset = "0";
+labelRenderer.domElement.style.pointerEvents = "none";
+document.body.appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05070d);
+const camera = new THREE.PerspectiveCamera(45, 1, 5, 40000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+const lineMaterials = [];
+function makeLineMaterial(options) {
+  const material = new LineMaterial({ transparent: true, ...options });
+  lineMaterials.push(material);
+  return material;
+}
+
+function makeLabel(text, className = "label") {
+  const element = document.createElement("div");
+  element.className = className;
+  element.textContent = text;
+  return new CSS2DObject(element);
+}
+
+function clearGroup(group) {
+  for (const child of [...group.children]) {
+    child.traverse((object) => { if (object.isCSS2DObject) object.removeFromParent(); });
+    group.remove(child);
+    if (child.geometry) child.geometry.dispose();
+  }
+}
+
+const gridGroup = new THREE.Group();
+const landscapeGroup = new THREE.Group();
+scene.add(gridGroup, landscapeGroup);
+
+// ===== The galaxies =====
+
+function makeGlowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  const context = canvas.getContext("2d");
+  const gradient = context.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gradient.addColorStop(0, "rgba(255,255,255,0.95)");
+  gradient.addColorStop(0.25, "rgba(255,255,255,0.45)");
+  gradient.addColorStop(1, "rgba(255,255,255,0)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(canvas);
+}
+const glowTexture = makeGlowTexture();
+
+const galaxyObjects = [0, 1].map((index) => {
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({
+    map: glowTexture, color: index === 0 ? 0xcfd8ff : 0xffe0b8, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide }));
+  const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture, color: 0xfff2d8, transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending }));
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), new THREE.MeshBasicMaterial({ color: 0x6f86c8, wireframe: true,
+    transparent: true, opacity: 0.08 }));
+  const label = makeLabel("", "label faint");
+  scene.add(disc, core, halo, label);
+  return { disc, core, halo, label, index };
+});
+
+function updateGalaxies() {
+  for (const object of galaxyObjects) {
+    const galaxy = model.galaxies[object.index];
+    const radius = 6 * galaxy.discScaleLength;   // about the edge of the visible stellar disc
+    const position = galaxyDrawPoint(object.index);
+    object.disc.position.copy(position);
+    object.disc.scale.setScalar(radius);
+    object.core.position.copy(position);
+    object.core.scale.setScalar(radius * 0.7);
+    object.halo.position.copy(position);
+    object.halo.scale.setScalar(galaxy.virialRadius);
+    object.halo.visible = viewState.showHalos && viewState.view === "grid";
+    object.label.position.copy(position).add(new THREE.Vector3(0, radius + 12, 0));
+    object.label.element.textContent = `${galaxy.name}, ${(galaxy.virialMass / 1e12).toFixed(1)} × 10¹² M☉`;
+  }
+}
+
+// ===== Warped grid (each galaxy's one-star-page stretch, added) =====
+//
+// For each galaxy on its own, a flat-grid point at distance ρ from its centre is moved along the galaxy's radial line by
+// −[E(ρ) − E(r_a)], E the cumulative extra ruler length ∫ G m/(r c²) dr and r_a the anchor's distance from that galaxy;
+// in the weak field the galaxies' moves add. They are drawn multiplied by the exaggeration factor.
+
+const gridMaterial = makeLineMaterial({ vertexColors: true, linewidth: 1.3, opacity: 1, transparent: false });
+let gridLines = null;
+
+/** Where the grid matches flat space, as a distance from galaxy `index` (null = at its centre). */
+function anchorDistance(index) {
+  const centre = model.galaxies[index].centreX;
+  if (viewState.anchor === "centres") return 0;
+  if (viewState.anchor === "far") return FAR_ANCHOR_KPC;
+  const point = viewState.anchor === "camera" ? [camera.position.x, camera.position.y, camera.position.z] : observerPoint() || [viewState.observerX, 0, -viewState.observerRho];
+  return Math.hypot(point[0] - centre, point[1], point[2]);
+}
+
+/** The drawn (exaggerated) position of a flat-grid point. */
+function warpedPoint(x, y, z) {
+  const drawn = new THREE.Vector3(x, y, z);
+  model.galaxies.forEach((galaxy, index) => {
+    const dx = x - galaxy.centreX;
+    const r = Math.hypot(dx, y, z);
+    if (r < 1e-6) return;
+    const move = -viewState.exaggeration * (radialStretch(index, r) - radialStretch(index, anchors[index]));
+    drawn.x += move * dx / r;
+    drawn.y += move * y / r;
+    drawn.z += move * z / r;
+  });
+  return drawn;
+}
+let anchors = [FAR_ANCHOR_KPC, FAR_ANCHOR_KPC];
+
+function buildGrid() {
+  anchors = [0, 1].map(anchorDistance);
+  const positions = [];
+  const colors = [];
+  const color = new THREE.Color();
+  const reach = GRID_REACH_KPC;
+  const halfLength = sceneHalfLength();
+  const traceLine = (pointAt, from, to) => {
+    let previous = null;
+    for (let t = from; t <= to + 1e-9; t += GRID_SAMPLE_KPC) {
+      const [x, y, z] = pointAt(t);
+      const depth = -potentialAt(x, y, z);
+      const brightness = lineBrightness(depth);
+      depthColor(depth, color).multiplyScalar(brightness);
+      const current = { point: warpedPoint(x, y, z), color: [color.r, color.g, color.b], brightness };
+      if (previous && Math.max(previous.brightness, current.brightness) > 0.01) {
+        positions.push(...previous.point.toArray(), ...current.point.toArray());
+        colors.push(...previous.color, ...current.color);
+      }
+      previous = current;
+    }
+  };
+  const sideCount = Math.floor(reach / GRID_SPACING_KPC);
+  const xCount = Math.floor(halfLength / GRID_SPACING_KPC);
+  for (let j = -sideCount; j <= sideCount; j++) {
+    for (let k = -sideCount; k <= sideCount; k++) {
+      if (viewState.sectionCut && k > 0) continue;
+      traceLine((t) => [t, j * GRID_SPACING_KPC, k * GRID_SPACING_KPC], -halfLength, halfLength);
+    }
+  }
+  for (let i = -xCount; i <= xCount; i++) {
+    const x = i * GRID_SPACING_KPC;
+    for (let other = -sideCount; other <= sideCount; other++) {
+      const value = other * GRID_SPACING_KPC;
+      if (!(viewState.sectionCut && other > 0)) traceLine((t) => [x, t, value], -reach, reach);
+      traceLine((t) => [x, value, t], -reach, viewState.sectionCut ? 0 : reach);
+    }
+  }
+  if (gridLines) { gridGroup.remove(gridLines); gridLines.geometry.dispose(); }
+  const geometry = new LineSegmentsGeometry();
+  geometry.setPositions(positions);
+  geometry.setColors(colors);
+  gridLines = new LineSegments2(geometry, gridMaterial);
+  gridGroup.add(gridLines);
+}
+
+// ===== Clock-rate landscape =====
+
+const landscapeSurfaceMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false });
+const landscapeLineMaterial = makeLineMaterial({ vertexColors: true, linewidth: 1.2, opacity: 0.95 });
+const landscapeNote = makeLabel("", "label faint");
+landscapeGroup.add(landscapeNote);
+let landscapeObjects = [];
+
+/** Landscape height: −(exaggeration-scaled) depth. */
+function landscapeHeight(x, z) {
+  return LANDSCAPE_KPC_PER_PPM * (viewState.exaggeration / 1e5) * potentialAt(x, 0, z) * 1e6;
+}
+
+function buildLandscape() {
+  for (const object of landscapeObjects) { landscapeGroup.remove(object); object.geometry.dispose(); }
+  landscapeObjects = [];
+  const halfLength = sceneHalfLength();
+  const reach = GRID_REACH_KPC;
+  const step = 5;
+  const columns = Math.round(2 * halfLength / step);
+  const rows = Math.round(2 * reach / step);
+  const positions = new Float32Array((columns + 1) * (rows + 1) * 3);
+  const colors = new Float32Array((columns + 1) * (rows + 1) * 3);
+  const brightness = new Float32Array((columns + 1) * (rows + 1));
+  const color = new THREE.Color();
+  for (let row = 0; row <= rows; row++) {
+    const z = -reach + 2 * reach * row / rows;
+    for (let column = 0; column <= columns; column++) {
+      const x = -halfLength + 2 * halfLength * column / columns;
+      const index = row * (columns + 1) + column;
+      const depth = -potentialAt(x, 0, z);
+      positions.set([x, landscapeHeight(x, z), z], 3 * index);
+      brightness[index] = lineBrightness(depth);
+      depthColor(depth, color).multiplyScalar(brightness[index]);
+      colors.set([color.r, color.g, color.b], 3 * index);
+    }
+  }
+  const indices = [];
+  for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
+    const corner = row * (columns + 1) + column;
+    indices.push(corner, corner + 1, corner + columns + 1, corner + 1, corner + columns + 2, corner + columns + 1);
+  }
+  const surfaceGeometry = new THREE.BufferGeometry();
+  surfaceGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  surfaceGeometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  surfaceGeometry.setIndex(indices);
+  landscapeObjects.push(new THREE.Mesh(surfaceGeometry, landscapeSurfaceMaterial));
+  const linePositions = [];
+  const lineColors = [];
+  const every = Math.round(GRID_SPACING_KPC / step);
+  const addLine = (indexAt, count) => {
+    for (let k = 0; k < count; k++) {
+      const [a, b] = [indexAt(k), indexAt(k + 1)];
+      if (Math.max(brightness[a], brightness[b]) < 0.01) continue;
+      for (const index of [a, b]) {
+        linePositions.push(positions[3 * index], positions[3 * index + 1] + 0.3, positions[3 * index + 2]);
+        lineColors.push(colors[3 * index], colors[3 * index + 1], colors[3 * index + 2]);
+      }
+    }
+  };
+  for (let row = 0; row <= rows; row += every) addLine((column) => row * (columns + 1) + column, columns);
+  for (let column = 0; column <= columns; column += every) addLine((row) => row * (columns + 1) + column, rows);
+  const lineGeometry = new LineSegmentsGeometry();
+  lineGeometry.setPositions(linePositions);
+  lineGeometry.setColors(lineColors);
+  landscapeObjects.push(new LineSegments2(lineGeometry, landscapeLineMaterial));
+  landscapeGroup.add(...landscapeObjects);
+  landscapeNote.element.textContent = `clock-rate landscape: depth = ${(LANDSCAPE_KPC_PER_PPM * viewState.exaggeration / 1e5).toFixed(0)} kpc per part per million of |Φ|/c²; a graph, not a picture of space`;
+  landscapeNote.position.set(0, 30, -reach);
+}
+
+// ===== Drawing points =====
+
+/** Scene position of a point on the line (Weyl… here simply x on the line), in the current view. */
+function lineDrawPoint(x, lift = 0) {
+  if (viewState.view === "landscape") return new THREE.Vector3(x, landscapeHeight(x, 0) + lift, 0);
+  return warpedPoint(x, 0, 0).add(new THREE.Vector3(0, lift, 0));
+}
+
+/** Scene position of a static observer at (x, 0, z). */
+function pointDrawPosition(x, z, lift = 0) {
+  if (viewState.view === "landscape") return new THREE.Vector3(x, landscapeHeight(x, z) + lift, z);
+  return warpedPoint(x, 0, z).add(new THREE.Vector3(0, lift, 0));
+}
+
+function galaxyDrawPoint(index) {
+  return lineDrawPoint(model.galaxies[index].centreX);
+}
+
+// ===== Light beam =====
+
+const beamGeometry = new LineGeometry();
+beamGeometry.setPositions(new Float32Array(BEAM_POINTS * 3));
+beamGeometry.setColors(new Float32Array(BEAM_POINTS * 3));
+const beamLine = new Line2(beamGeometry, makeLineMaterial({ vertexColors: true, linewidth: 3, opacity: 1 }));
+beamLine.frustumCulled = false;
+const frontMarker = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const emitterMarker = new THREE.Mesh(new THREE.SphereGeometry(4, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const receiverMarker = new THREE.Mesh(new THREE.SphereGeometry(4, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const balanceMarker = new THREE.Mesh(new THREE.OctahedronGeometry(4), new THREE.MeshBasicMaterial({ color: 0xff6a4a }));
+const emitterLabel = makeLabel("A");
+const receiverLabel = makeLabel("B");
+const balanceLabel = makeLabel("balance point", "label faint");
+emitterMarker.add(emitterLabel);
+receiverMarker.add(receiverLabel);
+balanceMarker.add(balanceLabel);
+emitterLabel.position.set(0, -10, 0);
+receiverLabel.position.set(0, -10, 0);
+balanceLabel.position.set(0, -10, 0);
+scene.add(beamLine, frontMarker, emitterMarker, receiverMarker, balanceMarker);
+
+const beam = { xs: new Float64Array(BEAM_POINTS), base: new Float32Array(BEAM_POINTS * 3), points: new Float32Array(BEAM_POINTS * 3), lastIndex: -1 };
+
+/** The drawn colour's wavelength at x: A's wavelength times 1 + exaggeration × (Φ − Φ_A)/c² (a visual choice). */
+function drawnWavelength(x, y = 0, z = 0) {
+  return viewState.emittedWavelengthNm * (1 + viewState.exaggeration * (potentialAt(x, y, z) - potentialAt(emitterX())));
+}
+
+function rebuildBeam() {
+  const [startX, endX] = [emitterX(), receiverX()];
+  const colors = new Float32Array(BEAM_POINTS * 3);
+  for (let index = 0; index < BEAM_POINTS; index++) {
+    const x = startX + (endX - startX) * index / (BEAM_POINTS - 1);
+    beam.xs[index] = x;
+    lineDrawPoint(x, 1).toArray(beam.base, 3 * index);
+    const rgb = wavelengthToLinearRgb(drawnWavelength(x));
+    colors.set([rgb.r, rgb.g, rgb.b], 3 * index);
+  }
+  beamGeometry.setColors(colors);
+  emitterMarker.position.fromArray(beam.base, 0);
+  receiverMarker.position.fromArray(beam.base, 3 * (BEAM_POINTS - 1));
+  balanceMarker.position.copy(lineDrawPoint(model.balanceX, 8));
+  for (const [marker, x] of [[emitterMarker, startX], [receiverMarker, endX]]) {
+    const rgb = wavelengthToLinearRgb(drawnWavelength(x));
+    marker.material.color.setRGB(rgb.r, rgb.g, rgb.b);
+  }
+  buildClocks();
+}
+
+function advanceBeam(elapsedSeconds) {
+  if (!viewState.paused) {
+    const myr = elapsedSeconds * viewState.playbackMyrPerSecond / observerClockRate();
+    viewState.travelledMyr += myr;
+    viewState.clockMyr += myr;
+  }
+  const lightYearsPerKpc = PhysicsConstants.kiloparsecKm / PhysicsConstants.speedOfLightKmS / PhysicsConstants.yearSeconds;   // years of light time per kpc
+  const travelledKpc = viewState.travelledMyr * 1e6 / lightYearsPerKpc;
+  const length = Math.abs(receiverX() - emitterX());
+  const wavelengthKpc = WAVE_LENGTH_DRAWN_KPC * viewState.emittedWavelengthNm / 500;
+  let last = -1;
+  for (let index = 0; index < BEAM_POINTS; index++) {
+    const along = length * index / (BEAM_POINTS - 1);
+    if (along > travelledKpc) break;
+    const wiggle = WAVE_AMPLITUDE_KPC * Math.sin(2 * Math.PI * (travelledKpc - along) / wavelengthKpc);
+    beam.points[3 * index] = beam.base[3 * index];
+    beam.points[3 * index + 1] = beam.base[3 * index + 1] + wiggle;
+    beam.points[3 * index + 2] = beam.base[3 * index + 2];
+    last = index;
+  }
+  beam.lastIndex = last;
+  const segmentArray = beamGeometry.attributes.instanceStart.data.array;
+  const count = Math.max(last, 0);
+  for (let segment = 0; segment < count; segment++) segmentArray.set(beam.points.subarray(3 * segment, 3 * segment + 6), 6 * segment);
+  beamGeometry.attributes.instanceStart.data.needsUpdate = true;
+  beamGeometry.instanceCount = count;
+  frontMarker.visible = last >= 0 && last < BEAM_POINTS - 1;
+  if (frontMarker.visible) frontMarker.position.fromArray(beam.base, 3 * last);
+}
+
+// ===== Reference frame =====
+
+const observerMarker = new THREE.Mesh(new THREE.SphereGeometry(5, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const observerLabel = makeLabel("O · observer");
+observerLabel.position.set(0, 10, 0);
+observerMarker.add(observerLabel);
+scene.add(observerMarker);
+
+/** The reference observer's flat-space position [x, y, z], or null far away. */
+function observerPoint() {
+  if (viewState.frame === "infinity") return null;
+  if (viewState.frame === "camera") return [camera.position.x, viewState.view === "landscape" ? 0 : camera.position.y, camera.position.z];
+  return [viewState.observerX, 0, -viewState.observerRho];
+}
+
+const observerPotential = () => { const point = observerPoint(); return point ? potentialAt(...point) : 0; };
+const observerClockRate = () => Math.exp(observerPotential());
+const observerName = () => (viewState.frame === "infinity" ? "a far clock" : viewState.frame === "observer" ? "O" : "the camera");
+
+function placeObserverMarker() {
+  observerMarker.visible = viewState.frame === "observer";
+  observerLabel.visible = observerMarker.visible;
+  if (observerMarker.visible) observerMarker.position.copy(pointDrawPosition(viewState.observerX, -viewState.observerRho, 2));
+}
+
+function observerPreset(name) {
+  if (name === "sun") return { x: -model.half + SUN_DISTANCE_KPC, rho: 0 };
+  if (name === "balance") return { x: model.balanceX, rho: 0 };
+  if (name === "m31") return { x: model.half - 8, rho: 0 };
+  return { x: 0, rho: 400 };
+}
+
+function describeFrame() {
+  document.getElementById("observer-controls").style.display = viewState.frame === "observer" ? "" : "none";
+  const element = document.getElementById("frame-note");
+  if (viewState.frame === "infinity") {
+    element.textContent = "Clocks and shifts are compared with a clock far from both galaxies.";
+    return;
+  }
+  element.textContent = `Everything is compared with a static observer (${observerName()}), whose own clock runs ${formatPpm(observerPotential())} `
+    + "compared with a far clock. Clocks deeper in the galaxies' gravity run slower than it (warm rims), clocks higher up faster (cool rims).";
+}
+
+// ===== Clocks =====
+//
+// Each clock belongs to a static observer and turns at its own rate e^(Φ/c²). The differences are parts per million, so the
+// hands turn at 1 + exaggeration × (Φ − Φ_frame)/c² compared with the frame's clock (a visual choice); labels are true.
+
+const clockFaceGeometry = new THREE.CircleGeometry(1, 40);
+const clockRimGeometry = new THREE.RingGeometry(0.84, 1, 40);
+const clockHandGeometry = new THREE.PlaneGeometry(0.13, 0.78).translate(0, 0.39, 0);
+const CLOCK_MATERIAL = { depthTest: false, depthWrite: false, transparent: true };
+const clockFaceMaterial = new THREE.MeshBasicMaterial({ color: 0x0b0f1a, opacity: 0.9, ...CLOCK_MATERIAL });
+const clockHandMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, ...CLOCK_MATERIAL });
+const clockLinkMaterial = makeLineMaterial({ color: 0xc9d2e8, linewidth: 1, opacity: 0.3 });
+const clockGroup = new THREE.Group();
+scene.add(clockGroup);
+let clocks = [];
+const SLOWER = ["#e6e9f2", "#ffb347", "#ff3b3b"].map((hex) => new THREE.Color(hex));
+const FASTER = ["#e6e9f2", "#6fd0ff", "#2f5bff"].map((hex) => new THREE.Color(hex));
+
+function makeClock(point, position, size, showLabel) {
+  const group = new THREE.Group();
+  const rimMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, ...CLOCK_MATERIAL });
+  const parts = [new THREE.Mesh(clockFaceGeometry, clockFaceMaterial), new THREE.Mesh(clockRimGeometry, rimMaterial), new THREE.Mesh(clockHandGeometry, clockHandMaterial)];
+  group.add(...parts);
+  group.position.copy(position);
+  group.scale.setScalar(size);
+  let label = null;
+  if (showLabel) { label = makeLabel("", "label faint"); label.position.set(0, -1.8, 0); group.add(label); }
+  clockGroup.add(group);
+  return { group, hand: parts[2], parts, point, rimMaterial, label, distance: 0 };
+}
+
+function buildClocks() {
+  for (const clock of clocks) { if (clock.label) clock.label.removeFromParent(); clock.rimMaterial.dispose(); }
+  clearGroup(clockGroup);
+  clocks = [];
+  const links = [];
+  const [startX, endX] = [emitterX(), receiverX()];
+  for (let index = 0; index < PATH_CLOCK_COUNT; index++) {
+    const x = startX + (endX - startX) * (index + 0.5) / PATH_CLOCK_COUNT;
+    const base = lineDrawPoint(x);
+    const top = base.clone().add(new THREE.Vector3(0, PATH_CLOCK_LIFT_KPC, 0));
+    clocks.push(makeClock([x, 0, 0], top, CLOCK_SIZE_KPC, true));
+    links.push(...base.toArray(), ...top.clone().add(new THREE.Vector3(0, -CLOCK_SIZE_KPC, 0)).toArray());
+  }
+  const below = new THREE.Vector3(0, -(CLOCK_SIZE_KPC * 1.4 + 18), 0);
+  clocks.push(makeClock([startX, 0, 0], lineDrawPoint(startX).add(below), CLOCK_SIZE_KPC * 1.4, true));
+  clocks.push(makeClock([endX, 0, 0], lineDrawPoint(endX).add(below), CLOCK_SIZE_KPC * 1.4, true));
+  if (viewState.frame === "observer") {
+    clocks.push(makeClock([viewState.observerX, 0, -viewState.observerRho],
+      pointDrawPosition(viewState.observerX, -viewState.observerRho, CLOCK_SIZE_KPC * 1.4 + 10), CLOCK_SIZE_KPC * 1.4, true));
+  }
+  const linkGeometry = new LineSegmentsGeometry();
+  linkGeometry.setPositions(links);
+  clockGroup.add(new LineSegments2(linkGeometry, clockLinkMaterial));
+  refreshClockLabels();
+  clockGroup.visible = viewState.showClocks;
+  for (const clock of clocks) if (clock.label) clock.label.visible = viewState.showClocks;
+}
+
+function refreshClockLabels() {
+  const frame = observerPotential();
+  for (const clock of clocks) {
+    const relative = potentialAt(...clock.point) - frame;
+    if (clock.label) clock.label.element.textContent = formatPpm(relative);
+    const stops = relative <= 0 ? SLOWER : FASTER;
+    const position = Math.min(Math.abs(relative) / 2e-6, 1) * (stops.length - 1);
+    const index = Math.min(Math.floor(position), stops.length - 2);
+    clock.rimMaterial.color.copy(stops[index]).lerp(stops[index + 1], position - index);
+  }
+  document.getElementById("clock-note").textContent = `Each clock shows its own time. Labels: its rate compared with ${observerName()}'s, `
+    + `in parts per million. The hands' speed differences are drawn ×${formatExaggeration(viewState.exaggeration)} (true differences are invisible).`;
+}
+
+function updateClocks() {
+  const frame = observerPotential();
+  for (const clock of clocks) {
+    clock.group.quaternion.copy(camera.quaternion);
+    const drawnRate = Math.max(0.05, 1 + viewState.exaggeration * (potentialAt(...clock.point) - frame));
+    clock.hand.rotation.z = -2 * Math.PI * ((viewState.clockMyr * drawnRate) % 1);
+    clock.distance = clock.group.position.distanceToSquared(camera.position);
+  }
+  [...clocks].sort((a, b) => b.distance - a.distance).forEach((clock, rank) => {
+    clock.parts.forEach((part, layer) => { part.renderOrder = 1000 + rank * 3 + layer; });
+  });
+}
+
+// ===== Formatting =====
+
+/** A small dimensionless number as parts per million, e.g. −1.37e-6 → "−1.367 ppm". */
+const formatPpm = (value) => `${value >= 0 ? "+" : "−"}${Math.abs(value * 1e6).toFixed(3)} ppm`;
+/** A clock-rate difference as years gained or lost per billion years. */
+const formatYearsPerGyr = (value) => `${value >= 0 ? "gains" : "loses"} ${Math.abs(value * 1e9).toFixed(0)} yr per Gyr`;
+const formatExaggeration = (value) => { const exponent = Math.floor(Math.log10(value)); const mantissa = value / 10 ** exponent;
+  return mantissa < 1.05 ? `10${superscript(exponent)}` : `${mantissa.toFixed(1)} × 10${superscript(exponent)}`; };
+const superscript = (number) => String(number).split("").map((digit) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[digit] ?? (digit === "-" ? "⁻" : digit)).join("");
+const formatKpc = (value) => `${value.toFixed(value < 100 ? 2 : 1)} kpc`;
+const swatch = (nm) => `<span class="swatch" style="background:${linearToCss(wavelengthToLinearRgb(nm))}"></span>`;
+
+// ===== Readout =====
+
+function updateReadout() {
+  const galaxies = model.galaxies;
+  const emitter = [emitterX(), 0, 0];
+  const receiver = [receiverX(), 0, 0];
+  const frame = observerPotential();
+  const zGrav = PhysicsCore.gravitationalRedshift(emitter, receiver, galaxies);
+  const zDoppler = viewState.dopplerAtB ? PhysicsCore.dopplerRedshift(ANDROMEDA_APPROACH_KM_S) : 0;
+  const zTotal = (1 + zGrav) * (1 + zDoppler) - 1;
+  const c = PhysicsConstants.speedOfLightKmS;
+  document.getElementById("readout-frame").textContent = viewState.frame === "infinity" ? "far away (∞)" : `static observer (${observerName()})`;
+  document.getElementById("readout-z-grav").innerHTML = `z = ${zGrav.toExponential(3)} ${zGrav < 0 ? "(blueshift)" : "(redshift)"}`
+    + `<br><span class="note">like a speed of ${(zGrav * c).toFixed(3)} km/s</span>`;
+  document.getElementById("readout-z-doppler").innerHTML = viewState.dopplerAtB
+    ? `z = ${zDoppler.toExponential(3)} (Andromeda approaching at ${-ANDROMEDA_APPROACH_KM_S} km/s): ${Math.abs(zDoppler / zGrav).toFixed(0)}× the gravitational shift`
+    : `<span class="note">receiver static (tick the box to add Andromeda's motion)</span>`;
+  const received = viewState.emittedWavelengthNm * (1 + zTotal);
+  document.getElementById("readout-lambda-b").innerHTML = `${swatch(received)}${received.toFixed(6)} nm <span class="note">(emitted ${viewState.emittedWavelengthNm} nm)</span>`;
+  const clockLine = (x) => { const relative = potentialAt(x) - frame; return `${formatPpm(relative)}, ${formatYearsPerGyr(relative)}`; };
+  document.getElementById("readout-clock-a").textContent = clockLine(emitter[0]);
+  document.getElementById("readout-clock-b").textContent = clockLine(receiver[0]);
+  document.getElementById("readout-balance").innerHTML = `${formatKpc(distanceFromMilkyWay(model.balanceX))} from the Milky Way's centre`
+    + `<br><span class="note">clock ${formatPpm(potentialAt(model.balanceX) - frame)}; A's light reddest here</span>`;
+  const lengthKpc = Math.abs(receiver[0] - emitter[0]);
+  const lightYears = lengthKpc * PhysicsConstants.kiloparsecKm / c / PhysicsConstants.yearSeconds;
+  const shapiro = PhysicsCore.shapiroDelayYears(emitter, receiver, galaxies);
+  document.getElementById("readout-time").innerHTML = `${((lightYears + shapiro) / 1e6).toFixed(4)} million years (far clock)`
+    + `<br><span class="note">including a Shapiro delay of ${shapiro.toFixed(2)} years from the galaxies' gravity</span>`;
+  const extra = PhysicsCore.extraRulerLengthParsecs(emitter, receiver, galaxies);
+  document.getElementById("readout-distance").innerHTML = `${formatKpc(lengthKpc)} + ${extra.toFixed(3)} pc`
+    + `<br><span class="note">the extra ${extra.toFixed(3)} pc is gravity's stretch (isotropic coordinates)</span>`;
+  const closing = Math.abs(ANDROMEDA_APPROACH_KM_S) * (lightYears * PhysicsConstants.yearSeconds) / PhysicsConstants.kiloparsecKm;
+  document.getElementById("readout-snapshot").innerHTML = `while the light crosses, the galaxies close by ${closing.toFixed(2)} kpc (${(100 * closing / viewState.separationKpc).toFixed(3)}%)`;
+  document.getElementById("readout-galaxies").innerHTML = galaxies.map((galaxy) =>
+    `${galaxy.name}: ${(galaxy.virialMass / 1e12).toFixed(1)} × 10¹² M☉, circular speed ${PhysicsCore.circularSpeed(PhysicsCore.galaxy(galaxy.modelName, 0), 8.29).toFixed(0)} km/s at 8.3 kpc`).join("<br>")
+    + `<br><span class="note">deepest point: |Φ|/c² = ${(-Math.min(potentialAt(galaxies[0].centreX), potentialAt(galaxies[1].centreX))).toExponential(2)} (weak field)</span>`;
+  updateObserversTable();
+}
+
+function updateObserversTable() {
+  const frame = observerPotential();
+  const phiA = potentialAt(emitterX());
+  const rows = [["Far away", null], ["A", [emitterX(), 0, 0]], ["Balance point", [model.balanceX, 0, 0]], ["B", [receiverX(), 0, 0]]];
+  if (viewState.frame !== "infinity") rows.push([observerName() === "O" ? "O" : "The camera", observerPoint()]);
+  document.getElementById("observers-body").innerHTML = rows.map(([name, point]) => {
+    const phi = point ? potentialAt(...point) : 0;
+    return `<tr><td>${name}</td><td>${formatPpm(phi - frame)}</td><td>${formatPpm(Math.expm1(phi - phiA))}</td></tr>`;
+  }).join("");
+}
+
+// ===== Plot along the beam =====
+
+const plotCanvas = document.getElementById("path-plot");
+
+function drawPathPlot() {
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  const width = plotCanvas.clientWidth;
+  const height = plotCanvas.clientHeight;
+  if (!width) return;
+  if (plotCanvas.width !== Math.round(width * ratio)) { plotCanvas.width = Math.round(width * ratio); plotCanvas.height = Math.round(height * ratio); }
+  const context = plotCanvas.getContext("2d");
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, width, height);
+  const margin = { left: 52, right: 10, top: 8, bottom: 22 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const frame = observerPotential();
+  const [x0, x1] = [-model.half, model.half];
+  const samples = 300;
+  const values = [];
+  for (let sample = 0; sample <= samples; sample++) {
+    const x = x0 + (x1 - x0) * sample / samples;
+    values.push({ x, value: (potentialAt(x) - frame) * 1e6 });
+  }
+  let low = Math.min(...values.map((v) => v.value), 0);
+  let high = Math.max(...values.map((v) => v.value), 0);
+  const pad = 0.06 * (high - low || 1);
+  low -= pad;
+  high += pad;
+  const toX = (x) => margin.left + plotWidth * (x - x0) / (x1 - x0);
+  const toY = (value) => margin.top + plotHeight * (1 - (value - low) / (high - low));
+  context.strokeStyle = "rgba(154,163,184,0.5)";
+  context.strokeRect(margin.left, margin.top, plotWidth, plotHeight);
+  context.fillStyle = "#9aa3b8";
+  context.font = "10.5px system-ui, sans-serif";
+  context.textAlign = "right";
+  for (const value of [low + pad, (low + high) / 2, high - pad]) context.fillText(`${value.toFixed(2)} ppm`, margin.left - 4, toY(value) + 3.5);
+  context.textAlign = "center";
+  context.fillText("Milky Way", margin.left + 26, height - 6);
+  context.fillText("Andromeda", margin.left + plotWidth - 28, height - 6);
+  context.fillText(`${viewState.separationKpc} kpc`, margin.left + plotWidth / 2, height - 6);
+  context.setLineDash([4, 3]);
+  context.strokeStyle = "rgba(255,255,255,0.4)";
+  context.beginPath(); context.moveTo(margin.left, toY(0)); context.lineTo(margin.left + plotWidth, toY(0)); context.stroke();
+  context.setLineDash([]);
+  context.lineWidth = 2.2;
+  context.strokeStyle = "#8ab4ff";
+  context.beginPath();
+  values.forEach((v, index) => { if (index === 0) context.moveTo(toX(v.x), toY(v.value)); else context.lineTo(toX(v.x), toY(v.value)); });
+  context.stroke();
+  const marker = (x, text, color, below) => {
+    const value = (potentialAt(x) - frame) * 1e6;
+    context.fillStyle = color;
+    context.beginPath(); context.arc(toX(x), toY(value), 3.5, 0, 2 * Math.PI); context.fill();
+    context.fillStyle = "#e6e9f2";
+    context.fillText(text, toX(x), toY(value) + (below ? 14 : -7));
+  };
+  marker(model.balanceX, "balance", "#ff6a4a", false);
+  marker(emitterX(), "A", "#ffffff", true);
+  marker(receiverX(), "B", "#ffffff", true);
+  document.getElementById("path-plot-note").textContent = `Φ/c² along the line, in parts per million, compared with ${observerName()}'s (the dashed line). `
+    + "It is also the clock rate's difference, and the shift of light from that spot. True values.";
+}
+
+// ===== Controls =====
+
+const separationSlider = document.getElementById("separation-slider");
+const emitterSlider = document.getElementById("emitter-slider");
+const receiverSlider = document.getElementById("receiver-slider");
+const wavelengthSlider = document.getElementById("wavelength-slider");
+const speedSlider = document.getElementById("speed-slider");
+const exaggerationSlider = document.getElementById("exaggeration-slider");
+const brightnessSlider = document.getElementById("brightness-slider");
+const observerXSlider = document.getElementById("observer-x-slider");
+const observerRhoSlider = document.getElementById("observer-rho-slider");
+const logSliderValue = (position, minimum, maximum) => minimum * (maximum / minimum) ** (position / 1000);
+const logSliderPosition = (value, minimum, maximum) => 1000 * Math.log(value / minimum) / Math.log(maximum / minimum);
+
+function showSliderValues() {
+  document.getElementById("separation-value").textContent = `${viewState.separationKpc} kpc (${(viewState.separationKpc * 3.26156 / 1000).toFixed(2)} Mly)`;
+  document.getElementById("emitter-value").textContent = `${formatKpc(viewState.emitterFraction * viewState.separationKpc)} from the MW centre`;
+  document.getElementById("receiver-value").textContent = `${formatKpc(viewState.receiverFraction * viewState.separationKpc)} from the MW centre`;
+  document.getElementById("wavelength-value").textContent = `${viewState.emittedWavelengthNm} nm`;
+  document.getElementById("speed-value").textContent = `${viewState.playbackMyrPerSecond.toFixed(2)} Myr/s`;
+  document.getElementById("exaggeration-value").textContent = `×${formatExaggeration(viewState.exaggeration)}`;
+  document.getElementById("brightness-value").textContent = viewState.fullBrightnessPotential.toExponential(1);
+  document.getElementById("observer-x-value").textContent = `${formatKpc(distanceFromMilkyWay(viewState.observerX))} from the MW centre`;
+  document.getElementById("observer-rho-value").textContent = formatKpc(viewState.observerRho);
+}
+
+function describeView() {
+  document.querySelectorAll(".grid-only").forEach((element) => { element.style.display = viewState.view === "grid" ? "" : "none"; });
+  const anchorWords = { far: "far away (2 Mpc)", centres: "at each galaxy's centre", observer: "at the observer", camera: "at the camera" };
+  document.getElementById("view-note").textContent = viewState.view === "grid"
+    ? `Each galaxy stretches space along the lines straight out from it, as on the one-star page; in this weak gravity the two `
+      + `stretches simply add. Grid matches flat space ${anchorWords[viewState.anchor]}. The real moves are fractions of a parsec, `
+      + `drawn ×${formatExaggeration(viewState.exaggeration)}.`
+    : "The plane of the line, sunk by how slowly clocks run (exaggerated as stated on the surface). A graph, not a picture of space.";
+}
+
+function onModelChanged() {
+  model = describeModel();
+  updateObserverSliders();
+  rebuildEverything();
+}
+
+function rebuildEverything() {
+  showSliderValues();
+  describeView();
+  describeFrame();
+  buildGrid();
+  buildLandscape();
+  updateGalaxies();
+  placeObserverMarker();
+  rebuildBeam();
+  updateReadout();
+  drawPathPlot();
+}
+
+function updateObserverSliders() {
+  observerXSlider.min = -sceneHalfLength();
+  observerXSlider.max = sceneHalfLength();
+  viewState.observerX = Math.min(Math.max(viewState.observerX, -sceneHalfLength()), sceneHalfLength());
+  observerXSlider.value = viewState.observerX;
+  observerRhoSlider.value = viewState.observerRho;
+}
+
+function bindSegmented(id, key, onChange) {
+  document.getElementById(id).addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    viewState[key] = Object.values(button.dataset)[0];
+    document.querySelectorAll(`#${id} button`).forEach((element) => element.classList.toggle("active", element === button));
+    onChange();
+  });
+}
+
+bindSegmented("mw-model", "milkyWayModel", onModelChanged);
+bindSegmented("m31-model", "andromedaModel", onModelChanged);
+bindSegmented("anchor-mode", "anchor", () => { describeView(); buildGrid(); updateGalaxies(); rebuildBeam(); placeObserverMarker(); });
+bindSegmented("frame-mode", "frame", () => { describeFrame(); if (viewState.anchor === "observer") buildGrid(); placeObserverMarker(); rebuildBeam(); updateReadout(); drawPathPlot(); });
+bindSegmented("view-mode", "view", () => setView(viewState.view));
+
+separationSlider.addEventListener("input", () => { viewState.separationKpc = Number(separationSlider.value); onModelChanged(); });
+emitterSlider.addEventListener("input", () => { viewState.emitterFraction = Number(emitterSlider.value) / 1000; viewState.travelledMyr = 0; showSliderValues(); rebuildBeam(); updateReadout(); drawPathPlot(); });
+receiverSlider.addEventListener("input", () => { viewState.receiverFraction = Number(receiverSlider.value) / 1000; viewState.travelledMyr = 0; showSliderValues(); rebuildBeam(); updateReadout(); drawPathPlot(); });
+wavelengthSlider.addEventListener("input", () => { viewState.emittedWavelengthNm = Number(wavelengthSlider.value); showSliderValues(); rebuildBeam(); updateReadout(); });
+speedSlider.addEventListener("input", () => { viewState.playbackMyrPerSecond = logSliderValue(Number(speedSlider.value), 0.02, 2); showSliderValues(); });
+exaggerationSlider.addEventListener("input", () => { viewState.exaggeration = logSliderValue(Number(exaggerationSlider.value), 1e3, 1e6); rebuildEverything(); });
+brightnessSlider.addEventListener("input", () => { viewState.fullBrightnessPotential = logSliderValue(Number(brightnessSlider.value), 3e-7, 1e-5); showSliderValues(); buildGrid(); buildLandscape(); });
+document.getElementById("doppler-checkbox").addEventListener("change", (event) => { viewState.dopplerAtB = event.target.checked; updateReadout(); });
+document.getElementById("section-checkbox").addEventListener("change", (event) => { viewState.sectionCut = event.target.checked; buildGrid(); });
+document.getElementById("halo-checkbox").addEventListener("change", (event) => { viewState.showHalos = event.target.checked; updateGalaxies(); });
+document.getElementById("clocks-checkbox").addEventListener("change", (event) => { viewState.showClocks = event.target.checked; buildClocks(); });
+document.getElementById("restart-button").addEventListener("click", () => { viewState.travelledMyr = 0; });
+document.getElementById("pause-button").addEventListener("click", (event) => { viewState.paused = !viewState.paused; event.target.textContent = viewState.paused ? "Play" : "Pause"; });
+document.getElementById("swap-button").addEventListener("click", () => {
+  [viewState.emitterFraction, viewState.receiverFraction] = [viewState.receiverFraction, viewState.emitterFraction];
+  emitterSlider.value = viewState.emitterFraction * 1000;
+  receiverSlider.value = viewState.receiverFraction * 1000;
+  viewState.travelledMyr = 0;
+  showSliderValues(); rebuildBeam(); updateReadout(); drawPathPlot();
+});
+document.getElementById("observer-presets").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-preset]");
+  if (!button) return;
+  const preset = observerPreset(button.dataset.preset);
+  viewState.observerX = preset.x;
+  viewState.observerRho = preset.rho;
+  updateObserverSliders();
+  onObserverMoved();
+});
+function onObserverMoved() {
+  showSliderValues(); describeFrame(); if (viewState.anchor === "observer") buildGrid();
+  placeObserverMarker(); rebuildBeam(); updateReadout(); drawPathPlot();
+}
+observerXSlider.addEventListener("input", () => { viewState.observerX = Number(observerXSlider.value); onObserverMoved(); });
+observerRhoSlider.addEventListener("input", () => { viewState.observerRho = Number(observerRhoSlider.value); onObserverMoved(); });
+document.getElementById("panel-toggle").addEventListener("click", (event) => {
+  const panel = document.getElementById("controls");
+  panel.classList.toggle("collapsed");
+  event.target.textContent = panel.classList.contains("collapsed") ? "Show" : "Hide";
+});
+
+function applyLabelVisibility() {
+  landscapeNote.visible = viewState.view === "landscape";
+}
+
+function setView(view) {
+  viewState.view = view;
+  document.querySelectorAll("#view-mode button").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+  gridGroup.visible = view === "grid";
+  landscapeGroup.visible = view === "landscape";
+  applyLabelVisibility();
+  rebuildEverything();
+  const size = sceneHalfLength();
+  if (view === "grid") { camera.position.set(0.15 * size, 0.55 * size, 1.25 * size); controls.target.set(0, 0, 0); }
+  else { camera.position.set(0.1 * size, 0.7 * size, 1.1 * size); controls.target.set(0, -0.05 * size, 0); }
+  if (camera.aspect < 1) camera.position.sub(controls.target).multiplyScalar(0.8 / camera.aspect).add(controls.target);
+  controls.update();
+}
+
+function drawLegend() {
+  const stops = DEPTH_COLOR_STOPS.map((color, index) => `#${color.getHexString()} ${(100 * index / (DEPTH_COLOR_STOPS.length - 1)).toFixed(0)}%`);
+  document.getElementById("legend-bar").style.background = `linear-gradient(to right, ${stops.join(", ")})`;
+}
+
+// ===== Equations (KaTeX) =====
+
+function renderEquations() {
+  if (!window.katex) return;
+  document.querySelectorAll("[data-tex]").forEach((element) => {
+    katex.render(element.dataset.tex, element, { throwOnError: false, displayMode: element.tagName === "DIV" });
+  });
+}
+if (window.katex) renderEquations(); else window.addEventListener("load", renderEquations);
+
+// ===== Self-test panel (open the page with ?selftest) =====
+
+function showSelfTestPanel() {
+  const results = PhysicsSelfTests.map((test) => {
+    const actualValue = test.actual();
+    const relativeError = test.expected === 0 ? Math.abs(actualValue) : Math.abs(actualValue - test.expected) / Math.abs(test.expected);
+    return { ...test, actualValue, relativeError, passed: relativeError <= test.relativeTolerance };
+  });
+  const panel = document.createElement("pre");
+  panel.className = "selftest-panel";
+  panel.textContent = `Physics self-tests: ${results.filter((r) => r.passed).length}/${results.length} passed\n\n`
+    + results.map((r) => `${r.passed ? "PASS" : "FAIL"}  ${r.name}: ${r.actualValue.toPrecision(9)} vs ${r.expected} (rel. err ${r.relativeError.toExponential(2)})`).join("\n");
+  document.body.appendChild(panel);
+}
+
+// ===== Resize and animation =====
+
+function resize() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  renderer.setSize(width, height);
+  labelRenderer.setSize(width, height);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  for (const material of lineMaterials) material.resolution.set(width, height);
+  if (model) drawPathPlot();
+}
+window.addEventListener("resize", resize);
+
+let previousTime = performance.now();
+let frameCounter = 0;
+let lastCameraPosition = new THREE.Vector3();
+function animate(now) {
+  requestAnimationFrame(animate);
+  const elapsed = Math.min((now - previousTime) / 1000, 0.1);
+  previousTime = now;
+  advanceBeam(elapsed);
+  if (frameCounter++ % 10 === 0 && camera.position.distanceTo(lastCameraPosition) > 0.01 * camera.position.length()) {
+    lastCameraPosition.copy(camera.position);
+    if (viewState.frame === "camera") { describeFrame(); refreshClockLabels(); updateReadout(); drawPathPlot(); }
+    if (viewState.anchor === "camera" && viewState.view === "grid") { buildGrid(); updateGalaxies(); rebuildBeam(); }
+  }
+  updateClocks();
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+
+// ===== Start =====
+
+function syncControls() {
+  const groups = { "mw-model": viewState.milkyWayModel, "m31-model": viewState.andromedaModel, "anchor-mode": viewState.anchor, "frame-mode": viewState.frame };
+  for (const [id, value] of Object.entries(groups)) {
+    document.querySelectorAll(`#${id} button`).forEach((button) => button.classList.toggle("active", Object.values(button.dataset)[0] === value));
+  }
+  separationSlider.value = viewState.separationKpc;
+  emitterSlider.value = viewState.emitterFraction * 1000;
+  receiverSlider.value = viewState.receiverFraction * 1000;
+  wavelengthSlider.value = viewState.emittedWavelengthNm;
+  speedSlider.value = logSliderPosition(viewState.playbackMyrPerSecond, 0.02, 2);
+  exaggerationSlider.value = logSliderPosition(viewState.exaggeration, 1e3, 1e6);
+  brightnessSlider.value = logSliderPosition(viewState.fullBrightnessPotential, 3e-7, 1e-5);
+  document.getElementById("section-checkbox").checked = viewState.sectionCut;
+  document.getElementById("halo-checkbox").checked = viewState.showHalos;
+  document.getElementById("doppler-checkbox").checked = viewState.dopplerAtB;
+  document.getElementById("clocks-checkbox").checked = viewState.showClocks;
+}
+
+syncControls();
+drawLegend();
+resize();
+model = describeModel();
+updateObserverSliders();
+setView("grid");
+if (window.innerWidth <= 760) document.getElementById("panel-toggle").click();
+if (new URLSearchParams(location.search).has("selftest")) showSelfTestPanel();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

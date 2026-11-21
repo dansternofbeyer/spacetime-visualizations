@@ -635,6 +635,92 @@ def surface_reference_values():
     }
 
 
+# ----- Milky Way and Andromeda (milky-way-andromeda.html): weak-field values -----
+#
+# Mass models from Patel, Besla & Sohn 2017 (MNRAS 464, 3825), Table 2: NFW halo (mass M_vir − M_disc − M_bulge,
+# truncated at R_vir, scale radius R_vir / c_vir), Miyamoto–Nagai disc, Hernquist bulge. (Their halos are also
+# adiabatically contracted; neither the page nor these values include that.) The spherical parts' potentials are found
+# here by integrating their densities numerically (Poisson's equation), independently of the page's closed forms.
+# Distance 761 kpc: Li et al. 2021 (ApJ 920, 84). Geometry: centres on the x axis, both discs in the plane y = 0.
+
+GALAXY_MODELS = {   # M_vir, c_vir, R_vir [kpc], M_disc, R_disc, z_disc [kpc], M_bulge, R_bulge [kpc]  (masses in M_sun)
+    "MWa": (1.0e12, 9.86, 261.0, 6.5e10, 3.5, 0.53, 1.0e10, 0.7),
+    "M31a": (1.5e12, 9.56, 299.0, 8.5e10, 5.0, 1.0, 1.9e10, 1.0),
+}
+GALAXY_SEPARATION_KPC = 761.0
+GALAXY_EMITTER_FROM_MW_KPC = 8.29     # A: on the line toward M31, at the Sun's distance from the Galactic centre (McMillan 2011)
+GALAXY_RECEIVER_FROM_M31_KPC = 8.0    # B: on the line, 8 kpc short of M31's centre
+
+
+def galaxy_reference_values():
+    from scipy.integrate import quad
+
+    G = const.G.to_value(u.kpc * u.km**2 / u.s**2 / u.M_sun)
+    c = SPEED_OF_LIGHT.to_value(u.km / u.s)
+
+    def spherical_parts(model):
+        m_vir, conc, r_vir, m_disc, r_disc, z_disc, m_bulge, r_bulge = model
+        m_halo = m_vir - m_disc - m_bulge; r_s = r_vir / conc
+        mu = lambda x: math.log1p(x) - x / (1 + x)
+        rho_s = m_halo / (4 * math.pi * r_s**3 * mu(conc))
+        halo_density = lambda r: rho_s / ((r / r_s) * (1 + r / r_s) ** 2) if r < r_vir else 0.0
+        bulge_density = lambda r: m_bulge * r_bulge / (2 * math.pi * r * (r + r_bulge) ** 3)
+        return [(halo_density, r_vir), (bulge_density, math.inf)]
+
+    def spherical_potential(density, edge, r):
+        inner = quad(lambda s: 4 * math.pi * s * s * density(s), 0, min(r, edge), limit=400, epsrel=1e-11)[0]
+        outer = quad(lambda s: 4 * math.pi * s * density(s), min(r, edge), edge, limit=400, epsrel=1e-11)[0] if r < edge else 0.0
+        return -G * (inner / r + outer)
+
+    def disc_potential(model, radius_in_plane, height):
+        _, _, _, m_disc, r_disc, z_disc, _, _ = model
+        return -G * m_disc / math.sqrt(radius_in_plane**2 + (r_disc + math.sqrt(height**2 + z_disc**2)) ** 2)
+
+    def galaxy_potential(model, dx, dy, dz):
+        r = math.sqrt(dx * dx + dy * dy + dz * dz)
+        return sum(spherical_potential(density, edge, r) for density, edge in spherical_parts(model)) + disc_potential(model, math.hypot(dx, dz), dy)
+
+    centres = {"MWa": -GALAXY_SEPARATION_KPC / 2, "M31a": GALAXY_SEPARATION_KPC / 2}
+    def total_potential(x):   # on the line (y = z = 0)
+        return sum(galaxy_potential(GALAXY_MODELS[name], x - centre, 0.0, 0.0) for name, centre in centres.items())
+
+    x_a = centres["MWa"] + GALAXY_EMITTER_FROM_MW_KPC
+    x_b = centres["M31a"] - GALAXY_RECEIVER_FROM_M31_KPC
+    phi_a = total_potential(x_a) / c**2; phi_b = total_potential(x_b) / c**2
+    redshift = math.expm1(phi_b - phi_a)
+    line_integral = quad(lambda x: total_potential(x), x_a, x_b, limit=400, epsrel=1e-10)[0]   # (km/s)^2 kpc
+    kpc_km = (1 * u.kpc).to_value(u.km); year_s = (1 * u.yr).to_value(u.s)
+    shapiro_years = -2 * line_integral / c**3 * kpc_km / year_s
+    extra_ruler_pc = -line_integral / c**2 * 1000.0
+    # Milky Way alone: circular speed at 8.29 kpc in the disc plane, and its spherically averaged mass inside 10 kpc.
+    mw = GALAXY_MODELS["MWa"]
+    step = 1e-4
+    dphi = (galaxy_potential(mw, 8.29 + step, 0, 0) - galaxy_potential(mw, 8.29 - step, 0, 0)) / (2 * step)
+    circular_speed = math.sqrt(8.29 * dphi)
+    def averaged_disc_potential(r):
+        return 0.5 * quad(lambda t: disc_potential(mw, r * math.sin(t), r * math.cos(t)) * math.sin(t), 0, math.pi, limit=200, epsrel=1e-11)[0]
+    disc_mass_10 = 10.0**2 * (averaged_disc_potential(10 + step) - averaged_disc_potential(10 - step)) / (2 * step) / G
+    # Milky Way alone, one-star-page stretch in the areal gauge: extra ruler length from 10 to 300 kpc, ∫ G m(r) / (r c^2) dr.
+    def enclosed_mass(r):
+        spherical = sum(quad(lambda s: 4 * math.pi * s * s * density(s), 0, min(r, edge), limit=400, epsrel=1e-11)[0] for density, edge in spherical_parts(mw))
+        disc = r**2 * (averaged_disc_potential(r + step) - averaged_disc_potential(r - step)) / (2 * step) / G
+        return spherical + disc
+    excess_pc = quad(lambda r: G * enclosed_mass(r) / (r * c**2), 10.0, 300.0, limit=200, epsrel=1e-9)[0] * 1000.0
+
+    setup = "Patel et al. 2017 models MWa and M31a, separation 761 kpc, discs in the plane of the line"
+    source = "Numerical Poisson integrals (SciPy quad) in reference_values.py"
+    return {
+        "galaxies.potential_at_A_over_c2": entry(phi_a, "", f"Φ/c² at A (8.29 kpc from the Milky Way's centre, on the line); {setup}", source),
+        "galaxies.potential_at_B_over_c2": entry(phi_b, "", f"Φ/c² at B (8 kpc from M31's centre, on the line); {setup}", source),
+        "galaxies.gravitational_redshift_A_to_B": entry(redshift, "", f"Gravitational redshift of light from A to B (static observers); {setup}", source),
+        "galaxies.shapiro_delay_A_to_B_years": entry(shapiro_years, "yr", f"Shapiro delay along the line A to B, −(2/c³)∫Φ dl (isotropic coordinates); {setup}", source),
+        "galaxies.extra_ruler_length_A_to_B_pc": entry(extra_ruler_pc, "pc", f"Ruler length minus coordinate length A to B, −∫Φ/c² dl (isotropic coordinates); {setup}", source),
+        "galaxies.mw_circular_speed_8p29_km_s": entry(circular_speed, "km/s", "Milky Way (MWa) circular speed at 8.29 kpc in the disc plane", source),
+        "galaxies.mw_disc_monopole_mass_10kpc_msun": entry(disc_mass_10, "M_sun", "Spherically averaged (monopole) mass of the MWa disc inside 10 kpc", source),
+        "galaxies.mw_extra_ruler_10_to_300kpc_pc": entry(excess_pc, "pc", "Milky Way (MWa) alone: extra ruler length from 10 to 300 kpc, ∫ G m(r)/(r c²) dr (areal gauge, monopole mass)", source),
+    }
+
+
 def astropy_constants_label():
     return "Astropy constants (CODATA 2018, IAU 2015 nominal values)"
 
@@ -705,6 +791,7 @@ def build_reference_values():
     values.update(two_body_reference_values())
     values.update(geodesic_reference_values())
     values.update(surface_reference_values())
+    values.update(galaxy_reference_values())
     return values
 
 

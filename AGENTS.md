@@ -18,6 +18,8 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
   Israel–Khan solution. Light A → B along the line, clocks along the path, reference frames. Three views, including a
   rigorous true-length surface (two-star Flamm); the default grid is Flamm-style (the one-star page's grid built from
   that surface) with five anchors. All 32 physics self-tests pass (the checker takes ~10 s: it solves two surfaces).
+- `milky-way-andromeda.html` (added 2026-11-20, owner's request after the two-star grid kept breaking): working
+  prototype. Weak-field two-galaxy page. 12 physics self-tests pass.
 - `index.html`: a landing page that links to each diagram.
 - Planned next: the observable-universe sphere (centre = now, edge = recombination).
 
@@ -27,6 +29,7 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 |---|---|
 | `index.html` | Landing page |
 | `galaxy-map.html` | CfA2 galaxy map (physics core + three.js view) |
+| `milky-way-andromeda.html` | Milky Way and Andromeda in weak-field gravity: light, clocks, observers, warped grid |
 | `two-body-problem.html` | Two static stars (Weyl / Israel–Khan double Schwarzschild): light between them, clocks, observer frames |
 | `gravitational-redshift.html` | Schwarzschild gravitational redshift: warped grid, Flamm's paraboloid, animated wave |
 | `data/cfa2-galaxies.js` | CfA2 galaxy data, generated; don't edit by hand |
@@ -192,6 +195,25 @@ warped-space visualizations, the observable universe, and real galaxy maps. The 
 - Not carried over from the one-star page (possible next steps): measuring sticks, radar distances, sky/apparent-size
   readouts, grid anchors, the Flamm line, black holes, light off the axis. Possible extra: exact Flamm-style surfaces of
   revolution for slices across the line (they show the strut as a region near the line that can't be embedded).
+
+## Decisions made: Milky Way and Andromeda page
+
+- Owner's direction (2026-11-20): use the two-body idea at galaxy scale (relationships between massive, distant
+  objects), on a new page; keep the two-star page as the strong-field case.
+- Physics: weak-field metric ds² = −(1+2Φ/c²)c²dt² + (1−2Φ/c²)dx², Φ = Φ_MW + Φ_M31 (|Φ|/c² ≤ ~3×10⁻⁶, so errors
+  ~10⁻¹²). Still snapshot: during the 2.5 Myr crossing the galaxies close by ~0.3 kpc. No strut, no embedding problem.
+- Mass models: Patel, Besla & Sohn 2017 Table 2 (MWa/MWb 1.0/1.5e12, M31a/M31b 1.5/2.0e12): NFW halo truncated at R_vir
+  (halo mass = M_vir − disc − bulge, r_s = R_vir/c), Miyamoto–Nagai disc, Hernquist bulge. Their adiabatic contraction
+  is NOT included: MWa then gives v_c(8.29 kpc) = 200 km/s vs measured ~239 (stated on the page). Discs in the plane of
+  the line (orientations simplified). Distance default 761 kpc (Li et al. 2021).
+- Grid: the one-star page's construction per galaxy (areal-gauge radial stretch, dℓ = (1 + G m(r)/(r c²)) dr with m the
+  spherically averaged mass, disc monopole by Gauss–Legendre), moves added (linear). Anchors: far (2 Mpc), galaxies'
+  centres, observer, camera. Moves are ~0.01–0.2 pc, drawn × the exaggeration slider (default 3×10⁵; at 10⁵ the bending
+  is only ~3%, since halo mass is spread out). The same factor exaggerates the light's colour change, clock hand speed
+  differences and the landscape depth; readouts are true.
+- Redshift: gravitational (−3.75e-7 A→B by default) shown separately from Andromeda's Doppler (−109.3 km/s,
+  van der Marel 2012), which is ~1000× larger. Shapiro delay ~2.4 yr, extra ruler length ~0.37 pc (isotropic coords).
+- Not included: cosmic expansion (Local Group is bound), central black holes, galaxies' real orientations, M33/LMC.
 
 ## Known issues and open questions
 

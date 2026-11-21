@@ -71,6 +71,15 @@ The project's own code is MIT licensed (see `LICENSE`); everything listed here k
   ch. 10 (static axially symmetric space-times).
 - **J. Nocedal & S. J. Wright** (2006), *Numerical Optimization*, 2nd ed., Springer: ch. 10 (Levenberg–Marquardt), which
   solves the true-length surface in `two-body-problem.html`.
+- **A. Patel, G. Besla & S. T. Sohn** (2017), "Orbits of massive satellite galaxies – I", MNRAS 464, 3825,
+  arXiv:1609.04823. Table 2: the Milky Way and Andromeda mass models in `milky-way-andromeda.html`.
+- **S. Li, A. G. Riess et al.** (2021), "A Sub-2% Distance to M31…", ApJ 920, 84, arXiv:2107.08029. 761 ± 11 kpc.
+- **R. P. van der Marel et al.** (2012), "The M31 Velocity Vector. II", ApJ 753, 8, arXiv:1205.6864. Radial velocity
+  −109.3 ± 4.4 km/s.
+- **T. Sawala et al.** (2025), Nature Astronomy. About even odds of a Milky Way–Andromeda merger within 10 Gyr.
+- **P. McMillan** (2011), "Mass models of the Milky Way", MNRAS 414, 2446. The Sun's distance (8.29 kpc).
+- **J. Navarro, C. Frenk & S. White** (1996); **M. Miyamoto & R. Nagai** (1975); **L. Hernquist** (1990): the halo, disc
+  and bulge profiles in `milky-way-andromeda.html`.
 - **C. Wyman, P.-P. Sloan & P. Shirley** (2013), "Simple Analytic Approximations to the CIE XYZ Color Matching
   Functions", Journal of Computer Graphics Techniques 2(2), https://jcgt.org/published/0002/02/01/.
   Turns wavelengths into on-screen colours in `gravitational-redshift.html` and `two-body-problem.html`.
