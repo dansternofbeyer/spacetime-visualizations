@@ -81,6 +81,11 @@
   #camera-hud { bottom: 40px; left: 50%; transform: translateX(-50%); padding: 6px 12px; font-size: 12.5px;
     font-variant-numeric: tabular-nums; text-align: center; width: max-content; max-width: calc(100% - 16px); }
   #camera-hud[hidden] { display: none; }
+  #progress { bottom: 84px; left: 50%; transform: translateX(-50%); padding: 7px 12px; width: min(340px, calc(100% - 16px));
+    font-size: 12px; color: var(--muted); }
+  #progress[hidden] { display: none; }
+  #progress-track { height: 6px; border-radius: 3px; background: #1b2236; margin-top: 5px; overflow: hidden; }
+  #progress-fill { height: 100%; width: 0; background: var(--accent); border-radius: 3px; transition: width 0.2s linear; }
   .selftest-panel { position: fixed; bottom: 30px; right: 12px; max-width: min(760px, calc(100% - 24px)); max-height: 45%;
     overflow: auto; margin: 0; font-size: 11.5px; background: #0d1220; border: 1px solid var(--panel-border);
     border-radius: 8px; padding: 10px; z-index: 5; }
@@ -373,6 +378,10 @@
 </section>
 
 <div id="camera-hud" class="panel" hidden></div>
+<div id="progress" class="panel" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100">
+  <span id="progress-label"></span><span class="value" id="progress-percent"></span>
+  <div id="progress-track"><div id="progress-fill"></div></div>
+</div>
 
 <footer>
   Open source under the <a href="https://github.com/dansternofbeyer/spacetime-visualizations/blob/main/LICENSE">MIT License</a>.
@@ -2532,6 +2541,10 @@ function startSurfaceSolve() {
   surface.solver = PhysicsCore.solveSurface(mesh);
   surface.positions = PhysicsCore.surfaceStartingShape(mesh);
   surface.steps = 0;
+  surface.slicesThisStep = 0;
+  progressIncludesSolver = true;   // this wait covers the solver as well as the grid map
+  // Each solver step factorises the matrix once or a few times, pausing every 400 rows: about this many pauses per step.
+  surface.slicesPerStep = Math.max(1, Math.ceil(PhysicsCore.surfaceUnknowns(mesh).count / 400));
   surface.done = false;
   surface.stale = false;
   surface.nodeRedshift = Float64Array.from(mesh.nodeZ, (z, node) => PhysicsCore.redshiftToInfinity(mesh.nodeRho[node], z, spacetime.rods));
@@ -2556,9 +2569,13 @@ function advanceSurface() {
     if (result.value.positions) {
       surface.positions = Float64Array.from(result.value.positions);
       surface.steps = result.value.step;
+      surface.slicesThisStep = 0;
       stepped = true;
+    } else {
+      surface.slicesThisStep++;
     }
   }
+  updateProgress();
   if (!stepped) return;
   refreshSurfaceDrawing();
   if (surface.done) onSurfaceSolved();
@@ -2791,11 +2808,44 @@ function advanceFlammGridMap() {
   while (performance.now() - started < FLAMM_FRAME_BUDGET_MS && !flammGridReady()) {
     PhysicsCore.fillFlammGridMap(flammGrid.map, flammGrid.raster, flammGrid.anchor, flammGrid.map.filledRows, flammGrid.map.filledRows + 2);
   }
+  updateProgress();
   if (flammGridReady()) onFlammGridReady(); else describeView();
+}
+
+/**
+ * The small bar shown while the true-length surface (and, for the Flamm-style grid, its map) is worked out:
+ * solver steps count for 85%, the grid map for the last 15% (the surface view needs only the solver).
+ */
+let progressIncludesSolver = false;
+function updateProgress() {
+  const element = document.getElementById("progress");
+  const needsMap = viewState.view === "grid" && viewState.gridStyle === "flamm";
+  const working = needsSurface() && surface.mesh && (!surface.done || (needsMap && !flammGridReady()));
+  element.hidden = !working;
+  if (!working) { if (surface.done && (!needsMap || flammGridReady())) progressIncludesSolver = false; return; }
+  let fraction;
+  let label;
+  if (!surface.done) {
+    const partial = Math.min(surface.slicesThisStep / surface.slicesPerStep, 0.95);
+    const solverFraction = Math.min((surface.steps + partial) / SURFACE_SOLVER_STEPS, 1);
+    fraction = needsMap ? 0.85 * solverFraction : solverFraction;
+    label = `Working out the true-length surface (step ${Math.min(surface.steps + 1, SURFACE_SOLVER_STEPS)} of ${SURFACE_SOLVER_STEPS})`;
+  } else {
+    const mapFraction = flammGrid.map ? flammGrid.map.filledRows / flammGrid.map.rows : 0;
+    // A new anchor only redoes the map, so then the bar runs 0–100% for the map alone.
+    fraction = progressIncludesSolver ? 0.85 + 0.15 * mapFraction : mapFraction;
+    label = "Laying out the grid";
+  }
+  const percent = Math.round(100 * fraction);
+  document.getElementById("progress-label").textContent = label;
+  document.getElementById("progress-percent").textContent = `${percent}%`;
+  document.getElementById("progress-fill").style.width = `${percent}%`;
+  element.setAttribute("aria-valuenow", String(percent));
 }
 
 /** The map is complete: redraw the grid and everything drawn in the surface's coordinates. */
 function onFlammGridReady() {
+  updateProgress();
   describeView();
   updateStars();
   buildGrid();
@@ -3648,6 +3698,7 @@ document.getElementById("clocks-checkbox").addEventListener("change", (event) =>
 function onGridChoiceChanged() {
   syncControlsToState();
   if (needsSurface() && surface.stale) startSurfaceSolve();
+  updateProgress();
   updateStars();
   describeView();
   buildGrid();
@@ -3703,6 +3754,7 @@ function setView(view) {
   landscapeGroup.visible = view === "landscape";
   embeddingGroup.visible = view === "embedding";
   if (needsSurface() && surface.stale) startSurfaceSolve();
+  updateProgress();
   updateStars();
   if (view === "grid") buildGrid();
   describeView();
